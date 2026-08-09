@@ -21,29 +21,40 @@ step() {
 	echo "==> $*"
 }
 
-step "Checking for Homebrew"
-if ! command -v brew >/dev/null 2>&1; then
-	echo "Homebrew is required but was not found." >&2
-	echo "Install it first: https://brew.sh" >&2
-	echo '  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"' >&2
-	exit 1
+step "Checking for Homebrew (optional — only used as a fallback installer for uv/node)"
+HAVE_BREW=0
+if command -v brew >/dev/null 2>&1; then
+	HAVE_BREW=1
+	echo "Homebrew found: $(command -v brew)"
+else
+	echo "Homebrew not found (or unsupported on this macOS version) — uv and node will be"
+	echo "installed via their own standalone installers instead."
 fi
-echo "Homebrew found: $(command -v brew)"
 
 step "Checking for uv"
-if ! command -v uv >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/uv" ]; then
+if command -v uv >/dev/null 2>&1 || [ -x "$HOME/.local/bin/uv" ]; then
+	echo "uv already present"
+elif [ "$HAVE_BREW" -eq 1 ]; then
 	echo "Installing uv via Homebrew..."
 	brew install uv
 else
-	echo "uv already present"
+	echo "Installing uv via the official standalone installer..."
+	curl -LsSf https://astral.sh/uv/install.sh | sh
+	export PATH="$HOME/.local/bin:$PATH"
 fi
 
 step "Checking for node"
-if ! command -v node >/dev/null 2>&1; then
+if command -v node >/dev/null 2>&1; then
+	echo "node already present: $(command -v node)"
+elif [ "$HAVE_BREW" -eq 1 ]; then
 	echo "Installing node via Homebrew..."
 	brew install node
 else
-	echo "node already present: $(command -v node)"
+	echo "Node was not found and Homebrew isn't available on this machine." >&2
+	echo "Install it manually with the macOS installer (.pkg) from:" >&2
+	echo "  https://nodejs.org/en/download" >&2
+	echo "then re-run this script." >&2
+	exit 1
 fi
 
 step "Checking for Tailscale"

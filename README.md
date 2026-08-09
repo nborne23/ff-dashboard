@@ -15,8 +15,12 @@ and laptop over Tailscale.
 
 ## Prerequisites
 
-- **[uv](https://docs.astral.sh/uv/)** — backend package/venv manager (`brew install uv`).
-- **Node 18+** — frontend build (`brew install node`).
+- **[uv](https://docs.astral.sh/uv/)** — backend package/venv manager (`brew install uv`, or the
+  standalone installer: `curl -LsSf https://astral.sh/uv/install.sh | sh`).
+- **Node 18+** — frontend build (`brew install node`, or the `.pkg` installer from
+  <https://nodejs.org/en/download> on machines where Homebrew isn't available, e.g. older
+  macOS versions).
+- **git** — ships via Xcode Command Line Tools (`xcode-select --install`); no Homebrew needed.
 - **Tailscale** — installed and signed into the *same* tailnet on every device that
   needs access: the iMac (serves the app), your dev machine, and your phone. The iMac
   additionally runs `tailscale serve` (done by `deploy/setup-imac.sh`), which gives it a
