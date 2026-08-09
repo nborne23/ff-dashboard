@@ -1,0 +1,72 @@
+{
+  "_fixture_note": "synthetic — replace with real capture",
+  "fantasy_content": {
+    "xml:lang": "en-US",
+    "yahoo:uri": "/fantasy/v2/users;use_login=1/games;game_keys=461/leagues",
+    "users": {
+      "0": {
+        "user": [
+          { "guid": "ABCDEF1234567890ABCDEF1234567890" },
+          {
+            "games": {
+              "0": {
+                "game": [
+                  {
+                    "game_key": "461",
+                    "game_id": "461",
+                    "name": "Football",
+                    "code": "nfl",
+                    "type": "full",
+                    "season": "2025"
+                  },
+                  {
+                    "leagues": {
+                      "0": {
+                        "league": [
+                          {
+                            "league_key": "461.l.123456",
+                            "league_id": "123456",
+                            "name": "The League of Extraordinary Gentlemen",
+                            "url": "https://football.fantasysports.yahoo.com/f1/123456",
+                            "num_teams": 10,
+                            "scoring_type": "head",
+                            "current_week": 14,
+                            "start_week": "1",
+                            "end_week": "17",
+                            "season": "2025",
+                            "game_code": "nfl"
+                          }
+                        ]
+                      },
+                      "1": {
+                        "league": [
+                          {
+                            "league_key": "461.l.654321",
+                            "league_id": "654321",
+                            "name": "Dynasty Warriors",
+                            "url": "https://football.fantasysports.yahoo.com/f1/654321",
+                            "num_teams": 12,
+                            "scoring_type": "point",
+                            "current_week": 14,
+                            "start_week": "1",
+                            "end_week": "17",
+                            "season": "2025",
+                            "game_code": "nfl"
+                          }
+                        ]
+                      },
+                      "count": 2
+                    }
+                  }
+                ]
+              },
+              "count": 1
+            }
+          }
+        ],
+        "count": 2
+      },
+      "count": 1
+    }
+  }
+}

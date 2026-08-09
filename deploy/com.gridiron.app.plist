@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.gridiron.app</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>__HOME__/.local/bin/uv</string>
+		<string>run</string>
+		<string>--directory</string>
+		<string>__APP_DIR__</string>
+		<string>uvicorn</string>
+		<string>backend.main:app</string>
+		<string>--host</string>
+		<string>127.0.0.1</string>
+		<string>--port</string>
+		<string>8000</string>
+	</array>
+
+	<key>RunAtLoad</key>
+	<true/>
+
+	<key>KeepAlive</key>
+	<true/>
+
+	<key>StandardOutPath</key>
+	<string>__HOME__/Library/Logs/gridiron/app.log</string>
+
+	<key>StandardErrorPath</key>
+	<string>__HOME__/Library/Logs/gridiron/app.err.log</string>
+
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/local/bin:__HOME__/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<!-- Task 11.3: rotated app + scheduler logs, on top of launchd's own raw
+		     stdout/stderr redirection above (that file just grows forever; this one
+		     rotates at 5 MB x 5 backups). -->
+		<key>GRIDIRON_LOG_DIR</key>
+		<string>__HOME__/Library/Logs/gridiron</string>
+	</dict>
+</dict>
+</plist>

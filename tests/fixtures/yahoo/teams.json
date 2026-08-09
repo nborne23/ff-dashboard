@@ -1,0 +1,76 @@
+{
+  "_fixture_note": "synthetic — replace with real capture",
+  "fantasy_content": {
+    "xml:lang": "en-US",
+    "yahoo:uri": "/fantasy/v2/league/461.l.123456/teams",
+    "league": [
+      {
+        "league_key": "461.l.123456",
+        "league_id": "123456",
+        "name": "The League of Extraordinary Gentlemen",
+        "url": "https://football.fantasysports.yahoo.com/f1/123456",
+        "num_teams": 10,
+        "scoring_type": "head",
+        "current_week": 14,
+        "season": "2025"
+      },
+      {
+        "teams": {
+          "0": {
+            "team": [
+              [
+                { "team_key": "461.l.123456.t.1" },
+                { "team_id": "1" },
+                { "name": "Gridiron Gurus" },
+                { "url": "https://football.fantasysports.yahoo.com/f1/123456/1" },
+                {
+                  "managers": [
+                    {
+                      "manager": {
+                        "manager_id": "1",
+                        "nickname": "Nick",
+                        "guid": "ABCDEF1234567890ABCDEF1234567890",
+                        "is_current_login": 1
+                      }
+                    }
+                  ]
+                },
+                { "waiver_priority": 4 },
+                { "number_of_moves": "12" },
+                { "number_of_trades": 0 },
+                { "is_owned_by_current_login": 1 }
+              ]
+            ]
+          },
+          "1": {
+            "team": [
+              [
+                { "team_key": "461.l.123456.t.2" },
+                { "team_id": "2" },
+                { "name": "The Contenders" },
+                { "url": "https://football.fantasysports.yahoo.com/f1/123456/2" },
+                {
+                  "managers": [
+                    {
+                      "manager": {
+                        "manager_id": "2",
+                        "nickname": "Sam",
+                        "guid": "0123456789ABCDEF0123456789ABCDEF",
+                        "is_current_login": 0
+                      }
+                    }
+                  ]
+                },
+                { "waiver_priority": 7 },
+                { "number_of_moves": "3" },
+                { "number_of_trades": 1 },
+                { "is_owned_by_current_login": 0 }
+              ]
+            ]
+          },
+          "count": 2
+        }
+      }
+    ]
+  }
+}

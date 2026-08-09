@@ -1,0 +1,41 @@
+:root {
+  /* Foundation */
+  --bg: #000000;
+  --surface: #1C1C1E;
+  --surface-hover: #2C2C2E;
+  --surface-2: #2C2C2E;
+  --separator: #38383A;
+  --pill: #636366;
+
+  /* Text */
+  --text: #FFFFFF;
+  --text-secondary: #8E8E93;
+  --text-tertiary: #AEAEB2;
+
+  /* Category colors (Apple Fitness rings) */
+  --move: #FF2D55;      /* Pink — points/scoring */
+  --exercise: #30D158;  /* Green — projections */
+  --stand: #64D2FF;     /* Cyan — record/standings */
+  --live: #FF9F0A;      /* Orange — live games */
+  --yahoo: #BF5AF2;     /* Purple */
+  --espn: #FF453A;      /* Red */
+  --bench: #636366;     /* Dim */
+
+  /* Tinted dashed-line versions for chart reference lines */
+  --move-tint: rgba(255, 45, 85, 0.35);
+  --exercise-tint: rgba(48, 209, 88, 0.35);
+  --stand-tint: rgba(100, 210, 255, 0.35);
+
+  /* Live row tint */
+  --live-row-bg: rgba(255, 45, 85, 0.06);
+
+  /* Type — SF Pro Display fallback to system */
+  --font-system: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+  /* Layout (overridable via tweaks) */
+  --sidebar-w: 240px;
+  --topbar-h: 56px;
+  --content-max: 1440px;
+  --row-h: 56px;
+  --spark-thick: 1.5px;
+}

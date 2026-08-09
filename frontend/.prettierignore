@@ -1,0 +1,9 @@
+dist
+node_modules
+coverage
+
+# Verbatim ports from design/ — must match the prototype byte-for-byte,
+# so they are exempt from formatting.
+src/styles/tokens.css
+src/styles/global.css
+src/components/shell/TweaksPanel.css

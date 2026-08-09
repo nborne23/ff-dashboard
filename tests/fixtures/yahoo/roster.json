@@ -1,0 +1,204 @@
+{
+  "_fixture_note": "synthetic — replace with real capture",
+  "fantasy_content": {
+    "xml:lang": "en-US",
+    "yahoo:uri": "/fantasy/v2/team/461.l.123456.t.1/roster;week=14/players/stats",
+    "team": [
+      [
+        { "team_key": "461.l.123456.t.1" },
+        { "team_id": "1" },
+        { "name": "Gridiron Gurus" }
+      ],
+      {
+        "roster": {
+          "coverage_type": "week",
+          "week": "14",
+          "is_editable": 0,
+          "0": {
+            "players": {
+              "0": {
+                "player": [
+                  [
+                    { "player_key": "461.p.30123" },
+                    { "player_id": "30123" },
+                    { "name": { "full": "Patrick Mahomes", "first": "Patrick", "last": "Mahomes" } },
+                    { "editorial_team_abbr": "KC" },
+                    { "display_position": "QB" },
+                    { "image_url": "https://s.yimg.com/iu/api/res/1.2/players/30123.png" },
+                    { "bye_weeks": { "week": "6" } }
+                  ],
+                  { "selected_position": [{ "coverage_type": "week" }, { "week": "14" }, { "position": "QB" }] },
+                  { "player_points": { "coverage_type": "week", "week": "14", "total": "27.40" } },
+                  { "player_points_projected": { "coverage_type": "week", "week": "14", "total": "22.10" } }
+                ]
+              },
+              "1": {
+                "player": [
+                  [
+                    { "player_key": "461.p.31234" },
+                    { "player_id": "31234" },
+                    { "name": { "full": "Christian McCaffrey", "first": "Christian", "last": "McCaffrey" } },
+                    { "editorial_team_abbr": "SF" },
+                    { "display_position": "RB" },
+                    { "image_url": "https://s.yimg.com/iu/api/res/1.2/players/31234.png" },
+                    { "bye_weeks": { "week": "9" } }
+                  ],
+                  { "selected_position": [{ "coverage_type": "week" }, { "week": "14" }, { "position": "RB" }] },
+                  { "player_points": { "coverage_type": "week", "week": "14", "total": "18.60" } },
+                  { "player_points_projected": { "coverage_type": "week", "week": "14", "total": "17.30" } }
+                ]
+              },
+              "2": {
+                "player": [
+                  [
+                    { "player_key": "461.p.32456" },
+                    { "player_id": "32456" },
+                    { "name": { "full": "Bijan Robinson", "first": "Bijan", "last": "Robinson" } },
+                    { "editorial_team_abbr": "ATL" },
+                    { "display_position": "RB" },
+                    { "image_url": "https://s.yimg.com/iu/api/res/1.2/players/32456.png" },
+                    { "bye_weeks": { "week": "11" } }
+                  ],
+                  { "selected_position": [{ "coverage_type": "week" }, { "week": "14" }, { "position": "RB" }] },
+                  { "player_points": { "coverage_type": "week", "week": "14", "total": "14.20" } },
+                  { "player_points_projected": { "coverage_type": "week", "week": "14", "total": "15.90" } }
+                ]
+              },
+              "3": {
+                "player": [
+                  [
+                    { "player_key": "461.p.33567" },
+                    { "player_id": "33567" },
+                    { "name": { "full": "Justin Jefferson", "first": "Justin", "last": "Jefferson" } },
+                    { "editorial_team_abbr": "MIN" },
+                    { "display_position": "WR" },
+                    { "image_url": "https://s.yimg.com/iu/api/res/1.2/players/33567.png" },
+                    { "bye_weeks": { "week": "6" } }
+                  ],
+                  { "selected_position": [{ "coverage_type": "week" }, { "week": "14" }, { "position": "WR" }] },
+                  { "player_points": { "coverage_type": "week", "week": "14", "total": "21.80" } },
+                  { "player_points_projected": { "coverage_type": "week", "week": "14", "total": "19.40" } }
+                ]
+              },
+              "4": {
+                "player": [
+                  [
+                    { "player_key": "461.p.34678" },
+                    { "player_id": "34678" },
+                    { "name": { "full": "CeeDee Lamb", "first": "CeeDee", "last": "Lamb" } },
+                    { "editorial_team_abbr": "DAL" },
+                    { "display_position": "WR" },
+                    { "image_url": "https://s.yimg.com/iu/api/res/1.2/players/34678.png" },
+                    { "bye_weeks": { "week": "7" } },
+                    { "status": "Q" }
+                  ],
+                  { "selected_position": [{ "coverage_type": "week" }, { "week": "14" }, { "position": "WR" }] },
+                  { "player_points": { "coverage_type": "week", "week": "14", "total": "9.40" } },
+                  { "player_points_projected": { "coverage_type": "week", "week": "14", "total": "16.50" } }
+                ]
+              },
+              "5": {
+                "player": [
+                  [
+                    { "player_key": "461.p.35789" },
+                    { "player_id": "35789" },
+                    { "name": { "full": "Travis Kelce", "first": "Travis", "last": "Kelce" } },
+                    { "editorial_team_abbr": "KC" },
+                    { "display_position": "TE" },
+                    { "image_url": "https://s.yimg.com/iu/api/res/1.2/players/35789.png" },
+                    { "bye_weeks": { "week": "6" } }
+                  ],
+                  { "selected_position": [{ "coverage_type": "week" }, { "week": "14" }, { "position": "TE" }] },
+                  { "player_points": { "coverage_type": "week", "week": "14", "total": "11.20" } },
+                  { "player_points_projected": { "coverage_type": "week", "week": "14", "total": "13.60" } }
+                ]
+              },
+              "6": {
+                "player": [
+                  [
+                    { "player_key": "461.p.36890" },
+                    { "player_id": "36890" },
+                    { "name": { "full": "Amon-Ra St. Brown", "first": "Amon-Ra", "last": "St. Brown" } },
+                    { "editorial_team_abbr": "DET" },
+                    { "display_position": "WR" },
+                    { "image_url": "https://s.yimg.com/iu/api/res/1.2/players/36890.png" },
+                    { "bye_weeks": { "week": "5" } }
+                  ],
+                  { "selected_position": [{ "coverage_type": "week" }, { "week": "14" }, { "position": "W/R/T" }] },
+                  { "player_points": { "coverage_type": "week", "week": "14", "total": "16.90" } },
+                  { "player_points_projected": { "coverage_type": "week", "week": "14", "total": "15.20" } }
+                ]
+              },
+              "7": {
+                "player": [
+                  [
+                    { "player_key": "461.p.37901" },
+                    { "player_id": "37901" },
+                    { "name": { "full": "Justin Tucker", "first": "Justin", "last": "Tucker" } },
+                    { "editorial_team_abbr": "BAL" },
+                    { "display_position": "K" },
+                    { "image_url": "https://s.yimg.com/iu/api/res/1.2/players/37901.png" },
+                    { "bye_weeks": { "week": "14" } }
+                  ],
+                  { "selected_position": [{ "coverage_type": "week" }, { "week": "14" }, { "position": "K" }] },
+                  { "player_points": { "coverage_type": "week", "week": "14", "total": "8.00" } },
+                  { "player_points_projected": { "coverage_type": "week", "week": "14", "total": "9.00" } }
+                ]
+              },
+              "8": {
+                "player": [
+                  [
+                    { "player_key": "461.p.38012" },
+                    { "player_id": "38012" },
+                    { "name": { "full": "San Francisco", "first": "San", "last": "Francisco" } },
+                    { "editorial_team_abbr": "SF" },
+                    { "display_position": "DEF" },
+                    { "image_url": "https://s.yimg.com/iu/api/res/1.2/teams/sf.png" },
+                    { "bye_weeks": { "week": "9" } }
+                  ],
+                  { "selected_position": [{ "coverage_type": "week" }, { "week": "14" }, { "position": "DEF" }] },
+                  { "player_points": { "coverage_type": "week", "week": "14", "total": "7.00" } },
+                  { "player_points_projected": { "coverage_type": "week", "week": "14", "total": "8.50" } }
+                ]
+              },
+              "9": {
+                "player": [
+                  [
+                    { "player_key": "461.p.39123" },
+                    { "player_id": "39123" },
+                    { "name": { "full": "Tony Pollard", "first": "Tony", "last": "Pollard" } },
+                    { "editorial_team_abbr": "TEN" },
+                    { "display_position": "RB" },
+                    { "image_url": "https://s.yimg.com/iu/api/res/1.2/players/39123.png" },
+                    { "bye_weeks": { "week": "5" } }
+                  ],
+                  { "selected_position": [{ "coverage_type": "week" }, { "week": "14" }, { "position": "BN" }] },
+                  { "player_points": { "coverage_type": "week", "week": "14", "total": "0.00" } },
+                  { "player_points_projected": { "coverage_type": "week", "week": "14", "total": "10.10" } }
+                ]
+              },
+              "10": {
+                "player": [
+                  [
+                    { "player_key": "461.p.40234" },
+                    { "player_id": "40234" },
+                    { "name": { "full": "Nick Chubb", "first": "Nick", "last": "Chubb" } },
+                    { "editorial_team_abbr": "CLE" },
+                    { "display_position": "RB" },
+                    { "image_url": "https://s.yimg.com/iu/api/res/1.2/players/40234.png" },
+                    { "bye_weeks": { "week": "10" } },
+                    { "status": "IR" }
+                  ],
+                  { "selected_position": [{ "coverage_type": "week" }, { "week": "14" }, { "position": "IR" }] },
+                  { "player_points": { "coverage_type": "week", "week": "14", "total": "0.00" } },
+                  { "player_points_projected": { "coverage_type": "week", "week": "14", "total": "0.00" } }
+                ]
+              },
+              "count": 11
+            }
+          }
+        }
+      }
+    ]
+  }
+}

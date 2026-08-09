@@ -1,0 +1,433 @@
+{
+  "_fixture_note": "synthetic — replace with real capture",
+  "id": 1234567,
+  "seasonId": 2024,
+  "scoringPeriodId": 10,
+  "status": {
+    "currentMatchupPeriod": 10,
+    "latestScoringPeriod": 10
+  },
+  "schedule": [
+    {
+      "id": 5001,
+      "matchupPeriodId": 10,
+      "winner": "UNDECIDED",
+      "home": {
+        "teamId": 2,
+        "totalPoints": 115.36,
+        "rosterForCurrentScoringPeriod": {
+          "entries": [
+            {
+              "playerId": 3918298,
+              "lineupSlotId": 0,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 3918298,
+                  "fullName": "Josh Allen",
+                  "defaultPositionId": 1,
+                  "proTeamId": 2,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 21.3},
+                    {"scoringPeriodId": 10, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 24.56}
+                  ]
+                }
+              }
+            },
+            {
+              "playerId": 3117251,
+              "lineupSlotId": 2,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 3117251,
+                  "fullName": "Christian McCaffrey",
+                  "defaultPositionId": 2,
+                  "proTeamId": 25,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 16.5},
+                    {"scoringPeriodId": 10, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 18.2}
+                  ]
+                }
+              }
+            },
+            {
+              "playerId": 4430807,
+              "lineupSlotId": 2,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 4430807,
+                  "fullName": "Bijan Robinson",
+                  "defaultPositionId": 2,
+                  "proTeamId": 1,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 14.0},
+                    {"scoringPeriodId": 10, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 12.4}
+                  ]
+                }
+              }
+            },
+            {
+              "playerId": 4262921,
+              "lineupSlotId": 4,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 4262921,
+                  "fullName": "Justin Jefferson",
+                  "defaultPositionId": 3,
+                  "proTeamId": 16,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 17.2},
+                    {"scoringPeriodId": 10, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 15.8}
+                  ]
+                }
+              }
+            },
+            {
+              "playerId": 4372016,
+              "lineupSlotId": 4,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 4372016,
+                  "fullName": "Amon-Ra St. Brown",
+                  "defaultPositionId": 3,
+                  "proTeamId": 8,
+                  "injuryStatus": "QUESTIONABLE",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 13.6},
+                    {"scoringPeriodId": 10, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 11.1}
+                  ]
+                }
+              }
+            },
+            {
+              "playerId": 15847,
+              "lineupSlotId": 6,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 15847,
+                  "fullName": "Travis Kelce",
+                  "defaultPositionId": 4,
+                  "proTeamId": 12,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 11.0},
+                    {"scoringPeriodId": 10, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 9.4}
+                  ]
+                }
+              }
+            },
+            {
+              "playerId": 4241457,
+              "lineupSlotId": 23,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 4241457,
+                  "fullName": "Tony Pollard",
+                  "defaultPositionId": 2,
+                  "proTeamId": 10,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 10.2},
+                    {"scoringPeriodId": 10, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 8.9}
+                  ]
+                }
+              }
+            },
+            {
+              "playerId": -16033,
+              "lineupSlotId": 16,
+              "playerPoolEntry": {
+                "player": {
+                  "id": -16033,
+                  "fullName": "Baltimore Ravens",
+                  "defaultPositionId": 16,
+                  "proTeamId": 33,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 6.5},
+                    {"scoringPeriodId": 10, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 7.0}
+                  ]
+                }
+              }
+            },
+            {
+              "playerId": 14371,
+              "lineupSlotId": 17,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 14371,
+                  "fullName": "Justin Tucker",
+                  "defaultPositionId": 5,
+                  "proTeamId": 33,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 7.5},
+                    {"scoringPeriodId": 10, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 8.0}
+                  ]
+                }
+              }
+            },
+            {
+              "playerId": 4360423,
+              "lineupSlotId": 20,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 4360423,
+                  "fullName": "Jordan Love",
+                  "defaultPositionId": 1,
+                  "proTeamId": 9,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 18.0}
+                  ]
+                }
+              }
+            },
+            {
+              "playerId": 4432773,
+              "lineupSlotId": 20,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 4432773,
+                  "fullName": "Rashee Rice",
+                  "defaultPositionId": 3,
+                  "proTeamId": 12,
+                  "injuryStatus": "OUT",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 12.0}
+                  ]
+                }
+              }
+            },
+            {
+              "playerId": 4429160,
+              "lineupSlotId": 20,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 4429160,
+                  "fullName": "De'Von Achane",
+                  "defaultPositionId": 2,
+                  "proTeamId": 15,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 13.5}
+                  ]
+                }
+              }
+            },
+            {
+              "playerId": 4259545,
+              "lineupSlotId": 21,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 4259545,
+                  "fullName": "J.K. Dobbins",
+                  "defaultPositionId": 2,
+                  "proTeamId": 24,
+                  "injuryStatus": "INJURY_RESERVE",
+                  "stats": []
+                }
+              }
+            }
+          ]
+        }
+      },
+      "away": {
+        "teamId": 5,
+        "totalPoints": 102.2,
+        "rosterForCurrentScoringPeriod": {
+          "entries": [
+            {
+              "playerId": 3139477,
+              "lineupSlotId": 0,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 3139477,
+                  "fullName": "Patrick Mahomes",
+                  "defaultPositionId": 1,
+                  "proTeamId": 12,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 22.0},
+                    {"scoringPeriodId": 10, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 19.3}
+                  ]
+                }
+              }
+            },
+            {
+              "playerId": 3043078,
+              "lineupSlotId": 2,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 3043078,
+                  "fullName": "Derrick Henry",
+                  "defaultPositionId": 2,
+                  "proTeamId": 33,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 15.0},
+                    {"scoringPeriodId": 10, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 14.0}
+                  ]
+                }
+              }
+            },
+            {
+              "playerId": 4429191,
+              "lineupSlotId": 2,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 4429191,
+                  "fullName": "Jahmyr Gibbs",
+                  "defaultPositionId": 2,
+                  "proTeamId": 8,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 12.0},
+                    {"scoringPeriodId": 10, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 13.2}
+                  ]
+                }
+              }
+            },
+            {
+              "playerId": 4241389,
+              "lineupSlotId": 4,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 4241389,
+                  "fullName": "CeeDee Lamb",
+                  "defaultPositionId": 3,
+                  "proTeamId": 6,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 15.5},
+                    {"scoringPeriodId": 10, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 16.4}
+                  ]
+                }
+              }
+            },
+            {
+              "playerId": 4430737,
+              "lineupSlotId": 4,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 4430737,
+                  "fullName": "Puka Nacua",
+                  "defaultPositionId": 3,
+                  "proTeamId": 14,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 13.0},
+                    {"scoringPeriodId": 10, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 10.2}
+                  ]
+                }
+              }
+            },
+            {
+              "playerId": 4430027,
+              "lineupSlotId": 6,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 4430027,
+                  "fullName": "Sam LaPorta",
+                  "defaultPositionId": 4,
+                  "proTeamId": 8,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 9.0},
+                    {"scoringPeriodId": 10, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 7.8}
+                  ]
+                }
+              }
+            },
+            {
+              "playerId": 4426385,
+              "lineupSlotId": 23,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 4426385,
+                  "fullName": "Kyren Williams",
+                  "defaultPositionId": 2,
+                  "proTeamId": 14,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 11.0},
+                    {"scoringPeriodId": 10, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 9.6}
+                  ]
+                }
+              }
+            },
+            {
+              "playerId": -16025,
+              "lineupSlotId": 16,
+              "playerPoolEntry": {
+                "player": {
+                  "id": -16025,
+                  "fullName": "San Francisco 49ers",
+                  "defaultPositionId": 16,
+                  "proTeamId": 25,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 7.0},
+                    {"scoringPeriodId": 10, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 6.0}
+                  ]
+                }
+              }
+            },
+            {
+              "playerId": 14026,
+              "lineupSlotId": 17,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 14026,
+                  "fullName": "Harrison Butker",
+                  "defaultPositionId": 5,
+                  "proTeamId": 12,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 8.0},
+                    {"scoringPeriodId": 10, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 5.7}
+                  ]
+                }
+              }
+            },
+            {
+              "playerId": 4429205,
+              "lineupSlotId": 20,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 4429205,
+                  "fullName": "Tank Dell",
+                  "defaultPositionId": 3,
+                  "proTeamId": 34,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 9.0}
+                  ]
+                }
+              }
+            },
+            {
+              "playerId": 4360248,
+              "lineupSlotId": 20,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 4360248,
+                  "fullName": "Javonte Williams",
+                  "defaultPositionId": 2,
+                  "proTeamId": 7,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 10, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 8.0}
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,161 @@
+// Ported from design/screen-myteam.jsx's RosterTable/RosterRow — DOM
+// structure and classNames match verbatim so global.css's `.roster` rules
+// apply unmodified. Unlike the prototype (which hardcodes `initials` text),
+// the real Player entity carries a `headshot_url` (design.md D12); we render
+// an <img> and fall back to the initials div on load failure (missing local
+// cache file) via onError.
+
+import { useState } from "react";
+
+import type { RosterSlot } from "../../types/api";
+
+function initialsFor(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("");
+}
+
+function PositionPill({ pos }: { pos: string }) {
+  return <span className="pill pos">{pos}</span>;
+}
+
+function Headshot({ name, url }: { name: string; url: string }) {
+  const [failed, setFailed] = useState(false);
+  if (!url || failed) {
+    return <div className="headshot">{initialsFor(name)}</div>;
+  }
+  return (
+    <div className="headshot">
+      <img
+        src={url}
+        alt=""
+        onError={() => setFailed(true)}
+        style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
+      />
+    </div>
+  );
+}
+
+function RosterRow({ slot, isBench }: { slot: RosterSlot; isBench?: boolean }) {
+  const delta = slot.actual_points - slot.proj_points;
+  const isOut = slot.player.injury_status === "O";
+  return (
+    <tr className={slot.is_live ? "live-row" : isBench ? "bench-row" : ""}>
+      <td
+        style={{
+          width: 64,
+          fontWeight: 700,
+          fontSize: 13,
+          color: "var(--text-secondary)",
+          letterSpacing: "0.05em",
+        }}
+      >
+        {slot.slot}
+      </td>
+      <td>
+        <div className="player-cell">
+          <Headshot name={slot.player.name} url={slot.player.headshot_url} />
+          <div className="player-info">
+            <div className="player-info-row">
+              <span className="player-name">{slot.player.name}</span>
+              <PositionPill pos={slot.player.position} />
+            </div>
+            <div className="player-meta">{slot.player.nfl_team}</div>
+          </div>
+        </div>
+      </td>
+      <td style={{ width: 90 }} className="muted">
+        {slot.player.nfl_opponent ?? "—"}
+      </td>
+      <td style={{ width: 140 }}>
+        {slot.is_live ? (
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              color: "var(--live)",
+              fontWeight: 600,
+              fontSize: 12,
+            }}
+          >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: "var(--live)",
+                boxShadow: "0 0 6px var(--live)",
+              }}
+            />
+            {slot.status_text}
+          </span>
+        ) : isOut ? (
+          <span style={{ color: "var(--espn)", fontWeight: 600, fontSize: 12 }}>OUT</span>
+        ) : (
+          <span className="muted" style={{ fontSize: 12 }}>
+            {slot.status_text}
+          </span>
+        )}
+      </td>
+      <td style={{ width: 88, textAlign: "right" }} className="num muted">
+        {slot.proj_points.toFixed(1)}
+      </td>
+      <td style={{ width: 88, textAlign: "right" }} className="num">
+        {slot.actual_points ? slot.actual_points.toFixed(1) : "—"}
+      </td>
+      <td style={{ width: 80, textAlign: "right" }}>
+        {slot.actual_points > 0 ? (
+          <span className={"delta " + (delta > 0.05 ? "pos" : delta < -0.05 ? "neg" : "zero")}>
+            {delta > 0 ? "+" : ""}
+            {delta.toFixed(1)}
+          </span>
+        ) : (
+          <span className="muted">—</span>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+export interface RosterTableProps {
+  starters: RosterSlot[];
+  bench: RosterSlot[];
+}
+
+export function RosterTable({ starters, bench }: RosterTableProps) {
+  return (
+    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <table className="roster">
+        <thead>
+          <tr>
+            <th style={{ width: 64 }}>Slot</th>
+            <th>Player</th>
+            <th>Opp</th>
+            <th>Status</th>
+            <th style={{ textAlign: "right" }}>Proj</th>
+            <th style={{ textAlign: "right" }}>Actual</th>
+            <th style={{ textAlign: "right" }}>+/–</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr className="section-row">
+            <td colSpan={7}>Starters</td>
+          </tr>
+          {starters.map((s) => (
+            <RosterRow key={`${s.slot}-${s.player.id}`} slot={s} />
+          ))}
+          <tr className="section-row">
+            <td colSpan={7}>Bench</td>
+          </tr>
+          {bench.map((s) => (
+            <RosterRow key={`${s.slot}-${s.player.id}`} slot={s} isBench />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}

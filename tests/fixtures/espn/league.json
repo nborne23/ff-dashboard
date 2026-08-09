@@ -1,0 +1,79 @@
+{
+  "_fixture_note": "synthetic — replace with real capture",
+  "id": 1234567,
+  "seasonId": 2024,
+  "scoringPeriodId": 10,
+  "status": {
+    "currentMatchupPeriod": 10,
+    "latestScoringPeriod": 10
+  },
+  "settings": {
+    "name": "Highland Bombers League",
+    "size": 10,
+    "scoringSettings": {
+      "scoringType": "H2H_POINTS",
+      "scoringItems": [
+        {
+          "statId": 53,
+          "points": 1.0
+        }
+      ]
+    }
+  },
+  "members": [
+    {
+      "id": "{ABC12345-DEAD-BEEF-0000-111111111111}",
+      "displayName": "Nick B",
+      "firstName": "Nick",
+      "lastName": "B"
+    },
+    {
+      "id": "{ZZZ99999-DEAD-BEEF-0000-222222222222}",
+      "displayName": "Rival Manager",
+      "firstName": "Rival",
+      "lastName": "Manager"
+    }
+  ],
+  "teams": [
+    {
+      "id": 2,
+      "abbrev": "HB",
+      "location": "Highland",
+      "nickname": "Bombers",
+      "name": "Highland Bombers",
+      "owners": [
+        "{ABC12345-DEAD-BEEF-0000-111111111111}"
+      ],
+      "playoffSeed": 2,
+      "record": {
+        "overall": {
+          "wins": 6,
+          "losses": 3,
+          "ties": 0,
+          "pointsFor": 987.4,
+          "pointsAgainst": 875.1
+        }
+      }
+    },
+    {
+      "id": 5,
+      "abbrev": "RVL",
+      "location": "Rival",
+      "nickname": "Squad",
+      "name": "Rival Squad",
+      "owners": [
+        "{ZZZ99999-DEAD-BEEF-0000-222222222222}"
+      ],
+      "playoffSeed": 5,
+      "record": {
+        "overall": {
+          "wins": 4,
+          "losses": 5,
+          "ties": 0,
+          "pointsFor": 812.9,
+          "pointsAgainst": 855.6
+        }
+      }
+    }
+  ]
+}

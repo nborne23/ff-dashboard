@@ -1,0 +1,64 @@
+{
+  "_fixture_note": "synthetic — replace with real capture",
+  "id": 1234567,
+  "seasonId": 2024,
+  "scoringPeriodId": 5,
+  "schedule": [
+    {
+      "id": 5002,
+      "matchupPeriodId": 5,
+      "winner": "HOME",
+      "home": {
+        "teamId": 2,
+        "totalPoints": 101.4,
+        "rosterForCurrentScoringPeriod": {
+          "entries": [
+            {
+              "playerId": 3918298,
+              "lineupSlotId": 0,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 3918298,
+                  "fullName": "Josh Allen",
+                  "defaultPositionId": 1,
+                  "proTeamId": 2,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 5, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 19.8},
+                    {"scoringPeriodId": 5, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 22.4},
+                    {"scoringPeriodId": 10, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 99.9}
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      },
+      "away": {
+        "teamId": 5,
+        "totalPoints": 90.0,
+        "rosterForCurrentScoringPeriod": {
+          "entries": [
+            {
+              "playerId": 4046692,
+              "lineupSlotId": 0,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 4046692,
+                  "fullName": "Patrick Mahomes",
+                  "defaultPositionId": 1,
+                  "proTeamId": 12,
+                  "injuryStatus": "ACTIVE",
+                  "stats": [
+                    {"scoringPeriodId": 5, "statSourceId": 1, "statSplitTypeId": 1, "appliedTotal": 18.0},
+                    {"scoringPeriodId": 5, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 20.1}
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

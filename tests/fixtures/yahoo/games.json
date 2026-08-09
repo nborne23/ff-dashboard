@@ -1,0 +1,53 @@
+{
+  "_fixture_note": "synthetic — replace with real capture",
+  "fantasy_content": {
+    "xml:lang": "en-US",
+    "yahoo:uri": "/fantasy/v2/users;use_login=1/games;game_codes=nfl",
+    "users": {
+      "0": {
+        "user": [
+          { "guid": "ABCDEF1234567890ABCDEF1234567890" },
+          {
+            "games": {
+              "0": {
+                "game": [
+                  {
+                    "game_key": "449",
+                    "game_id": "449",
+                    "name": "Football",
+                    "code": "nfl",
+                    "type": "full",
+                    "url": "https://football.fantasysports.yahoo.com/f1",
+                    "season": "2024",
+                    "is_registration_over": 1,
+                    "is_game_over": 1,
+                    "is_offseason": 1
+                  }
+                ]
+              },
+              "1": {
+                "game": [
+                  {
+                    "game_key": "461",
+                    "game_id": "461",
+                    "name": "Football",
+                    "code": "nfl",
+                    "type": "full",
+                    "url": "https://football.fantasysports.yahoo.com/f1",
+                    "season": "2025",
+                    "is_registration_over": 0,
+                    "is_game_over": 0,
+                    "is_offseason": 0
+                  }
+                ]
+              },
+              "count": 2
+            }
+          }
+        ],
+        "count": 2
+      },
+      "count": 1
+    }
+  }
+}

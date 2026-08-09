@@ -1,0 +1,167 @@
+{
+  "_fixture_note": "synthetic — replace with real capture",
+  "events": [
+    {
+      "id": "401547439",
+      "date": "2025-12-07T18:00Z",
+      "name": "Buffalo Bills at Kansas City Chiefs",
+      "shortName": "BUF @ KC",
+      "competitions": [
+        {
+          "id": "401547439",
+          "date": "2025-12-07T18:00Z",
+          "competitors": [
+            {
+              "id": "12",
+              "homeAway": "home",
+              "team": { "id": "12", "abbreviation": "KC" },
+              "score": "27"
+            },
+            {
+              "id": "2",
+              "homeAway": "away",
+              "team": { "id": "2", "abbreviation": "BUF" },
+              "score": "24"
+            }
+          ],
+          "status": {
+            "clock": 125.0,
+            "displayClock": "2:05",
+            "period": 4,
+            "type": {
+              "id": "2",
+              "name": "STATUS_IN_PROGRESS",
+              "state": "in",
+              "completed": false,
+              "description": "In Progress",
+              "detail": "4th Quarter",
+              "shortDetail": "Q4 2:05"
+            }
+          }
+        }
+      ],
+      "status": {
+        "clock": 125.0,
+        "displayClock": "2:05",
+        "period": 4,
+        "type": {
+          "id": "2",
+          "name": "STATUS_IN_PROGRESS",
+          "state": "in",
+          "completed": false,
+          "description": "In Progress",
+          "detail": "4th Quarter",
+          "shortDetail": "Q4 2:05"
+        }
+      }
+    },
+    {
+      "id": "401547440",
+      "date": "2025-12-07T21:05Z",
+      "name": "Philadelphia Eagles at Dallas Cowboys",
+      "shortName": "PHI @ DAL",
+      "competitions": [
+        {
+          "id": "401547440",
+          "date": "2025-12-07T21:05Z",
+          "competitors": [
+            {
+              "id": "6",
+              "homeAway": "home",
+              "team": { "id": "6", "abbreviation": "DAL" },
+              "score": "0"
+            },
+            {
+              "id": "21",
+              "homeAway": "away",
+              "team": { "id": "21", "abbreviation": "PHI" },
+              "score": "0"
+            }
+          ],
+          "status": {
+            "clock": 900.0,
+            "displayClock": "15:00",
+            "period": 0,
+            "type": {
+              "id": "1",
+              "name": "STATUS_SCHEDULED",
+              "state": "pre",
+              "completed": false,
+              "description": "Scheduled",
+              "detail": "Sun, December 7th at 9:05 PM UTC",
+              "shortDetail": "12/7 - 9:05 PM UTC"
+            }
+          }
+        }
+      ],
+      "status": {
+        "clock": 900.0,
+        "displayClock": "15:00",
+        "period": 0,
+        "type": {
+          "id": "1",
+          "name": "STATUS_SCHEDULED",
+          "state": "pre",
+          "completed": false,
+          "description": "Scheduled",
+          "detail": "Sun, December 7th at 9:05 PM UTC",
+          "shortDetail": "12/7 - 9:05 PM UTC"
+        }
+      }
+    },
+    {
+      "id": "401547438",
+      "date": "2025-12-07T13:00Z",
+      "name": "New York Jets at Miami Dolphins",
+      "shortName": "NYJ @ MIA",
+      "competitions": [
+        {
+          "id": "401547438",
+          "date": "2025-12-07T13:00Z",
+          "competitors": [
+            {
+              "id": "15",
+              "homeAway": "home",
+              "team": { "id": "15", "abbreviation": "MIA" },
+              "score": "31"
+            },
+            {
+              "id": "20",
+              "homeAway": "away",
+              "team": { "id": "20", "abbreviation": "NYJ" },
+              "score": "17"
+            }
+          ],
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0:00",
+            "period": 4,
+            "type": {
+              "id": "3",
+              "name": "STATUS_FINAL",
+              "state": "post",
+              "completed": true,
+              "description": "Final",
+              "detail": "Final",
+              "shortDetail": "Final"
+            }
+          }
+        }
+      ],
+      "status": {
+        "clock": 0.0,
+        "displayClock": "0:00",
+        "period": 4,
+        "type": {
+          "id": "3",
+          "name": "STATUS_FINAL",
+          "state": "post",
+          "completed": true,
+          "description": "Final",
+          "detail": "Final",
+          "shortDetail": "Final"
+        }
+      }
+    }
+  ]
+}
