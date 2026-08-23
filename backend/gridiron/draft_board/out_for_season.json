@@ -1,0 +1,8 @@
+{
+  "_comment": "Curated corrections to players.json's `out_for_season` flag, which is keyword-derived from note prose and produces false positives -- the same defect class as `injury_tags`. Nico Collins was flagged out for the season because his note says *Jayden Higgins* tore an ACL; he is the HOU WR1 at ADP 21.5. A value here OVERRIDES the export. true = genuinely out, false = export is wrong. Players absent from this map keep whatever players.json says.",
+  "out_for_season": {
+    "Nico Collins": false,
+    "Ricky Pearsall": true,
+    "Chris Brazzell": true
+  }
+}

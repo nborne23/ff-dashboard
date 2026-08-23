@@ -1,12 +1,10 @@
 schema: spec-driven
 
+context: |
+  Always ask questions with the ask question tool to clarify any ambiguities in the request. If you are unsure about any aspect of the request, ask for clarification before proceeding.
 
-  context: |
-    Always ask questions with the ask question tool to clarify any ambiguities in the request. If you are unsure about any aspect of the request, ask for clarification before proceeding.
-
-
-  rules:
-    design:
-      - always include at least one diagram to illustrate the design (e.g., flowchart, sequence diagram, etc.)
-    tasks:
-      - Optimize for parallel execution of tasks where possible.
+rules:
+  design:
+    - always include at least one diagram to illustrate the design (e.g., flowchart, sequence diagram, etc.)
+  tasks:
+    - Optimize for parallel execution of tasks where possible.

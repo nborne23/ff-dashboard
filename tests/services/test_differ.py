@@ -3,10 +3,21 @@
 from datetime import datetime
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from backend.gridiron.db import make_engine
-from backend.gridiron.models import Base, League, LiveNflGame, Matchup, SeasonWeek, Team
+from backend.gridiron.models import (
+    Base,
+    BoardPlayer,
+    DraftPick,
+    DraftSession,
+    League,
+    LiveNflGame,
+    Matchup,
+    SeasonWeek,
+    Team,
+)
 from backend.gridiron.schemas.events import DataChangedEvent
 from backend.gridiron.services import differ, events
 
@@ -210,6 +221,64 @@ async def test_live_nfl_games_fingerprints_changes_with_score(session_factory) -
 
     assert before != after
     assert set(before) == {"live_nfl_games"}
+
+
+# --- draft_fingerprints -----------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_draft_fingerprints_without_a_session_row_is_optional_not_raising(
+    session_factory,
+) -> None:
+    async with session_factory() as session:
+        fingerprints = await differ.draft_fingerprints(session)
+    assert set(fingerprints) == {"draft"}
+
+
+@pytest.mark.asyncio
+async def test_draft_fingerprints_with_a_session_row_includes_its_status(session_factory) -> None:
+    async with session_factory() as session:
+        session.add(BoardPlayer(name="P1", normalized_name="p1", position="RB"))
+        await session.commit()
+
+    async with session_factory() as session:
+        bp = (await session.execute(select(BoardPlayer))).scalars().one()
+        session.add(
+            DraftPick(
+                overall_pick=1, round=1, board_player_id=bp.id, player_name="P1", source="manual"
+            )
+        )
+        session.add(DraftSession(status="manual", poll_interval_seconds=3, current_overall_pick=2))
+        await session.commit()
+
+    async with session_factory() as session:
+        before = await differ.draft_fingerprints(session)
+
+    async with session_factory() as session:
+        session_row = (await session.execute(select(DraftSession))).scalars().one()
+        session_row.status = "armed"
+        await session.commit()
+
+    async with session_factory() as session:
+        after = await differ.draft_fingerprints(session)
+
+    assert before != after
+
+
+@pytest.mark.asyncio
+async def test_draft_fingerprints_unchanged_state_publishes_nothing(session_factory) -> None:
+    async with session_factory() as session:
+        first = await differ.draft_fingerprints(session)
+    differ.diff_and_publish(first)
+
+    queue = events.subscribe()
+
+    async with session_factory() as session:
+        second = await differ.draft_fingerprints(session)
+    changed = differ.diff_and_publish(second)
+
+    assert changed == []
+    assert queue.empty()
 
 
 # --- diff_and_publish ------------------------------------------------------------

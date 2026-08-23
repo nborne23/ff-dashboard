@@ -1,0 +1,67 @@
+{
+  "accuracy_tiers": {
+    "tier_a_measured": [
+      {
+        "name": "Justin Boone",
+        "outlet": "Yahoo",
+        "strength": "in-season rankings; 2x FantasyPros most-accurate (2019, 2025)"
+      },
+      {
+        "name": "Patrick Thorman",
+        "outlet": "Establish the Run",
+        "strength": "in-season; four straight top-4 finishes"
+      },
+      {
+        "name": "Jeff Ratcliffe",
+        "outlet": "FTN",
+        "strength": "multi-year draft accuracy; free tier articles"
+      },
+      {
+        "name": "Jody Smith",
+        "outlet": "Draft Sharks",
+        "strength": "#1 multi-year draft accuracy 2023-2025"
+      },
+      {
+        "name": "Sean Koerner",
+        "outlet": "Action Network",
+        "strength": "projections; multiple FSTA awards"
+      },
+      {
+        "name": "Jared Smola",
+        "outlet": "Draft Sharks",
+        "strength": "draft accuracy; injury predictor"
+      },
+      {
+        "name": "Mike Clay",
+        "outlet": "ESPN",
+        "strength": "projections and full-PPR rankings"
+      }
+    ],
+    "tier_b_popular_unverified": [
+      {
+        "name": "The Fantasy Footballers",
+        "outlet": "Andy Holloway, Jason Moore, Mike Wright",
+        "caveat": "Stopped submitting rankings to FantasyPros, so no third-party accuracy score. Weight their calls highest where they AGREE with Tier A."
+      }
+    ]
+  },
+  "news_breakers": [
+    "Adam Schefter (ESPN)",
+    "Ian Rapoport (NFL Network)",
+    "RotoWire",
+    "Yahoo camp injury tracker"
+  ],
+  "beat_writers": {
+    "NYJ": "Rich Cimini",
+    "BAL": "Jamison Hensley",
+    "TB": "Greg Auman",
+    "SEA": "Gregg Bell",
+    "ARI": "Josh Weinfuss"
+  },
+  "data_vintage": {
+    "adp": "Fantasy Football Calculator, 12-team half-PPR, 2,828 mock drafts, 2026-08-17 to 2026-08-22",
+    "expert_ranks": "Mike Clay PPR rankings (ESPN, ~2026-08-14); Yahoo analyst panel (~2026-08-13)",
+    "news": "through 2026-08-22 (preseason Week 2)",
+    "footballers": "podcast episodes 2026-08-17 through 2026-08-21"
+  }
+}

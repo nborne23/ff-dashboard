@@ -14,10 +14,19 @@ single-process, single-user app (design.md D1), same pattern as
 import hashlib
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.gridiron.models import League, LiveNflGame, Matchup, RosterSlot, SeasonWeek, Team
+from backend.gridiron.models import (
+    DraftPick,
+    DraftSession,
+    League,
+    LiveNflGame,
+    Matchup,
+    RosterSlot,
+    SeasonWeek,
+    Team,
+)
 from backend.gridiron.schemas.events import DataChangedEvent
 from backend.gridiron.services import events
 
@@ -142,6 +151,32 @@ async def fantasy_fingerprints(session: AsyncSession, week: int) -> dict[str, st
 
     fingerprints["teams"] = _fingerprint(teams_payload)
     return fingerprints
+
+
+async def draft_fingerprints(session: AsyncSession) -> dict[str, str]:
+    """Single `"draft"` scope fingerprinting `(max(overall_pick), count(picks),
+    current_overall_pick)`, plus the `draft_sessions` row's `status` ONLY when a row
+    exists. Manual-only draft-night operation may have zero `draft_sessions` rows (that
+    row is created lazily by `draft_state._get_or_create_session_row` on the first
+    pick/current-pick write, per D13) -- the session term must be optional rather than
+    raising, so this never blocks the manual-only path.
+
+    Called from `draft_state.record_pick`/`undo_last_pick` (via `api/draft.py`) after
+    every commit, not just from a poller tick, so a manual pick fires the SSE event too.
+    """
+    max_pick = (await session.execute(select(func.max(DraftPick.overall_pick)))).scalar()
+    pick_count = (await session.execute(select(func.count(DraftPick.id)))).scalar() or 0
+
+    session_row = (
+        (await session.execute(select(DraftSession).order_by(DraftSession.id).limit(1)))
+        .scalars()
+        .first()
+    )
+    current_pick = session_row.current_overall_pick if session_row is not None else None
+    status = session_row.status if session_row is not None else None
+
+    payload = (max_pick, pick_count, current_pick, status)
+    return {"draft": _fingerprint(payload)}
 
 
 async def live_nfl_games_fingerprints(session: AsyncSession) -> dict[str, str]:

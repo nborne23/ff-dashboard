@@ -1,0 +1,60 @@
+{
+  "name": "Nick's 2026 League",
+  "season": 2026,
+  "teams": 12,
+  "draft_type": "snake",
+  "scoring": {
+    "type": "half_ppr",
+    "reception": 0.5,
+    "pass_yd": 0.04,
+    "pass_td": 4,
+    "interception": -2,
+    "rush_yd": 0.1,
+    "rush_td": 6,
+    "rec_yd": 0.1,
+    "rec_td": 6,
+    "fumble_lost": -2,
+    "note": "Confirm exact non-reception values against the host before relying on projections. Only the 0.5 PPR and the roster shape were stated by the user."
+  },
+  "roster": {
+    "starters": {
+      "QB": 1,
+      "RB": 2,
+      "WR": 2,
+      "TE": 1,
+      "FLEX": 2,
+      "DST": 1,
+      "K": 0
+    },
+    "flex_eligible": [
+      "RB",
+      "WR",
+      "TE"
+    ],
+    "total_starters": 9,
+    "bench": null,
+    "note": "No kicker slot. Bench size not stated \u2014 make it configurable, default 6."
+  },
+  "user_draft_slot": 1,
+  "user_pick_numbers_12team": [
+    1,
+    24,
+    25,
+    48,
+    49,
+    72,
+    73,
+    96,
+    97,
+    120,
+    121,
+    144,
+    145,
+    168,
+    169
+  ],
+  "derived": {
+    "starting_rb_wr_te_slots_leaguewide": 54,
+    "why_it_matters": "2 FLEX + 2RB + 2WR + 1TE means up to 54 RB/WR/TE start each week across 12 teams, which drains the pool much faster than a 1-FLEX league. Depth and hit-rate at RB/WR are the primary edge. No kicker means one extra usable bench slot."
+  }
+}

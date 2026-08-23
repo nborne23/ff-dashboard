@@ -12,6 +12,7 @@ import { useUiStore } from "../../stores/ui";
 import {
   IconChevR,
   IconDashboard,
+  IconFlame,
   IconFootball,
   IconMatchups,
   IconSeason,
@@ -115,6 +116,12 @@ export function Sidebar() {
             <IconSeason size={18} />
           </span>
           <span className="label">Season</span>
+        </NavLink>
+        <NavLink to="/draft" className={navItemClassName}>
+          <span className="icon">
+            <IconFlame size={18} />
+          </span>
+          <span className="label">Draft</span>
         </NavLink>
       </div>
 

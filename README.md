@@ -147,6 +147,73 @@ just restart it, or `launchctl bootout gui/$(id -u)/com.gridiron.app` for the
 off-season and re-bootstrap it (`launchctl bootstrap gui/$(id -u)
 ~/Library/LaunchAgents/com.gridiron.app.plist`) in August.
 
+## Draft Assistant
+
+A manual-entry companion for one live snake draft, at `/draft`. There is no ESPN
+live-draft integration yet — you keep it in step with the real draft yourself — and it
+runs on the same single self-hosted iMac process as everything else, so read
+"When ESPN breaks mid-draft" below before you're on the clock, not during.
+
+### Import the board
+
+The board (players, tiers, and the slot-1 strategy plan) ships as JSON under
+`backend/gridiron/draft_board/` (`players.json`, `league_config.json`,
+`strategy_rules.json`, `unpriced_risk.json`), sourced from
+`2026_Draft_Board.xlsx` in the same directory. Load it into the DB with:
+
+```sh
+uv run python -m backend.gridiron.draft_board import
+```
+
+Safe to re-run — it upserts by player name, so re-running after editing the board JSON
+(a new sleeper, an updated tier, a corrected ADP) refreshes existing rows in place. It
+never touches a player's `espn_player_id`/match state on an existing row, so re-running
+mid-draft can't clobber a live ESPN match once phase 5 adds one.
+
+### The manual draft flow
+
+1. Open `/draft` before the draft starts — recommendations, tier alarms, and the
+   slot-1 plan (if your configured draft slot is actually 1) are live from pick 1.
+2. As each pick happens — yours or anyone else's — find the player on the board and
+   tap **Mine** or **Theirs**. That single tap is the only state change the app needs;
+   the roster, recommendations, and tier alarms all recompute from the recorded picks.
+3. Mis-tapped a player? **Undo last pick**, always visible in the header (no
+   scrolling), removes the most recent pick and rewinds the pick counter by one.
+4. Drafted players stay visible on the board — greyed out, struck through, tagged with
+   who took them and at what pick — instead of disappearing, so you can see the whole
+   draft's history at a glance without leaving the screen.
+
+### Correcting the current pick number
+
+"The pick happening right now" is tracked as an explicit number you set, never inferred
+by counting how many picks you've entered — a real draft involves skipping picks that
+don't matter to you and catching up in bursts, so a count-based guess silently drifts
+and every downstream recommendation quietly computes against the wrong pick. If you
+fall behind or the number is simply wrong, use the **Set pick #** field in the
+current-pick bar to jump straight to the correct overall pick number. That field is the
+one correction mechanism — don't try to fix drift by entering picks you didn't actually
+see happen.
+
+### When ESPN breaks mid-draft
+
+There's no live ESPN draft-room sync to break yet, but the more important fact is
+structural: this is one iMac running one process, not a redundant service. If it
+reboots, drops off the tailnet, or the app crashes mid-draft, your live dashboard is
+gone until it's back — plan for that, not just for ESPN:
+
+- **Keep a printed copy of the board next to you before the draft starts** — print
+  `2026_Draft_Board.xlsx` (or print the `/draft` page itself from the browser). This is
+  the actual backstop: you keep drafting off paper with zero interruption while the app
+  is down, and catch the app back up afterward rather than the other way around.
+- If the app goes down mid-draft: check `~/Library/Logs/gridiron/app.err.log` first
+  (see Troubleshooting), restart it with
+  `launchctl kickstart -k gui/$(id -u)/com.gridiron.app`, then use **Set pick #** to
+  resync the counter to wherever the real draft actually is once you're back — don't
+  trust its last-known state, confirm it against the room (or your printed board).
+- Every pick is committed to SQLite the moment you tap it, so a restart never loses
+  picks already recorded — you only lose whatever happened while it was down, which is
+  exactly what the printed board and the pick-number correction above are for.
+
 ## Logs
 
 - **launchd's own redirect** (always on): `~/Library/Logs/gridiron/app.log` /

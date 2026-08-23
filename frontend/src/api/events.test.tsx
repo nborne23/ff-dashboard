@@ -88,6 +88,11 @@ describe("queryKeyForScope", () => {
     expect(queryKeyForScope("live_nfl_games")).toEqual(["live_nfl_games"]);
   });
 
+  it("maps the draft scope (task 3.6)", () => {
+    expect(queryKeyForScope("draft")).not.toBeNull();
+    expect(queryKeyForScope("draft")).toEqual(["draft"]);
+  });
+
   it("returns null for an unrecognized scope", () => {
     expect(queryKeyForScope("something_else")).toBeNull();
   });
@@ -167,6 +172,22 @@ describe("useLiveEvents", () => {
       [{ queryKey: ["team", "yahoo:l1.t1", "h2h"] }],
       [{ queryKey: ["team", "yahoo:l1.t1", "season"] }],
     ]);
+  });
+
+  it("invalidates the draft query key for a draft data.changed event (task 3.6)", async () => {
+    const queryClient = new QueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    renderWithClient(queryClient);
+
+    act(() => {
+      FakeEventSource.instances[0].emit("data.changed", {
+        type: "data.changed",
+        scopes: ["draft"],
+        as_of: "2025-12-07T18:00:00",
+      });
+    });
+
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["draft"] }));
   });
 
   it("also invalidates day-rings when the teams scope changes (task 10.6)", async () => {

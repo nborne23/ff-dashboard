@@ -895,6 +895,218 @@ html, body {
   .team-grid { grid-template-columns: 1fr; }
 }
 
+/* ==== Draft Assistant (Phase 3) ====
+   Phone-first: rows/buttons keep a >=44px tap target throughout (per Apple's own HIG
+   minimum) since this screen is used one-handed during a live draft. Reuses .card /
+   .pill / .btn / .muted / .row-list rather than a parallel styling system. */
+.draft-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 4px;
+  background: transparent;
+  border: none;
+  border-bottom: 0.5px solid var(--separator);
+  text-align: left;
+  color: inherit;
+  font-family: inherit;
+}
+.draft-row:last-child { border-bottom: none; }
+.draft-row.drafted { opacity: 0.4; }
+.draft-row.drafted .player-name { text-decoration: line-through; }
+.draft-row .player-info { flex: 1; min-width: 0; }
+.draft-row .player-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+.draft-filter-bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  -webkit-overflow-scrolling: touch;
+}
+.draft-filter-bar .segmented { flex-shrink: 0; }
+
+.rec-shortlist { display: flex; flex-direction: column; gap: 10px; }
+.rec-card { background: var(--surface); border-radius: 12px; padding: 14px 16px; }
+.rec-card.top-pick { border: 1px solid var(--move); }
+.rec-card .rec-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.rec-card .rec-score {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--exercise);
+}
+.rec-card .rec-reason { font-size: 13px; color: var(--text-secondary); }
+.rec-card .rec-rules { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+
+.tier-alarm {
+  background: rgba(255, 159, 10, 0.12);
+  border: 1px solid rgba(255, 159, 10, 0.35);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--live);
+  font-weight: 600;
+}
+.bye-warning {
+  background: rgba(255, 45, 85, 0.12);
+  border: 1px solid rgba(255, 45, 85, 0.3);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--move);
+}
+
+/* Task 6.6 -- settings-conflict banner. Persistent (not dismissible, not collapsible)
+   so the Draft screen never silently implies the static league_config.json is
+   confirmed. Neutral/informational (not the red .bye-warning treatment) -- this is an
+   ongoing "unconfirmed" state, not necessarily an active problem. */
+.settings-conflict-banner {
+  background: var(--surface);
+  border: 1px solid var(--separator);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--text);
+}
+.settings-conflict-banner .settings-conflict-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.settings-conflict-banner .settings-conflict-group-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 8px;
+}
+.settings-conflict-banner ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+.settings-conflict-banner li { margin-bottom: 2px; }
+
+/* Task 4.6 -- match resolution. A VISIBLE, NON-BLOCKING status card (never a modal/
+   overlay -- see MatchResolution.tsx) naming board players below the 0.9 ESPN-match
+   confidence gate, with tap-to-resolve candidate buttons. The "everything matched"
+   state (`.ok`, the real board's actual state today) uses the same neutral treatment
+   as .settings-conflict-banner -- it's informational, not a warning. */
+.match-resolution-banner {
+  background: var(--surface);
+  border: 1px solid var(--separator);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--text);
+}
+.match-resolution-banner.ok { border-color: rgba(48, 209, 88, 0.35); }
+.match-resolution-title { font-weight: 700; }
+.match-resolution-summary { margin: 4px 0 0; font-size: 12px; }
+.match-resolution-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 4px;
+  border-top: 0.5px solid var(--separator);
+}
+.match-resolution-row-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.match-resolution-candidates { display: flex; flex-direction: column; gap: 8px; }
+.match-resolution-candidates .btn {
+  min-height: 44px;
+  text-align: left;
+  white-space: normal;
+}
+.match-resolution-no-candidates { margin: 0; }
+
+/* Task 6.1 -- positional run banner (recommendations). Shares the tier-alarm's amber
+   treatment -- both are "the board is moving faster than you think" signals. */
+.positional-run-banner {
+  background: rgba(255, 159, 10, 0.12);
+  border: 1px solid rgba(255, 159, 10, 0.35);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--live);
+  font-weight: 600;
+}
+
+/* Task 6.3 -- PlayerDetail scouting panel. No dialog primitive exists yet elsewhere in
+   the app, so this is a self-contained overlay + card, reusing .card/.pill/.btn. */
+.draft-detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 100;
+  padding: 0;
+}
+@media (min-width: 768px) {
+  .draft-detail-overlay { align-items: center; padding: 24px; }
+}
+.draft-detail-panel {
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 16px 16px 0 0;
+  padding: 20px;
+}
+@media (min-width: 768px) {
+  .draft-detail-panel { border-radius: 16px; }
+}
+.draft-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.draft-detail-section { margin-bottom: 16px; }
+.draft-detail-section:last-child { margin-bottom: 0; }
+.draft-detail-section .section-label { font-size: 12px; margin-bottom: 4px; }
+.draft-detail-section p { margin: 0; font-size: 14px; color: var(--text); line-height: 1.4; }
+
+.analyst-take { background: var(--surface-2); border-radius: 10px; padding: 10px 12px; }
+.analyst-take + .analyst-take { margin-top: 8px; }
+.analyst-take-source { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+.analyst-take-source .source-name { font-weight: 600; font-size: 13px; }
+.analyst-take-take { font-size: 13px; color: var(--text); }
+.analyst-take-detail { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+
+.injury-tag-disclaimer {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0 0 8px;
+  line-height: 1.4;
+}
+
+.current-pick-bar { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.current-pick-bar .stat { text-align: center; min-width: 64px; }
+.current-pick-bar .stat .value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.current-pick-bar .stat .label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.current-pick-bar form { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+.current-pick-bar input[type="number"] {
+  width: 88px;
+  background: var(--surface-2);
+  border: none;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  padding: 10px 12px;
+  outline: none;
+}
+
 /* Scrollbars */
 .content::-webkit-scrollbar,
 .tweaks-scroll::-webkit-scrollbar { width: 8px; }

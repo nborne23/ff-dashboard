@@ -35,23 +35,43 @@ POSITION_MAP: dict[int, schemas.Position] = {
     16: "DST",
 }
 
-# ESPN's `proTeamId` -> standard NFL abbreviation. Not exhaustive — only the ids that
-# appear in this project's fixtures/real leagues; unmapped ids fall back to "FA".
+# ESPN's `proTeamId` -> standard NFL abbreviation. Complete for all 32 clubs, derived
+# from the public `players_wl` D/ST entries (each carries `proTeamId` + the club
+# nickname), so board matching can key on NFL team without silently demoting every
+# unmapped player to "FA". ESPN leaves ids 31/32 unused. Unknown ids still fall back
+# to "FA". Abbreviations follow the draft board's convention (JAX, LV, WAS, NE, NO).
 PRO_TEAM_MAP: dict[int, str] = {
     0: "FA",
     1: "ATL",
     2: "BUF",
+    3: "CHI",
+    4: "CIN",
+    5: "CLE",
     6: "DAL",
     7: "DEN",
     8: "DET",
     9: "GB",
     10: "TEN",
+    11: "IND",
     12: "KC",
+    13: "LV",
     14: "LAR",
     15: "MIA",
     16: "MIN",
+    17: "NE",
+    18: "NO",
+    19: "NYG",
+    20: "NYJ",
+    21: "PHI",
+    22: "ARI",
+    23: "PIT",
     24: "LAC",
     25: "SF",
+    26: "SEA",
+    27: "TB",
+    28: "WAS",
+    29: "CAR",
+    30: "JAX",
     33: "BAL",
     34: "HOU",
 }

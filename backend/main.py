@@ -13,6 +13,7 @@ from backend.gridiron import scheduler
 from backend.gridiron.api.admin import router as admin_router
 from backend.gridiron.api.connections import router as connections_router
 from backend.gridiron.api.data import router as data_router
+from backend.gridiron.api.draft import router as draft_router
 from backend.gridiron.api.events import router as events_router
 from backend.gridiron.api.headshots import router as headshots_router
 from backend.gridiron.api.leagues import router as leagues_router
@@ -76,6 +77,7 @@ def create_app() -> FastAPI:
     app.include_router(teams_router)
     app.include_router(admin_router)
     app.include_router(data_router)
+    app.include_router(draft_router)
     app.include_router(events_router)
 
     if FRONTEND_DIST.is_dir():

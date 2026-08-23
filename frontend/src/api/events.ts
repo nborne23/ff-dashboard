@@ -55,6 +55,11 @@ interface TierChangePayload {
 export function queryKeyForScope(scope: string): QueryKey | null {
   if (scope === "teams") return ["teams"];
   if (scope === "live_nfl_games") return ["live_nfl_games"];
+  // Draft Assistant (task 3.6): one bare "draft" scope covers picks, current-pick, and
+  // session status all at once (services/differ.py's draft_fingerprints), so a single
+  // prefix key here invalidates every api/draft.ts query (board/pool/state/
+  // recommendations all key off ["draft", ...]) via invalidateQueries' prefix match.
+  if (scope === "draft") return ["draft"];
 
   const separatorIndex = scope.indexOf(":");
   if (separatorIndex === -1) return null;

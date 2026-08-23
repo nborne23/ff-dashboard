@@ -3,6 +3,14 @@
 from backend.gridiron.models.app_settings import AppSetting
 from backend.gridiron.models.base import Base
 from backend.gridiron.models.connections import Connection
+from backend.gridiron.models.draft import (
+    BoardHeuristic,
+    BoardIdOverride,
+    BoardPlayer,
+    BoardTier,
+    DraftPick,
+    DraftSession,
+)
 from backend.gridiron.models.headshots import Headshot
 from backend.gridiron.models.http_cache import HttpCache
 from backend.gridiron.models.leagues import League
@@ -17,7 +25,13 @@ from backend.gridiron.models.teams import Team
 __all__ = [
     "AppSetting",
     "Base",
+    "BoardHeuristic",
+    "BoardIdOverride",
+    "BoardPlayer",
+    "BoardTier",
     "Connection",
+    "DraftPick",
+    "DraftSession",
     "Headshot",
     "HttpCache",
     "League",

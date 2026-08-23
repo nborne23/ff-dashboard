@@ -1,0 +1,110 @@
+{
+  "positional_cliffs": {
+    "RB": [
+      {
+        "after_positional_tier": 4,
+        "label": "Projectable starters end here. Have 3 RBs by pick ~50 in a 2-FLEX league."
+      },
+      {
+        "after_positional_tier": 6,
+        "label": "Beyond here you are buying injury insurance and lottery tickets."
+      }
+    ],
+    "TE": [
+      {
+        "after_positional_tier": 1,
+        "label": "Sharp drop after the top 2, then a long flat plateau. Elite-or-wait."
+      }
+    ],
+    "QB": [
+      {
+        "after_positional_tier": 1,
+        "label": "Josh Allen is his own tier; the next tier goes ~25 picks later. Never reach."
+      }
+    ],
+    "WR": [
+      {
+        "after_positional_tier": 2,
+        "label": "Top-tier thins out but WR stays draftable deep. Don't chase if you miss."
+      }
+    ]
+  },
+  "heuristics": [
+    {
+      "id": "draft_the_tier",
+      "rule": "Recommend the LAST player in a breaking tier over the highest-ranked player available when the next tier starts within the user's next-pick window."
+    },
+    {
+      "id": "flex_pressure",
+      "rule": "With 2 FLEX slots, weight RB/WR depth above a marginal upgrade at QB or TE."
+    },
+    {
+      "id": "no_kicker",
+      "rule": "Never suggest a kicker. Surface the extra bench slot as a handcuff or second DST recommendation."
+    },
+    {
+      "id": "elite_te_window",
+      "rule": "McBride/Bowers ADP has fallen into Round 4 while expert ranks put them ~17th and ~24th overall. Flag as a structural edge when either is available after pick 30."
+    },
+    {
+      "id": "qb_wait",
+      "rule": "Do not recommend QB before pick ~50 unless Josh Allen falls past his ADP by 8+ picks."
+    },
+    {
+      "id": "dst_last",
+      "rule": "Recommend exactly one DST in the last two rounds, prioritizing Weeks 1-4 schedule over season-long ranking."
+    },
+    {
+      "id": "handcuff_own_studs",
+      "rule": "If a rostered RB has risk_score >= 4 or an injury_tag, surface his handcuff."
+    },
+    {
+      "id": "bye_stacking",
+      "rule": "Warn when 3+ projected starters share a bye, especially Week 11 (6 teams off)."
+    },
+    {
+      "id": "injury_discount",
+      "rule": "A player is only a value if ADP has fallen to compensate for the injury. Flag cases where risk rose but ADP did not (e.g. Jeremiyah Love, Alec Pierce)."
+    }
+  ],
+  "value_calc": {
+    "adp_delta": "expert_rank - adp_rank; positive = value",
+    "vorp_note": "Compute replacement level per position using league starters: RB/WR replacement should account for the 2 FLEX slots (approx RB30 / WR30 in a 12-team 2-FLEX league), TE12, QB12, DST12."
+  },
+  "draft_slot_1_plan": {
+    "pick_numbers": [
+      1,
+      24,
+      25,
+      48,
+      49,
+      72,
+      73
+    ],
+    "structural_note": "Picks 24 and 25 are back-to-back. Plan in pairs.",
+    "pick_1": {
+      "take": "Jahmyr Gibbs",
+      "confidence": "high"
+    },
+    "picks_24_25": {
+      "group_a_wr": [
+        "Nico Collins",
+        "Malik Nabers",
+        "Zay Flowers",
+        "Chris Olave"
+      ],
+      "group_b_rb_or_te": [
+        "Omarion Hampton",
+        "Kenneth Walker III",
+        "Kyren Williams",
+        "Trey McBride"
+      ],
+      "rule": "Take one from each group. McBride at 25 is defensible because he will not last to 48.",
+      "avoid": [
+        "Josh Jacobs",
+        "Jeremiyah Love",
+        "Breece Hall"
+      ]
+    }
+  }
+}

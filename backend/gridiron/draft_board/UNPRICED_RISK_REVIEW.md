@@ -1,0 +1,44 @@
+# unpriced_risk curation list (task 1.7a)
+
+Tick a player when his risk is NOT priced into his ADP. Then set him `true` in `unpriced_risk.json`.
+
+- [x] De'Von Achane (RB, MIA) risk=5 adp=11.5 — STILL THE FADE, and the market disagrees with me — he's RISEN to 1.12. Miami's WR room is bottom-tier, Malik Willis targets RBs at the NFL's lowest ra
+- [x] Josh Jacobs (RB, GB) risk=5 adp=24.9 — NEW FADE.  Groin injury has him out, MarShawn Lloyd is taking most first-team reps, and Jacobs still faces possible NFL discipline under the personal 
+- [x] Jeremiyah Love (RB, ARI) risk=5 adp=30.0 — HIGH-ANKLE SPRAIN — WILL MISS PRESEASON WK 2 AND MAY MISS THE OPENER.  Yahoo: 'we never want to invest into a lower-body injury for a RB before the se
+- [x] Alec Pierce (WR, IND) risk=5 adp=56.4 — DOWNGRADE — recovering from ANKLE SURGERY with no clear return date, and the Colts just signed Keenan Allen.  ADP still 56.4, which is far too high. H
+- [x] Luther Burden III (WR, CHI) risk=5 adp=61.7 — DOWNGRADED — groin.  Will miss the entire preseason; Chicago is hopeful for Week 1 (Schefter). Risky at this ADP. Odunze is the better Bears WR to dra
+- [x] Sam LaPorta (TE, DET) risk=5 adp=94.2 — NEW — HIP INJURY, WEEK 1 UNCERTAIN.  Campbell doesn't know his status but 'feels' he'll be ready. Already missed most of 2025 and had back surgery for
+- [x] Makai Lemon (WR, PHI) risk=5 adp=111.5 — Hamstring setback expected to linger into the season. Recurring soft-tissue issue. Only worth it this late. Bye 10.
+- [ ] George Kittle (TE, SF) risk=5 adp=117.6 — Achilles/PUP question. Big discount if he's cleared.
+- [x] Jerry Jeudy (WR, CLE) risk=5 adp=127.4 — FADE. Fantasy Life: 'not sure he's even worth a roster spot.' Boston and Concepcion have passed him.
+- [ ] Zach Charbonnet (RB, SEA) risk=5 adp=132.6 — Stash. On PUP; averaged 21.9 half-PPR pts in the 6 games Walker missed in '23-'24.
+- [x] Jalen McMillan (WR, TB) risk=5 adp=135.4 — NEW FADE. Knee injury, timeline unknown, and Ted Hurst has taken the X job.
+- [ ] Omar Cooper Jr. (WR, NYJ) risk=5 adp=158.3 — Jets, not Giants. Geno historically supports only one fantasy WR.
+- [ ] Ricky Pearsall (WR, SF) risk=5 adp=None — OUT for 2026 (PCL surgery). No longer appears in ADP data.
+- [ ] Tyreek Hill (WR, FA) risk=5 adp=None — Still unsigned. Not in the top 222 of ADP. Undraftable.
+- [ ] Chris Brazzell (WR, -) risk=5 adp=None — Torn LCL — out for his entire rookie season.
+- [ ] Kenyon Sadiq (TE, NYJ) risk=5 adp=None — OFF THE BOARD — no longer in the top 222 of ADP. Hernia setback plus Mason Taylor competition. Waiver watch only.
+- [ ] Christian McCaffrey (RB, SF) risk=4 adp=6.8 — STILL THE CONSENSUS FADE at cost. Age 30 off a league-high 413 touches; no RB since 2000 with 400+ touches finished top-10 the next year.
+- [ ] Rashee Rice (WR, KC) risk=4 adp=15.9 — Andy Holloway calls him a 'facts versus feelings' player — bad-publicity offseason and he 'returned to the practice field looking slow.' But Mahomes i
+- [ ] Malik Nabers (WR, NYG) risk=4 adp=28.2 — Sat out the preseason opener and likely misses all three — in team drills but NOT yet cleared for contact. Prognosis improved to a possible Week 1. Fo
+- [ ] Breece Hall (RB, NYJ) risk=4 adp=34.9 — Groin strain; Glenn downplayed it but ADP fell from 29.0 to 34.9. Braelon Allen is next up with Isaiah Davis already out.
+- [ ] Emeka Egbuka (WR, TB) risk=4 adp=34.9 — Sprained toe, no practice since Aug 12. Bowles: 'day to day, week to week,' won't commit to Week 1. WR1 in Tampa now that Evans is in SF.
+- [ ] Bucky Irving (RB, TB) risk=4 adp=45.5 — STILL A FADE. Gainwell is the declared '1B.' 1 rushing TD in 10 games and 3.4 YPC in 2025.
+- [ ] Mike Evans (WR, SF) risk=4 adp=53.8 — NEW TEAM — San Francisco. Age fade, but a real role with Pearsall out for the year.
+- [ ] Christian Watson (WR, GB) risk=4 adp=56.3 — Best-ball profile more than redraft.
+- [ ] Tony Pollard (RB, TEN) risk=4 adp=66.1 — DOWNGRADED.  Pollard and Tyjae Spears split first-team reps in preseason Week 1, both with four carries. Pollard handled 70% of designed rushes last y
+- [ ] Jadarian Price (RB, SEA) risk=4 adp=75.3 — Holani still listed ahead on the unofficial depth chart; returned to full practice Aug 17. Only 15 catches in 41 college games caps the half-PPR floor
+- [ ] Matthew Stafford (QB, LAR) risk=4 adp=79.0 — NEUTRAL-TO-FADE. MVP at 38 with 46 TDs is not repeatable, but the price has corrected to 7.05.
+- [ ] J.K. Dobbins (RB, DEN) risk=4 adp=83.3 — Soft-tissue scare in camp, back at practice limited. Has never completed a full healthy NFL season.
+- [ ] Tucker Kraft (TE, GB) risk=4 adp=100.5 — Off PUP from the ACL. Was TE2 in PPG before the injury.
+- [ ] Jonathon Brooks (RB, CAR) risk=4 adp=101.0 — 'Almost zero risk' this late — Boone. Bye 5.
+- [ ] Aaron Jones Sr. (RB, MIN) risk=4 adp=103.3 — Age and injury risk, but real volume.
+- [ ] Patrick Mahomes (QB, KC) risk=4 adp=103.7 — Knee 'feels great' and he's targeting Week 1, but Reid won't commit to preseason reps. KC may lean run-first early. Fine as a QB2 at this price.
+- [ ] Jaxson Dart (QB, NYG) risk=4 adp=122.3 — Footballers split: Mike calls him 'incredible value on a young, rushing QB'; their Aug 20 show asked if the hype is too much. Stacks with Nabers.
+- [ ] Travis Kelce (TE, KC) risk=4 adp=122.5 — Age plus the earliest bye (5).
+- [ ] Jordyn Tyson (WR, NO) risk=4 adp=126.9 — Setback expected to linger into the season — flagged by Yahoo among injuries that could sink your season. CBS still projects him the top-producing roo
+- [ ] Denzel Boston (WR, CLE) risk=4 adp=138.6 — UPGRADED. Listed as the No. 1 option on Cleveland's first unofficial depth chart and already working with the starters. The QB room (Watson/Sanders) i
+- [ ] Cooper Kupp (WR, SEA) risk=4 adp=156.4 — NEW TEAM.
+- [ ] MarShawn Lloyd (RB, GB) risk=4 adp=157.1 — +18.5 spots. First-team reps with Jacobs hurt.
+- [ ] Jonah Coleman (RB, DEN) risk=4 adp=163.2 — Dobbins' soft-tissue history makes him one injury from a lead role.
+- [ ] Ja'Kobi Lane (WR, BAL) risk=4 adp=168.6 — BIGGEST ROOKIE RISER, +26.9 spots.  ESPN's Jamison Hensley isn't sure he's seen a better rookie WR performance in 27 years covering the Ravens. Went 3
