@@ -125,8 +125,20 @@ async def espn_test(
     client = EspnClient(settings, swid=body.swid, espn_s2=body.espn_s2)
     try:
         try:
-            await client.probe_league(datetime.now(UTC).year)
-        except AuthRequiredError as exc:
+            year = datetime.now(UTC).year
+            league_ids = await client.discover_leagues(year)
+            # `discover_leagues` doesn't actually check `espn_s2` (ESPN accepts any/no
+            # value there) — only a real per-league fetch enforces it, so that's what
+            # decides accept/reject. No leagues found yet is treated as accepted; the
+            # cookies will be validated for real the first time a league is added.
+            if league_ids:
+                await client.probe_league(league_ids[0], year)
+        except (AuthRequiredError, httpx.HTTPStatusError) as exc:
+            # AuthRequiredError is the expected bad-cookie case (401/403 from the
+            # per-league probe). A non-auth HTTPStatusError here almost always means
+            # `SWID` doesn't match any real ESPN account (the fan API 404s rather
+            # than 401ing for those) — surfacing both as one rejection keeps this
+            # endpoint from 500ing on malformed-but-regex-valid input.
             raise HTTPException(
                 status_code=422,
                 detail={"code": "auth_required", "message": "ESPN rejected the provided cookies"},

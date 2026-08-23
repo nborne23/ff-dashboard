@@ -14,6 +14,30 @@ from backend.main import app
 
 TEST_SECRET_KEY = "test-secret-key"
 CURRENT_YEAR = datetime.now(UTC).year
+FAN_API_URL = "https://fan.api.espn.com/apis/v2/fans/%7BABC-123%7D"
+LEAGUE_URL = (
+    f"https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/{CURRENT_YEAR}"
+    "/segments/0/leagues/1234567"
+)
+
+
+def _fan_preferences(league_id: int = 1234567, entry_id: int = 12) -> dict:
+    return {
+        "preferences": [
+            {
+                "id": f"{entry_id}:{league_id}:1:{CURRENT_YEAR}",
+                "typeId": 9,
+                "metaData": {
+                    "entry": {
+                        "abbrev": "FFL",
+                        "entryId": entry_id,
+                        "gameId": 1,
+                        "seasonId": CURRENT_YEAR,
+                    }
+                },
+            }
+        ]
+    }
 
 
 def make_test_settings() -> Settings:
@@ -108,9 +132,8 @@ async def test_yahoo_callback_rejects_invalid_state(client: httpx.AsyncClient) -
 @pytest.mark.asyncio
 @respx.mock
 async def test_espn_test_happy_path_persists_and_marks_verified(client: httpx.AsyncClient) -> None:
-    respx.get(
-        f"https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/{CURRENT_YEAR}/segments/0/leagues"
-    ).mock(return_value=httpx.Response(200, json={"ok": True}))
+    respx.get(FAN_API_URL).mock(return_value=httpx.Response(200, json=_fan_preferences()))
+    respx.get(LEAGUE_URL).mock(return_value=httpx.Response(200, json={"ok": True}))
 
     response = await client.post(
         "/api/connections/espn/test",
@@ -136,9 +159,8 @@ async def test_espn_test_rejects_malformed_swid(client: httpx.AsyncClient) -> No
 @pytest.mark.asyncio
 @respx.mock
 async def test_espn_test_rejects_on_espn_401(client: httpx.AsyncClient) -> None:
-    respx.get(
-        f"https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/{CURRENT_YEAR}/segments/0/leagues"
-    ).mock(return_value=httpx.Response(401))
+    respx.get(FAN_API_URL).mock(return_value=httpx.Response(200, json=_fan_preferences()))
+    respx.get(LEAGUE_URL).mock(return_value=httpx.Response(401))
 
     response = await client.post(
         "/api/connections/espn/test",
@@ -156,10 +178,25 @@ async def test_espn_test_rejects_on_espn_401(client: httpx.AsyncClient) -> None:
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_espn_test_rejects_on_nonexistent_swid(client: httpx.AsyncClient) -> None:
+    """A regex-valid but non-existent SWID gets a 404 from ESPN's fan API (not
+    401/403) — this must still reject cleanly, not 500."""
+    respx.get(FAN_API_URL).mock(return_value=httpx.Response(404))
+
+    response = await client.post(
+        "/api/connections/espn/test",
+        json={"swid": "{ABC-123}", "espn_s2": "s2-value"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "auth_required"
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_delete_connection_removes_row(client: httpx.AsyncClient) -> None:
-    respx.get(
-        f"https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/{CURRENT_YEAR}/segments/0/leagues"
-    ).mock(return_value=httpx.Response(200, json={"ok": True}))
+    respx.get(FAN_API_URL).mock(return_value=httpx.Response(200, json=_fan_preferences()))
+    respx.get(LEAGUE_URL).mock(return_value=httpx.Response(200, json={"ok": True}))
     await client.post(
         "/api/connections/espn/test", json={"swid": "{ABC-123}", "espn_s2": "s2-value"}
     )

@@ -18,12 +18,6 @@ import {
   IconSettings,
   IconTeams,
 } from "../primitives";
-import { PLACEHOLDER_TEAMS } from "./placeholderShellData";
-
-// PLACEHOLDER: Matchups/Season need *a* team to link to before there's a
-// notion of a "selected" team (that lands with real data in Phase 4/5) — use
-// the first placeholder team as a stand-in.
-const PRIMARY_TEAM_ID = PLACEHOLDER_TEAMS[0].id;
 
 function navItemClassName({ isActive }: { isActive: boolean }): string {
   return "nav-item" + (isActive ? " active" : "");
@@ -37,6 +31,12 @@ export function Sidebar() {
   const teamsQuery = useTeams(week);
   const freshness = useFreshness(teamsQuery.data?.meta?.as_of);
   const connectionLostLong = useLiveConnectionStore((s) => s.connectionLostLong);
+
+  const teams = teamsQuery.data?.data.teams ?? [];
+  // Matchups/Season link to a "selected" team; before any team exists (nothing
+  // connected yet) there's nothing to select, so fall back to the dashboard,
+  // which already has its own "connect a league" empty state.
+  const primaryTeamId = teams[0]?.id;
 
   const isTeamRoute = location.pathname.startsWith("/team/");
   const isH2H = location.pathname.endsWith("/h2h");
@@ -74,7 +74,8 @@ export function Sidebar() {
           </span>
         </button>
         {teamsExpanded &&
-          PLACEHOLDER_TEAMS.map((t) => {
+          teams.map((t) => {
+            const platform = t.id.split(":")[0];
             const teamPath = `/team/${t.id}`;
             const isActive = isMyTeamActive && location.pathname === teamPath;
             return (
@@ -86,7 +87,7 @@ export function Sidebar() {
               >
                 <span
                   className="platform-dot"
-                  style={{ background: t.platform === "yahoo" ? "var(--yahoo)" : "var(--espn)" }}
+                  style={{ background: platform === "yahoo" ? "var(--yahoo)" : "var(--espn)" }}
                 />
                 <span
                   style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
@@ -97,13 +98,19 @@ export function Sidebar() {
             );
           })}
 
-        <NavLink to={`/team/${PRIMARY_TEAM_ID}/h2h`} className={navItemClassName}>
+        <NavLink
+          to={primaryTeamId ? `/team/${primaryTeamId}/h2h` : "/"}
+          className={navItemClassName}
+        >
           <span className="icon">
             <IconMatchups size={18} />
           </span>
           <span className="label">Matchups</span>
         </NavLink>
-        <NavLink to={`/team/${PRIMARY_TEAM_ID}/season`} className={navItemClassName}>
+        <NavLink
+          to={primaryTeamId ? `/team/${primaryTeamId}/season` : "/"}
+          className={navItemClassName}
+        >
           <span className="icon">
             <IconSeason size={18} />
           </span>

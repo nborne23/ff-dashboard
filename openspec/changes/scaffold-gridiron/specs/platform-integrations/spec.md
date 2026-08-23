@@ -7,7 +7,8 @@ The system SHALL implement Yahoo Fantasy Sports' OAuth 2.0 authorization-code fl
 #### Scenario: First-time authorization
 
 - **WHEN** the user clicks "Connect Yahoo" in Settings
-- **THEN** the backend generates an authorization URL containing the configured `client_id`, `redirect_uri`, `response_type=code`, `scope=fspt-r`, and a CSRF-protected `state` token, and the frontend redirects the browser to it.
+- **THEN** the backend generates an authorization URL containing the configured `client_id`, `redirect_uri`, `response_type=code`, `scope=fspt-w`, and a CSRF-protected `state` token, and the frontend redirects the browser to it.
+- **NOTE**: `fspt-w` (read/write), not the read-only `fspt-r`, because Yahoo's Developer console only offers a single "Fantasy Sports — Read/Write" permission grant for this app — requesting `fspt-r` against an app provisioned that way gets `error=invalid_scope` back from Yahoo (confirmed live in August 2026). The app only ever issues read requests regardless of which scope is granted.
 
 #### Scenario: Callback exchange
 
@@ -64,7 +65,8 @@ The system SHALL accept user-provided `SWID` and `espn_s2` cookies, validate the
 #### Scenario: Saving credentials
 
 - **WHEN** the user enters `SWID` (must match `^\{[0-9A-F-]+\}$`) and `espn_s2` in Settings and clicks "Test Connection"
-- **THEN** the backend issues a probe request to `/apis/v3/games/ffl/seasons/{currentYear}/segments/0/leagues?view=mTeam` with both cookies as `Cookie` header. If the response is 200, both cookies are encrypted and persisted, ESPN is marked connected, and `last_verified` is set to now. If 401/403, credentials are rejected and not persisted.
+- **THEN** the backend calls ESPN's cross-sport "fan" identity API (`https://fan.api.espn.com/apis/v2/fans/{SWID}`) with both cookies as `Cookie` header to discover the user's NFL fantasy football league ids for the current season (filtering `preferences[]` entries where `typeId == 9` and `metaData.entry.abbrev == "FFL"`, parsing the league id out of the middle segment of that entry's `id` field, e.g. `"12:111111111:1:2026"` → `111111111`). Because ESPN does not actually gate this endpoint on `espn_s2` being correct (it 200s for a bare `SWID` alone), it is discovery-only. If at least one league id was found, the backend follows up with a real per-league probe — `/apis/v3/games/ffl/seasons/{currentYear}/segments/0/leagues/{league_id}?view=mTeam` — which does enforce `espn_s2`. If that call is 200 (or no league was discovered to probe against), both cookies are encrypted and persisted, ESPN is marked connected, and `last_verified` is set to now. If the per-league probe returns 401/403, credentials are rejected and not persisted.
+- **NOTE**: an earlier version of this spec called the bare `/apis/v3/games/ffl/seasons/{currentYear}/segments/0/leagues?view=mTeam` collection endpoint (no league id) directly for both discovery and validation. ESPN discontinued that endpoint (it now returns 405 unconditionally, regardless of auth) — confirmed live in August 2026. The fan API above is its replacement for discovery; credential validation was split out to a real per-league call since the fan API doesn't perform one.
 
 #### Scenario: Silent 401 / 403 during a normal call
 

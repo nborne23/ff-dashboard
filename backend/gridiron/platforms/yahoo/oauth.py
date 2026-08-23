@@ -12,7 +12,7 @@ from backend.gridiron.config import Settings
 
 AUTHORIZE_URL = "https://api.login.yahoo.com/oauth2/request_auth"
 TOKEN_URL = "https://api.login.yahoo.com/oauth2/get_token"
-SCOPE = "fspt-r"
+SCOPE = "fspt-w"
 
 STATE_MAX_AGE_SECONDS = 600  # 10 minutes
 

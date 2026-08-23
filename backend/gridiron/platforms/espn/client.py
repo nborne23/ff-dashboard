@@ -13,6 +13,12 @@ from backend.gridiron.services import cache
 
 AUTH_FAILURE_STATUSES = (401, 403)
 
+# ESPN discontinued the bare `/apis/v3/games/ffl/.../leagues` collection endpoint this
+# app originally used for discovery (it now 405s unconditionally, auth or not). The
+# cross-sport "fan" identity API is the current equivalent for enumerating every league
+# a SWID belongs to — see `EspnClient.discover_leagues`.
+FAN_API_BASE = "https://fan.api.espn.com"
+
 # Per platform-integrations spec's "Cache TTL by endpoint class" scenario (off-day defaults).
 LEAGUE_SETTINGS_TTL = timedelta(hours=24)
 TEAM_METADATA_TTL = timedelta(hours=6)
@@ -55,12 +61,38 @@ class EspnClient:
     async def get(self, path: str, *, params: dict | None = None) -> httpx.Response:
         return await self.request("GET", path, params=params)
 
-    async def probe_league(self, year: int) -> httpx.Response:
-        """Cheap credential-verification call used by `POST /api/connections/espn/test`."""
-        return await self.get(
-            f"/apis/v3/games/ffl/seasons/{year}/segments/0/leagues",
-            params={"view": "mTeam"},
+    async def discover_leagues(self, year: int) -> list[int]:
+        """Every NFL fantasy league id this SWID belongs to for `year`.
+
+        ESPN doesn't actually gate this endpoint on `espn_s2` being correct (a bare
+        SWID is enough to get a 200 back), so it's discovery-only — it does not prove
+        the credentials are valid. Pair with `probe_league` against one of the
+        returned ids to actually validate `espn_s2`.
+        """
+        response = await self.get(
+            f"{FAN_API_BASE}/apis/v2/fans/{self._swid}",
+            params={"showAirings": "buy,sub", "showZipLookup": "true", "segmentId": "0"},
         )
+        league_ids: list[int] = []
+        for pref in response.json().get("preferences", []):
+            entry = pref.get("metaData", {}).get("entry", {})
+            if pref.get("typeId") != 9 or entry.get("abbrev") != "FFL":
+                continue
+            if entry.get("seasonId") != year:
+                continue
+            try:
+                league_id = int(str(pref["id"]).split(":")[1])
+            except (KeyError, IndexError, ValueError):
+                continue
+            league_ids.append(league_id)
+        return league_ids
+
+    async def probe_league(self, league_id: int, year: int) -> httpx.Response:
+        """Cheap per-league credential-verification call — actually enforces
+        `espn_s2`, unlike `discover_leagues`. Used by `POST /api/connections/espn/test`
+        once a league id is known (from `discover_leagues` or an already-persisted
+        league)."""
+        return await self.get(self._league_path(league_id, year), params={"view": "mTeam"})
 
     @staticmethod
     def _league_path(league_id: int, year: int) -> str:

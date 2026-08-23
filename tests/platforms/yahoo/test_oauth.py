@@ -63,7 +63,7 @@ def test_build_authorization_url_contains_expected_params() -> None:
 
     assert url.startswith(oauth.AUTHORIZE_URL)
     assert "response_type=code" in url
-    assert "scope=fspt-r" in url
+    assert "scope=fspt-w" in url
     assert "client_id=client-id" in url
     assert f"state={state}" in url
     assert (

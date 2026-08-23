@@ -5,6 +5,7 @@ platform HTTP using the captured fixtures."""
 import json
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from urllib.parse import quote
 
 import httpx
 import pytest
@@ -703,8 +704,26 @@ def _mock_espn_discovery() -> None:
         return_value=httpx.Response(200, json=load_fixture("espn", "league.json"))
     )
     probe_year = fantasy_service._current_season()
-    respx.get(f"{ESPN_BASE}/apis/v3/games/ffl/seasons/{probe_year}/segments/0/leagues").mock(
-        return_value=httpx.Response(200, json=[])
+    respx.get(f"https://fan.api.espn.com/apis/v2/fans/{quote(ESPN_SWID, safe='')}").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "preferences": [
+                    {
+                        "id": f"12:1234567:1:{probe_year}",
+                        "typeId": 9,
+                        "metaData": {
+                            "entry": {
+                                "abbrev": "FFL",
+                                "entryId": 12,
+                                "gameId": 1,
+                                "seasonId": probe_year,
+                            }
+                        },
+                    }
+                ]
+            },
+        )
     )
 
 

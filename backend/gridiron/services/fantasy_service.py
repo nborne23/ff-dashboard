@@ -1017,16 +1017,6 @@ async def _discover_yahoo(factory: async_sessionmaker, settings: Settings) -> No
         await client.aclose()
 
 
-def _probe_league_ids(payload: object) -> set[int]:
-    """Best-effort league-id extraction from ESPN's leagues-collection probe response."""
-    ids: set[int] = set()
-    if isinstance(payload, list):
-        for item in payload:
-            if isinstance(item, dict) and isinstance(item.get("id"), int):
-                ids.add(item["id"])
-    return ids
-
-
 async def _discover_espn(factory: async_sessionmaker, settings: Settings) -> None:
     async with factory() as session:
         conn = await session.get(Connection, "espn")
@@ -1047,12 +1037,11 @@ async def _discover_espn(factory: async_sessionmaker, settings: Settings) -> Non
     try:
         probe_year = _current_season()
         try:
-            probe = await client.probe_league(probe_year)
-            for league_id in _probe_league_ids(probe.json()):
+            for league_id in await client.discover_leagues(probe_year):
                 league_ids.add(league_id)
                 seasons.setdefault(league_id, probe_year)
-        except ValueError:
-            pass  # non-JSON probe body — probe discovery is best-effort
+        except (httpx.HTTPStatusError, ValueError):
+            pass  # discovery is best-effort; sync continues with already-known leagues
 
         # Phase 8: skip leagues with is_enabled=False (see the matching comment in
         # _discover_yahoo — same bandwidth-optimization seam). Checked against the

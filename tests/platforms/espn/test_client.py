@@ -15,6 +15,7 @@ from backend.gridiron.services import cache
 
 BASE_URL = "https://lm-api-reads.fantasy.espn.com"
 LEAGUE_PATH = "/apis/v3/games/ffl/seasons/2025/segments/0/leagues/1234567"
+LEAGUE_PATH_URL = BASE_URL + LEAGUE_PATH
 
 
 def make_settings() -> Settings:
@@ -86,15 +87,68 @@ async def test_403_raises_auth_required_error() -> None:
 @respx.mock
 async def test_probe_league_hits_expected_endpoint() -> None:
     settings = make_settings()
-    route = respx.get(
-        "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2025/segments/0/leagues"
-    ).mock(return_value=httpx.Response(200, json={"ok": True}))
+    route = respx.get(LEAGUE_PATH_URL).mock(return_value=httpx.Response(200, json={"ok": True}))
 
     client = EspnClient(settings, swid="{ABC-123}", espn_s2="s2-value")
-    response = await client.probe_league(2025)
+    response = await client.probe_league(1234567, 2025)
 
     assert response.status_code == 200
     assert route.calls.last.request.url.params["view"] == "mTeam"
+    await client.aclose()
+
+
+FAN_API_URL = "https://fan.api.espn.com/apis/v2/fans/%7BABC-123%7D"
+
+
+def _fan_pref(
+    league_id: int, entry_id: int, year: int, *, typeId: int = 9, abbrev: str = "FFL"
+) -> dict:
+    return {
+        "id": f"{entry_id}:{league_id}:1:{year}",
+        "typeId": typeId,
+        "metaData": {
+            "entry": {"abbrev": abbrev, "entryId": entry_id, "gameId": 1, "seasonId": year}
+        },
+    }
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_discover_leagues_parses_fantasy_football_entries() -> None:
+    settings = make_settings()
+    respx.get(FAN_API_URL).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "preferences": [
+                    _fan_pref(111111111, 12, 2025),
+                    _fan_pref(222222222, 8, 2025),
+                    # not fantasy football — should be excluded
+                    _fan_pref(999, 1, 2025, typeId=1, abbrev="FBA"),
+                    # right sport, wrong season — should be excluded
+                    _fan_pref(111, 2, 2024),
+                ]
+            },
+        )
+    )
+
+    client = EspnClient(settings, swid="{ABC-123}", espn_s2="s2-value")
+    league_ids = await client.discover_leagues(2025)
+
+    assert sorted(league_ids) == [111111111, 222222222]
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_discover_leagues_does_not_raise_on_bad_espn_s2() -> None:
+    """ESPN's fan API returns 200 regardless of `espn_s2` validity — discovery
+    should never be mistaken for credential validation (that's `probe_league`'s job)."""
+    settings = make_settings()
+    respx.get(FAN_API_URL).mock(return_value=httpx.Response(200, json={"preferences": []}))
+
+    client = EspnClient(settings, swid="{ABC-123}", espn_s2="wrong-value")
+    assert await client.discover_leagues(2025) == []
     await client.aclose()
 
 
