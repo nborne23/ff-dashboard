@@ -6,6 +6,7 @@ import { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
 import { useTeams } from "../../api/teams";
+import { DRAFT_ASSISTANT } from "../../features";
 import { useFreshness } from "../../hooks/useFreshness";
 import { useLiveConnectionStore } from "../../stores/live";
 import { useUiStore } from "../../stores/ui";
@@ -117,12 +118,14 @@ export function Sidebar() {
           </span>
           <span className="label">Season</span>
         </NavLink>
-        <NavLink to="/draft" className={navItemClassName}>
-          <span className="icon">
-            <IconFlame size={18} />
-          </span>
-          <span className="label">Draft</span>
-        </NavLink>
+        {DRAFT_ASSISTANT && (
+          <NavLink to="/draft" className={navItemClassName}>
+            <span className="icon">
+              <IconFlame size={18} />
+            </span>
+            <span className="label">Draft</span>
+          </NavLink>
+        )}
       </div>
 
       <div className="nav-group">

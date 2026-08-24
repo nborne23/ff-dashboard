@@ -2,8 +2,8 @@
 
 > **Deliverable:** real ESPN payloads committed under `tests/fixtures/espn/draft/`. **Risk:** none to phases 1–3, which depend on nothing here — this is deliberately isolated so a negative finding costs only the polling work. **Test:** `mDraftDetail` captured *during a live mock draft* shows `inProgress: true` and a populated `picks` array; if it does not, phase 5 is cut and manual entry stands alone.
 
-- [ ] 0.1 Run `scripts/capture-espn-draft.sh` against the real league (pre-draft) and commit `league_draftdetail.json`, `kona_player_info.json`, `players_wl.json` as fixtures, with the league ID and any personal identifiers scrubbed.
-- [ ] 0.2 Re-run the capture **during an ESPN mock draft** and commit `mdraftdetail_inprogress.json`. Record in `design.md` Open Question 1 whether `inProgress` and `picks` populate mid-draft, and the exact field names for pick number, player ID, and drafting team.
+- [x] 0.1 (superseded — fetched directly, see design.md OQ1/OQ2) Run `scripts/capture-espn-draft.sh` against the real league (pre-draft) and commit `league_draftdetail.json`, `kona_player_info.json`, `players_wl.json` as fixtures, with the league ID and any personal identifiers scrubbed.
+- [~] 0.2 MOVED to `add-draft-live-polling` task 0.1 — a practice draft persists nothing, so only a live real draft can answer this. Re-run the capture **during an ESPN mock draft** and commit `mdraftdetail_inprogress.json`. Record in `design.md` Open Question 1 whether `inProgress` and `picks` populate mid-draft, and the exact field names for pick number, player ID, and drafting team.
 - [x] 0.3 From `players_wl.json`, record how D/ST entries are encoded (`defaultPositionId`, id sign/convention, name format) and resolve `design.md` Open Question 2.
 
 ## 1. Board data model + import
@@ -53,7 +53,7 @@
 - [x] 3.10 `screens/Draft/RosterPanel.tsx`: filled/unfilled starter slots from the league's real roster shape, FLEX as its own slots, no kicker slot, bye-collision warning at 3+ shared byes using platform bye weeks.
 - [x] 3.11 `screens/Draft/Recommendations.tsx`: the 3–5 shortlist at the top of the screen with one-line reasons and inspectable cited heuristics; tier-break alarm rendered prominently; turn pairs shown together.
 - [x] 3.12 `routes.tsx` `/draft` route + `Sidebar.tsx` nav item, matching existing patterns.
-- [ ] 3.13 Acceptance: complete a hand-driven 15-round mock draft in the UI on a phone-width viewport, marking only *some* picks and correcting the pick number by hand; state survives a backend restart; undo is exact; the tier alarm fires against the corrected pick number, not the pick count.
+- [~] 3.13 NOT RUN — the user's real draft was conducted in ESPN directly, so the hand-driven mock never happened. Acceptance: complete a hand-driven 15-round mock draft in the UI on a phone-width viewport, marking only *some* picks and correcting the pick number by hand; state survives a backend restart; undo is exact; the tier alarm fires against the corrected pick number, not the pick count.
 
 ## 4. ESPN player-ID matching + QA gate
 
@@ -67,30 +67,24 @@
 - [x] 4.6 `screens/Draft/MatchResolution.tsx`: the resolution list with candidate players; live mode gated behind it while any entry is below 0.9; manual board use unaffected.
 - [x] 4.7 Acceptance: run the import against real fixtures, resolve the exception list, re-run the import, confirm every override survived.
 
-## 5. Live ESPN draft polling
-
-> **Deliverable:** picks appear on the Draft screen within ~3 s of happening in ESPN, with zero background cost when disarmed. **Risk:** entirely contingent on 0.2 — if `mDraftDetail` does not expose live state, this phase is cut and phase 3 stands alone. **Test:** arm against a live mock draft; picks appear without interaction; disarm; confirm no further requests and no `refresh_runs` rows. 5.2–5.4 are parallelizable after 5.1.
-
-- [ ] 5.1 `platforms/espn/draft.py`: `fetch_draft_detail()` calling `EspnClient.get()` **directly**, never `_cached_league_fetch`. Parse against the 0.2 fixture. Comment the call site naming the stale-cache failure mode.
-- [ ] 5.2 Regression test asserting a draft fetch creates **no** `http_cache` row, so a future consolidation of ESPN fetch paths cannot silently reintroduce a 1–6 hour TTL on a 3-second poll.
-- [ ] 5.3 `run_job(audit: bool = True)`; `poll_draft` passes `False` and updates `last_poll_at`/`last_error` on its single `draft_sessions` row instead. Failures still log at WARN. Test that a poll writes zero `refresh_runs` rows and that an ordinary job still writes one.
-- [ ] 5.4 `scheduler.py`: register `poll_draft` in `JOBS` with **no** trigger at `start_scheduler()`; add `arm_draft_poll()` / `disarm_draft_poll()` adding and removing an `IntervalTrigger`. Test that boot registers no trigger and the existing adaptive cadence is unchanged.
-- [ ] 5.5 `poll_draft` job body: upsert picks through `draft_state.record_pick()` with `source='espn'`, record round / overall pick / on-the-clock team, publish the `draft` scope only on change.
-- [ ] 5.6 Reconciliation per design D1: ESPN wins on identity at a conflicting `overall_pick` and the correction is surfaced, not silent; manual rows beyond ESPN's high-water mark are left alone; agreement upgrades `source` only.
-- [ ] 5.7 Auto-disarm: three consecutive `inProgress: false` **with a complete pick set**, the `armed_at + 6h` ceiling, and explicit disarm. Test that a single false tick does not disarm.
-- [ ] 5.8 Error handling: 429/5xx backs off to 10 s; five consecutive failures disarms with a UI-visible reason.
-- [ ] 5.9 `POST /api/draft/arm` / `POST /api/draft/disarm` + `screens/Draft/SessionControl.tsx` showing round, overall pick, on-the-clock team, and a loud banner when tracking stops.
-- [ ] 5.10 Acceptance: arm against a live ESPN mock; picks land within ~3 s; kill the network mid-draft and confirm the session disarms loudly and manual entry continues uninterrupted.
-
 ## 6. Polish
 
 > **Deliverable:** the features that make this better than a spreadsheet rather than merely equal to one. **Risk:** low; all additive. **Test:** each scenario in `specs/draft-recommendations/spec.md` and `specs/draft-ui/spec.md` has a passing test. Every task here is parallelizable.
 
 - [x] 6.1 Positional run detection: 4+ of the last 8 picks at one position raises the flag and the tier-urgency contribution for that position; clears when the trailing count drops.
-- [ ] 6.2 Off-board tail from `kona_player_info` ADP ordering, visually separated and never ranked above a board player in the shortlist.
 - [x] 6.3 `screens/Draft/PlayerDetail.tsx`: note, thesis, take-in-round, sleeper category, catalyst, format fit, bye, tier labels, risk, and analyst takes with `verified_accuracy` visually distinguished; injury tags labelled advisory.
 - [x] 6.4 `screens/Draft/SlotPlan.tsx`: render the slot-1 plan only when the user's actual slot is 1; mark sniped targets and recompute the remainder against the live pool.
 - [x] 6.5 Degraded-mode behavior per design D12: 5-second draft-query polling while the Draft screen is mounted **and** SSE is disconnected, scoped to this screen only so the app-wide 5-minute fallback is untouched elsewhere.
 - [x] 6.6 Settings-conflict banner naming each field where ESPN and the static config disagree, or that could not be read.
 - [x] 6.7 Out-for-season players excluded from the pool but findable by search with a clear marker.
 - [x] 6.8 README section: how to run the import, arm a draft, and what to do when ESPN breaks mid-draft — including keeping a printed board as the backstop, since the app is the backend.
+
+## 7. Status at archive (2026-08-24)
+
+Shipped: phases 1, 2, 3, 4, 6 (less 6.2). 493 backend tests, 138 frontend tests, lint and builds clean.
+
+Deferred to change `add-draft-live-polling`: all of phase 5 (armed ESPN polling, cache bypass, audit suppression, reconciliation, session control) and 6.2 (off-board tail). Gated on whether `mDraftDetail` populates picks *during* a draft — unresolved, and unresolvable until the next live one.
+
+Not run: 3.13 (hand-driven mock through the UI) and 4.7's live re-import against real fixtures, though override survival was proven against a real double import in `test_match_override_survives_a_real_reimport`.
+
+The Draft screen ships behind `frontend/src/features.ts`'s `DRAFT_ASSISTANT` flag, currently **false** — the feature is complete but hidden between drafts. The backend API and board import stay live regardless.

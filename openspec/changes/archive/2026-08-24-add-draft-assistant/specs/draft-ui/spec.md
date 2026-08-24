@@ -147,25 +147,6 @@ The screen SHALL receive pick updates by invalidating query keys on the existing
 - **WHEN** SSE is disconnected while the Draft screen is mounted
 - **THEN** draft queries poll at approximately 5 seconds, overriding the app-wide 5-minute fallback which is far too slow for a live draft. This override SHALL apply only while the Draft screen is mounted.
 
-### Requirement: Session control and status
-
-The screen SHALL let the user start and stop live tracking explicitly and SHALL always make the current tracking state legible.
-
-#### Scenario: Arm and disarm
-
-- **WHEN** the user starts live tracking
-- **THEN** the session arms and the screen shows the current round, overall pick, and which team is on the clock; stopping tracking disarms it while retaining all recorded picks.
-
-#### Scenario: Tracking failure is loud
-
-- **WHEN** live tracking stops because of repeated upstream failures
-- **THEN** a prominent banner states that live tracking has stopped and that manual entry continues to work; the screen SHALL NOT appear to be tracking when it is not.
-
-#### Scenario: Settings disagreement warned
-
-- **WHEN** ESPN-reported league settings differ from the static configuration, or could not be read
-- **THEN** a persistent banner names the affected fields.
-
 ### Requirement: Draft screen works without live integration
 
 The screen SHALL be fully usable with no working ESPN draft integration, since manual entry is the primary path and the integration is an accelerator.
@@ -179,3 +160,17 @@ The screen SHALL be fully usable with no working ESPN draft integration, since m
 
 - **WHEN** board entries remain below the match-confidence threshold
 - **THEN** the screen presents the match-resolution list and blocks live mode, while manual operation remains fully available.
+
+### Requirement: Draft screen is gated by a build-time flag
+
+The Draft screen and its sidebar entry SHALL be gated behind a single build-time flag, so the feature can be hidden between drafts without deleting code. The backend API and board import SHALL remain available regardless of the flag.
+
+#### Scenario: Flag off
+
+- **WHEN** the flag is false
+- **THEN** the sidebar shows no Draft entry, `/draft` does not route, and the screen tree-shakes out of the production bundle.
+
+#### Scenario: Backend unaffected
+
+- **WHEN** the flag is false
+- **THEN** `/api/draft/*` continues to serve and the board import CLI continues to run, because the flag gates only the UI surface.

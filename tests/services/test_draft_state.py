@@ -1,6 +1,9 @@
 """`services/draft_state.py` — pick record/undo, pool/roster reads, D13's explicit
 current-pick tracking, and league-shape resolution (tasks 3.1/3.2)."""
 
+import json
+from pathlib import Path
+
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -10,6 +13,20 @@ from backend.gridiron.errors import DraftPickConflictError
 from backend.gridiron.models import Base, BoardPlayer, DraftSession, League
 from backend.gridiron.platforms.espn.slot_table import UnknownSlotError
 from backend.gridiron.services import differ, draft_state, events
+
+# Read the static config rather than hardcoding its values. These tests assert the
+# resolution *behavior* (platform preferred, static fallback, conflict reporting), not
+# the league's particular shape -- which is real user data and changed once ESPN
+# confirmed 10 teams and 3 FLEX against the board's assumed 12 and 2.
+_STATIC_CONFIG = json.loads(
+    (
+        Path(__file__).resolve().parents[2] / "backend/gridiron/draft_board/league_config.json"
+    ).read_text()
+)
+STATIC_TEAMS: int = _STATIC_CONFIG["teams"]
+STATIC_FLEX_SLOTS: list[str] = [
+    f"FLEX{i + 1}" for i in range(_STATIC_CONFIG["roster"]["starters"]["FLEX"])
+]
 
 
 @pytest.fixture(autouse=True)
@@ -393,7 +410,7 @@ async def test_resolve_league_shape_falls_back_to_static_config_when_no_espn(
     async with session_factory() as session:
         shape, conflicts = await draft_state.resolve_league_shape(session)
 
-    assert shape.teams == 12
+    assert shape.teams == STATIC_TEAMS
     assert shape.starters["RB"] == 2
     assert shape.starters["K"] == 0
     assert shape.rounds == 15  # 9 static starters + default bench of 6
@@ -402,7 +419,7 @@ async def test_resolve_league_shape_falls_back_to_static_config_when_no_espn(
     by_field = {c.field: c for c in conflicts}
     assert by_field["teams"].confirmed_by_espn is False
     assert by_field["teams"].espn_value is None
-    assert by_field["teams"].resolved_value == 12
+    assert by_field["teams"].resolved_value == STATIC_TEAMS
     assert by_field["_espn_connectivity"].confirmed_by_espn is False
 
 
@@ -433,7 +450,7 @@ async def test_resolve_league_shape_prefers_espn_team_count_when_a_league_row_ex
     by_field = {c.field: c for c in conflicts}
     assert by_field["teams"].confirmed_by_espn is True
     assert by_field["teams"].espn_value == 10
-    assert by_field["teams"].static_value == 12
+    assert by_field["teams"].static_value == STATIC_TEAMS
     assert by_field["_espn_connectivity"].confirmed_by_espn is True
 
 
@@ -457,7 +474,7 @@ async def test_resolve_league_shape_ignores_disabled_espn_league(session_factory
 
     async with session_factory() as session:
         shape, _conflicts = await draft_state.resolve_league_shape(session)
-    assert shape.teams == 12  # static fallback -- the disabled row doesn't count
+    assert shape.teams == STATIC_TEAMS  # static fallback -- the disabled row doesn't count
 
 
 def test_starters_from_lineup_slot_counts_translates_via_slot_table() -> None:

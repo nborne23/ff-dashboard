@@ -39,8 +39,13 @@ The system SHALL score candidates by a weighted sum of value-versus-ADP, tier ur
 
 #### Scenario: Value versus ADP
 
-- **WHEN** a player's `adp_rank` is later than the current overall pick
-- **THEN** he scores positively on value in proportion to how many rounds he is falling past his price, clamped to a bounded range.
+- **WHEN** a player is still available at a pick **later** than his `adp_rank` — he has outlasted his own consensus price
+- **THEN** he scores positively on value in proportion to how many rounds of surplus that represents, clamped to a bounded range: `clamp((current_pick - adp_rank) / teams, -2, 3)`.
+
+#### Scenario: Reaching scores negatively
+
+- **WHEN** a candidate's `adp_rank` is later than the current overall pick, meaning he would be taken rounds before his price
+- **THEN** his value term is negative. The inverse sign — rewarding candidates for being ranked later — saturates the clamp across nearly the whole board in early rounds and makes the term stop discriminating entirely.
 
 #### Scenario: Players without ADP
 
@@ -50,7 +55,8 @@ The system SHALL score candidates by a weighted sum of value-versus-ADP, tier ur
 #### Scenario: On the clock
 
 - **WHEN** `picks_until_next` is 0, which is precisely when recommendations are requested
-- **THEN** tier urgency evaluates to its maximum rather than dividing by zero, because a tier's survival to a later turn is no longer at issue.
+- **THEN** tier urgency scales by how many players remain in the candidate's tier — the last man in a tier reaches the maximum, one of five does not — rather than dividing by zero.
+- **AND** it SHALL NOT return a flat maximum for every candidate. A constant here makes the highest-weighted term contribute nothing to the ranking it is meant to dominate, at exactly the moment recommendations are requested; this was the original implementation and it collapsed the shortlist to arbitrary pool order.
 
 #### Scenario: Tier urgency dominates
 

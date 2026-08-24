@@ -18,6 +18,24 @@ from backend.main import app
 
 CACHE_CONTROL = "private, max-age=15, stale-while-revalidate=30"
 
+# See tests/services/test_draft_state.py -- read the real league shape, don't pin it.
+STATIC_TEAMS: int = json.loads(
+    (
+        Path(__file__).resolve().parents[2] / "backend/gridiron/draft_board/league_config.json"
+    ).read_text()
+)["teams"]
+STATIC_FLEX_SLOTS: list[str] = [
+    f"FLEX{i + 1}"
+    for i in range(
+        json.loads(
+            (
+                Path(__file__).resolve().parents[2]
+                / "backend/gridiron/draft_board/league_config.json"
+            ).read_text()
+        )["roster"]["starters"]["FLEX"]
+    )
+]
+
 FIXTURE_PATH = (
     Path(__file__).resolve().parents[1] / "fixtures" / "espn" / "draft" / "players_wl.json"
 )
@@ -343,13 +361,13 @@ async def test_get_state_default_is_pick_one_on_the_clock(client, db) -> None:
     assert data["current_round"] == 1
     assert data["picks_until_next"] == 0  # slot 1 is on the clock at pick 1
     assert data["session_status"] == "manual"
-    assert data["league_teams"] == 12
+    assert data["league_teams"] == STATIC_TEAMS
     assert data["draft_over"] is False
     # No kicker slot anywhere in the starter list (this league starts zero kickers).
     assert all(s["position_group"] != "K" for s in data["roster"]["starters"])
     # FLEX rendered as two distinct slots.
     flex_slots = [s["slot"] for s in data["roster"]["starters"] if s["position_group"] == "FLEX"]
-    assert flex_slots == ["FLEX1", "FLEX2"]
+    assert flex_slots == STATIC_FLEX_SLOTS
 
 
 @pytest.mark.asyncio

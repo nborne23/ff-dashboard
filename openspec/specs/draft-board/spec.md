@@ -1,5 +1,8 @@
-## ADDED Requirements
+# draft-board Specification
 
+## Purpose
+TBD - created by archiving change add-draft-assistant. Update Purpose after archive.
+## Requirements
 ### Requirement: Board data model
 
 The system SHALL persist the user's hand-built ranking board in `board_players`, `board_tiers`, `board_heuristics`, and `board_id_overrides` tables. Array- and object-valued fields (`flags`, `injury_tags`, `analyst_takes`) SHALL be stored as JSON in `TEXT` columns and SHALL NOT be queried with SQLite-only JSON operators, preserving the scaffold's dialect-neutrality rule.
@@ -119,6 +122,11 @@ The system SHALL honor the known-bad-data constraints documented in the board's 
 - **WHEN** `injury_tags` are used anywhere in the system
 - **THEN** they are used only for search and display, and no recommendation heuristic — in particular `handcuff_own_studs` — keys off them, because they are keyword-derived from note prose and demonstrably wrong (Jahmyr Gibbs carries `mcl` because his note mentions another player's MCL sprain).
 
+#### Scenario: out_for_season is corrected, not trusted
+
+- **WHEN** the export marks a player `out_for_season`
+- **THEN** a curated per-player correction file overrides it, because the flag is keyword-derived from note prose exactly as `injury_tags` is, and is far more consequential — it removes a player from the draftable pool entirely. Nico Collins (HOU WR1, ADP 21.5) was flagged out because his own note describes *Jayden Higgins* tearing an ACL. A genuinely-out player has also dropped out of ADP data, which is the signal the seed pass uses.
+
 #### Scenario: Platform bye weeks win
 
 - **WHEN** a board `bye` disagrees with the ESPN `Player.bye_week` for the same player
@@ -133,3 +141,4 @@ The system SHALL honor the known-bad-data constraints documented in the board's 
 
 - **WHEN** an `analyst_takes` entry is displayed
 - **THEN** its `source` is rendered together with its `verified_accuracy` flag, so measured-accuracy analysts are visually distinguishable from popular-but-unverified ones.
+
