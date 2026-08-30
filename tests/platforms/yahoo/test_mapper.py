@@ -135,7 +135,7 @@ def test_map_roster_returns_all_slots_with_translated_codes() -> None:
         "WR1",
         "WR2",
         "TE",
-        "FLEX",
+        "FLEX1",
         "K",
         "DST",
         "BN",
@@ -240,3 +240,30 @@ def test_map_matchup_missing_teams_raises_mapper_error() -> None:
 
     with pytest.raises(mapper.MapperError):
         mapper.map_matchup(raw, week=14)
+
+
+def test_translate_slot_numbers_repeated_flex_codes() -> None:
+    """Yahoo's flex code is `W/R/T`, and a lineup may hold several. They are renamed AND
+    numbered (FLEX1/FLEX2/...) for the same reason the ESPN side numbers them: the
+    matchup pairing keys by slot label, so one shared label collapses the lineup."""
+    counters: dict[str, int] = {}
+
+    assert mapper._translate_slot("W/R/T", counters) == "FLEX1"
+    assert mapper._translate_slot("W/R/T", counters) == "FLEX2"
+    assert mapper._translate_slot("W/R/T", counters) == "FLEX3"
+
+
+def test_translate_slot_maps_superflex_to_numbered_op() -> None:
+    counters: dict[str, int] = {}
+
+    assert mapper._translate_slot("Q/W/R/T", counters) == "OP1"
+    assert mapper._translate_slot("Q/W/R/T", counters) == "OP2"
+
+
+def test_translate_slot_counters_are_independent_per_slot_family() -> None:
+    counters: dict[str, int] = {}
+
+    assert mapper._translate_slot("RB", counters) == "RB1"
+    assert mapper._translate_slot("W/R/T", counters) == "FLEX1"
+    assert mapper._translate_slot("RB", counters) == "RB2"
+    assert mapper._translate_slot("W/R/T", counters) == "FLEX2"

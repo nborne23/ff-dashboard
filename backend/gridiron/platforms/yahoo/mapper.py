@@ -33,13 +33,17 @@ class MapperError(Exception):
 _SLOT_MAP = {
     "QB": "QB",
     "TE": "TE",
-    "W/R/T": "FLEX",
     "K": "K",
     "DEF": "DST",
     "BN": "BN",
     "IR": "IR",
 }
+# Yahoo codes that map to a numbered internal slot. RB/WR keep their own names; the flex
+# codes are renamed as well as numbered ("W/R/T" -> FLEX1/FLEX2/..., "Q/W/R/T" -> OP1/...).
+# Numbering the flex matters for the same reason it does on the ESPN side: several flex
+# starters sharing one label collapse when the matchup pairing keys by slot.
 _NUMBERED_SLOTS = ("RB", "WR")
+_NUMBERED_RENAMES = {"W/R/T": "FLEX", "Q/W/R/T": "OP"}
 
 # Yahoo player `display_position` -> internal `Position` vocabulary. Yahoo uses "DEF" here
 # too; everything else already matches.
@@ -58,6 +62,10 @@ _SCORING_TYPE_MAP = {"head": "standard", "point": "ppr", "roto": "custom"}
 
 
 def _translate_slot(code: str, counters: dict[str, int]) -> str:
+    name = _NUMBERED_RENAMES.get(code)
+    if name is not None:
+        counters[name] = counters.get(name, 0) + 1
+        return f"{name}{counters[name]}"
     if code in _NUMBERED_SLOTS:
         counters[code] = counters.get(code, 0) + 1
         return f"{code}{counters[code]}"

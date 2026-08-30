@@ -90,9 +90,14 @@ INJURY_STATUS_MAP: dict[str, schemas.InjuryStatus] = {
 
 # ESPN slot names (from slot_table.LINEUP_SLOT_MAP) that map straight through to the
 # internal `Slot` vocabulary without numbering.
-_DIRECT_SLOTS = {"QB", "TE", "FLEX", "DST", "K", "BN", "IR"}
+_DIRECT_SLOTS = {"QB", "TE", "DST", "K", "BN", "IR"}
 # ESPN slot names that need positional numbering (RB -> RB1/RB2) by order of appearance.
-_NUMBERED_SLOTS = {"RB", "WR"}
+#
+# FLEX is numbered for the same reason RB and WR are: a lineup can hold several, and the
+# starter maps in `map_matchup` are keyed by slot label — so an unnumbered FLEX collapses
+# a three-flex lineup to one entry, dropping two starters from both the projection and
+# the paired matchup slots.
+_NUMBERED_SLOTS = {"RB", "WR", "FLEX", "OP"}
 
 STAT_SOURCE_ACTUAL = 0
 STAT_SOURCE_PROJECTED = 1

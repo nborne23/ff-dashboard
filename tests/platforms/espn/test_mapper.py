@@ -106,7 +106,7 @@ def test_map_roster_numbers_rb_and_wr_by_order(roster_matchup_raw: dict) -> None
     assert home_slots["Amon-Ra St. Brown"] == "WR2"
     assert home_slots["Josh Allen"] == "QB"
     assert home_slots["Travis Kelce"] == "TE"
-    assert home_slots["Tony Pollard"] == "FLEX"
+    assert home_slots["Tony Pollard"] == "FLEX1"
     assert home_slots["Baltimore Ravens"] == "DST"
     assert home_slots["Justin Tucker"] == "K"
     assert home_slots["J.K. Dobbins"] == "IR"
@@ -168,7 +168,7 @@ def test_map_matchup_for_user_team(roster_matchup_raw: dict) -> None:
         "WR1",
         "WR2",
         "TE",
-        "FLEX",
+        "FLEX1",
         "DST",
         "K",
     }
@@ -220,3 +220,71 @@ def test_map_matchup_marks_a_completed_past_week_as_complete(completed_week5_raw
     assert qb_slot.home_pts == 22.4
     assert qb_slot.away_player.name == "Patrick Mahomes"
     assert qb_slot.away_pts == 20.1
+
+
+# --- multi-flex lineups (the FLEX-collapse regression) ---------------------------
+
+
+def _flex_lineup_raw(roster_matchup_raw: dict) -> dict:
+    """Turn both sides' bench into extra FLEX starters, giving a three-flex lineup.
+
+    Modeled on a real league: ESPN's `lineupSlotId` 23 is FLEX, and a league may run
+    several of them. Before slot numbering, all three collapsed onto one `"FLEX"` key.
+    """
+    raw = copy.deepcopy(roster_matchup_raw)
+    for side_key in ("home", "away"):
+        entries = raw["schedule"][0][side_key]["rosterForCurrentScoringPeriod"]["entries"]
+        promoted = 0
+        for entry in entries:
+            if entry["lineupSlotId"] == 20 and promoted < 2:  # 20 == BN
+                entry["lineupSlotId"] = 23  # 23 == FLEX
+                promoted += 1
+    return raw
+
+
+def test_map_roster_numbers_every_flex_in_a_multi_flex_lineup(roster_matchup_raw: dict) -> None:
+    slots = mapper.map_roster(_flex_lineup_raw(roster_matchup_raw), week=10)
+    home = [s for s in slots if s.team_id == "espn:l-1234567-t-2"]
+    flex = sorted(s.slot for s in home if s.slot.startswith("FLEX"))
+
+    # Three distinct labels, not three players sharing one.
+    assert flex == ["FLEX1", "FLEX2", "FLEX3"]
+
+
+def test_map_matchup_keeps_every_flex_starter(roster_matchup_raw: dict) -> None:
+    """The bug this guards: `map_matchup` keys its starter maps by slot label, so an
+    unnumbered FLEX silently overwrote all but the last flex starter — dropping their
+    projected points from the matchup total and their rows from the paired slots."""
+    raw = _flex_lineup_raw(roster_matchup_raw)
+    matchup, matchup_slots = mapper.map_matchup(raw, week=10, user_team_id=2)
+
+    roster = mapper.map_roster(raw, week=10)
+    home_starters = [
+        s for s in roster if s.team_id == "espn:l-1234567-t-2" and s.slot not in ("BN", "IR")
+    ]
+
+    # The projection is the sum over EVERY starter — no player silently dropped.
+    assert matchup.home_proj == pytest.approx(sum(s.proj_points for s in home_starters))
+    assert len(home_starters) == 11  # 9 original starters + 2 promoted off the bench
+
+    flex_slots = sorted(s.slot for s in matchup_slots if s.slot.startswith("FLEX"))
+    assert flex_slots == ["FLEX1", "FLEX2", "FLEX3"]
+
+
+def test_map_matchup_projection_is_short_when_flex_collapses(roster_matchup_raw: dict) -> None:
+    """Pins the failure mode itself: had FLEX stayed unnumbered, the projection would
+    have been short by exactly the two dropped starters. Asserting the gap is non-zero
+    proves the previous test is actually measuring something."""
+    raw = _flex_lineup_raw(roster_matchup_raw)
+    matchup, _ = mapper.map_matchup(raw, week=10, user_team_id=2)
+
+    roster = mapper.map_roster(raw, week=10)
+    home_flex = [
+        s for s in roster if s.team_id == "espn:l-1234567-t-2" and s.slot.startswith("FLEX")
+    ]
+    collapsed = matchup.home_proj - sum(s.proj_points for s in home_flex[:-1])
+
+    assert collapsed < matchup.home_proj
+    assert matchup.home_proj - collapsed == pytest.approx(
+        sum(s.proj_points for s in home_flex[:-1])
+    )
