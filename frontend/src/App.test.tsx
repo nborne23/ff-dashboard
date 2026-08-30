@@ -152,3 +152,88 @@ describe("sidebar collapse", () => {
     );
   });
 });
+
+describe("mobile nav drawer", () => {
+  // NOTE: these assert STATE and DOM only. jsdom implements no layout and no CSS
+  // media queries, so "is the drawer off-screen at 390px", "does the page overflow
+  // horizontally", and "is the cog hidden" are all unassertable here — such a test
+  // would pass vacuously. Those were verified in a real browser with an iframe harness
+  // at 375/390/844px; the numbers are in the commit message. What IS testable is that
+  // the toggle exists, drives the attribute the CSS keys off, and closes again.
+  afterEach(() => {
+    cleanup();
+    useUiStore.setState({ tweaks: TWEAK_DEFAULTS, sidebarCollapsed: false, mobileNavOpen: false });
+  });
+
+  function appEl(container: HTMLElement): HTMLElement {
+    return container.querySelector(".app") as HTMLElement;
+  }
+
+  it("renders a nav toggle and starts closed", () => {
+    const { container } = renderApp();
+
+    expect(screen.getByRole("button", { name: "Open navigation" })).toBeTruthy();
+    expect(appEl(container).getAttribute("data-nav")).toBeNull();
+    expect(screen.queryByTestId("nav-backdrop")).toBeNull();
+  });
+
+  it("opens the drawer and renders a backdrop", () => {
+    const { container } = renderApp();
+
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+
+    expect(appEl(container).getAttribute("data-nav")).toBe("open");
+    expect(screen.getByTestId("nav-backdrop")).toBeTruthy();
+    expect(useUiStore.getState().mobileNavOpen).toBe(true);
+  });
+
+  it("closes on a backdrop tap", () => {
+    const { container } = renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+
+    fireEvent.click(screen.getByTestId("nav-backdrop"));
+
+    expect(appEl(container).getAttribute("data-nav")).toBeNull();
+    expect(screen.queryByTestId("nav-backdrop")).toBeNull();
+  });
+
+  it("closes on Escape", () => {
+    const { container } = renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+
+    act(() => {
+      fireEvent.keyDown(document, { key: "Escape" });
+    });
+
+    expect(appEl(container).getAttribute("data-nav")).toBeNull();
+  });
+
+  it("closes when a nav item navigates, so the drawer never covers the new screen", () => {
+    const { container } = renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+    expect(appEl(container).getAttribute("data-nav")).toBe("open");
+
+    fireEvent.click(screen.getByRole("link", { name: /Game Day/ }));
+
+    expect(appEl(container).getAttribute("data-nav")).toBeNull();
+  });
+
+  it("keeps every nav label in the DOM — the drawer is not an icon rail", () => {
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+
+    for (const label of ["Dashboard", "Game Day", "Matchups", "Season", "Settings"]) {
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("does not persist the drawer — it must not reopen itself on load", () => {
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+
+    const persisted = JSON.parse(localStorage.getItem("gridiron-ui-tweaks") ?? "{}");
+    expect(persisted.state?.mobileNavOpen).toBeUndefined();
+    // ...while the deliberate setup choice next to it still does persist.
+    expect(persisted.state).toHaveProperty("sidebarCollapsed");
+  });
+});

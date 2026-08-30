@@ -76,6 +76,42 @@
   grid-row: span 3;
 }
 
+/* ==== Phone ====
+   The arrangement grids use minmax(0, 1fr), so on a phone they SHRINK rather than
+   overflow — which means no horizontal-overflow check catches this. At 390px, `g3`
+   gives ~98px panels and `c4` less; measured 155px at `g2`. All are far below the
+   360px narrowest container band, so scores and names would render below the 15px
+   floor the game-day spec sets.
+
+   Below 768px every arrangement collapses to one column. `mode` is left untouched in
+   the persisted layout, so the desktop arrangement is exactly as the user left it when
+   they open the same install on a large screen. The arrangement and sort controls are
+   hidden too: four arrangements are meaningless at one column. */
+@media (max-width: 767px) {
+  .gd-stage[data-layout="g2"],
+  .gd-stage[data-layout="g3"],
+  .gd-stage[data-layout="c4"],
+  .gd-stage[data-layout="spot"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* A persisted per-panel span would otherwise ask for 2 columns of a 1-column grid. */
+  .gd-stage .gd-panel {
+    grid-column: span 1 !important;
+    grid-row: span 1 !important;
+  }
+  .gd-stage[data-layout="spot"] > .gd-panel:first-child {
+    grid-row: span 1;
+  }
+  .gd-controls {
+    display: none;
+  }
+  /* Reorder and resize are pointer gestures with no touch equivalent here, and a
+     single column has no ordering to speak of. */
+  .gd-resize-handle {
+    display: none;
+  }
+}
+
 /* ==== Panel ==== */
 .gd-panel {
   /* The whole density ladder hangs off this one declaration. */

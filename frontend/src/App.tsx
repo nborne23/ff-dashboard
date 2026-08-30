@@ -26,6 +26,8 @@ export default function App() {
   const location = useLocation();
   const tweaks = useUiStore((s) => s.tweaks);
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
+  const mobileNavOpen = useUiStore((s) => s.mobileNavOpen);
+  const setMobileNavOpen = useUiStore((s) => s.setMobileNavOpen);
   useWeekParam();
   useLiveEvents();
 
@@ -41,11 +43,41 @@ export default function App() {
     root.style.setProperty("--spark-thick", `${tweaks.sparkThickness}px`);
   }, [tweaks.sidebarWidth, tweaks.rowHeight, tweaks.sparkThickness, sidebarCollapsed]);
 
+  // Close the drawer whenever the route changes. Without this, tapping a nav item
+  // navigates but leaves the drawer covering the screen you just asked for.
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location.pathname, setMobileNavOpen]);
+
+  // Escape closes it too, for the keyboard case (and for a phone with a keyboard).
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileNavOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [mobileNavOpen, setMobileNavOpen]);
+
   const auroraColor = auroraColorForPath(location.pathname, tweaks.auroraIntensity);
 
   return (
-    <div className="app" data-sidebar={sidebarCollapsed ? "collapsed" : undefined}>
+    <div
+      className="app"
+      data-sidebar={sidebarCollapsed ? "collapsed" : undefined}
+      data-nav={mobileNavOpen ? "open" : undefined}
+    >
       <Sidebar />
+      {/* Backdrop is rendered only while open so it can never intercept taps on
+          desktop, where the drawer does not exist. */}
+      {mobileNavOpen && (
+        <div
+          className="nav-backdrop"
+          data-testid="nav-backdrop"
+          role="presentation"
+          onClick={() => setMobileNavOpen(false)}
+        />
+      )}
       <div className="main">
         <Aurora color={auroraColor} />
         <Topbar />

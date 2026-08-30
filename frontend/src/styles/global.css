@@ -186,7 +186,11 @@ html, body {
   height: var(--topbar-h);
   background: var(--surface);
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  /* minmax(0, 1fr), not 1fr: a bare `1fr` is minmax(AUTO, 1fr), and that auto minimum
+     is the children's intrinsic width — so the topbar could not shrink below
+     week-nav + week-days + right-cluster and overflowed every route by 240px on a
+     390px screen. Hiding children alone would not have fixed it. */
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   padding: 0 24px;
   gap: 24px;
@@ -906,6 +910,11 @@ html, body {
   transform: rotate(180deg);
 }
 
+/* Everything below is DESKTOP-ONLY. `sidebarCollapsed` is persisted, so without this
+   guard a sidebar collapsed on the desktop would also strip the labels out of the
+   phone's drawer — leaving an icon-only drawer with no way to tell the items apart. */
+@media (min-width: 768px) {
+
 .app[data-sidebar="collapsed"] .sidebar .brand .name,
 .app[data-sidebar="collapsed"] .sidebar .nav-item .label,
 .app[data-sidebar="collapsed"] .sidebar .nav-label,
@@ -936,8 +945,14 @@ html, body {
   padding: 12px 0;
 }
 
-/* Responsive (>1440 caps content; below 1024 collapses sidebar) */
-@media (max-width: 1023px) {
+}
+
+/* Responsive (>1440 caps content; 768-1023 collapses the sidebar to an icon rail) */
+/* Lower-bounded at 768px on purpose: below that the sidebar is an off-canvas drawer
+   with room for full labels, and this block's icon-rail treatment (hiding .label,
+   .brand .name, .sub-item and centring the items) would otherwise strip the drawer
+   down to unlabelled icons. */
+@media (min-width: 768px) and (max-width: 1023px) {
   .app { grid-template-columns: 56px 1fr; }
   .sidebar .brand .name,
   .sidebar .nav-item .label,
@@ -947,11 +962,109 @@ html, body {
   .sidebar .nav-item { justify-content: center; padding: 10px 0; }
   .sidebar .nav-item.active::before { left: 0; }
 }
+/* Topbar hamburger — phone only (the media block below reveals it). */
+.nav-toggle {
+  display: none;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  place-items: center;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.nav-toggle:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+/* ==== Phone (<=767px) ====
+   The sidebar previously became `display: none` here with nothing replacing it, so a
+   phone had NO navigation at all — seven nav links sat in the DOM, unreachable. It is
+   now an off-canvas drawer opened by the topbar's hamburger, which reuses the one
+   existing nav implementation rather than introducing a second (a bottom tab bar would
+   also contradict gridiron-ui's "reachable from the persistent sidebar"). */
 @media (max-width: 767px) {
-  .app { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
+  .app {
+    grid-template-columns: 1fr;
+  }
+
+  /* Drawer: always rendered and off-screen, so it animates and stays reachable by
+     assistive tech, rather than being mounted/unmounted. */
+  .sidebar {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(82vw, 300px);
+    z-index: 70;
+    transform: translateX(-100%);
+    transition: transform 220ms ease;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+    overflow-y: auto;
+  }
+  .app[data-nav="open"] .sidebar {
+    transform: translateX(0);
+  }
+  .nav-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 65;
+    background: rgba(0, 0, 0, 0.55);
+  }
+  /* The desktop collapse control is meaningless in a drawer that is already either
+     fully open or fully closed. */
+  .sidebar-toggle {
+    display: none;
+  }
+
+  .nav-toggle {
+    display: grid;
+  }
+
+  /* Topbar: at 390px there is room for the hamburger, the week stepper, and refresh —
+     and nothing else. The day rings and the freshness caption are the two things that
+     can go without losing a control. */
+  .topbar {
+    padding: 0 12px;
+    gap: 8px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .topbar .week-days,
+  .topbar .freshness {
+    display: none;
+  }
+  .topbar .right-cluster {
+    gap: 8px;
+  }
+
+  /* 32px each side spent 64px of a 390px screen on nothing. */
+  .content {
+    padding: 16px;
+  }
+
   .dashboard-grid { grid-template-columns: 1fr; }
   .team-grid { grid-template-columns: 1fr; }
+
+  /* Wide tabular content scrolls inside its own container rather than pushing the
+     whole page sideways (the roster measured 551px in a 390px viewport). */
+  .roster,
+  .h2h-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* The Tweaks panel is a design-time affordance for tuning layout on a desktop. On a
+     phone it is a floating target over the content with sliders too small to use. */
+  .twk-gear,
+  .twk-panel {
+    display: none !important;
+  }
+
+  .large-title { font-size: 28px; }
 }
 
 /* ==== Draft Assistant (Phase 3) ====

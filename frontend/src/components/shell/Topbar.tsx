@@ -12,11 +12,13 @@ import { useDayRings } from "../../api/dayRings";
 import { useTeams } from "../../api/teams";
 import { useFreshness } from "../../hooks/useFreshness";
 import { useUiStore } from "../../stores/ui";
-import { DayRings, IconArrowL, IconArrowR, IconRefresh } from "../primitives";
+import { DayRings, IconArrowL, IconArrowR, IconMenu, IconRefresh } from "../primitives";
 
 export function Topbar() {
   const week = useUiStore((s) => s.week);
   const setWeek = useUiStore((s) => s.setWeek);
+  const mobileNavOpen = useUiStore((s) => s.mobileNavOpen);
+  const setMobileNavOpen = useUiStore((s) => s.setMobileNavOpen);
   const refresh = useRefresh();
   const teamsQuery = useTeams(week);
   const dayRingsQuery = useDayRings(week);
@@ -27,6 +29,18 @@ export function Topbar() {
 
   return (
     <header className="topbar">
+      {/* Phone-only: the sidebar is an off-canvas drawer below 768px, and this is the
+          only way to open it. Hidden by CSS at desktop widths, where the sidebar is
+          always on screen. */}
+      <button
+        type="button"
+        className="nav-toggle"
+        aria-label="Open navigation"
+        aria-expanded={mobileNavOpen}
+        onClick={() => setMobileNavOpen(!mobileNavOpen)}
+      >
+        <IconMenu size={18} />
+      </button>
       <div className="week-nav">
         <button
           type="button"

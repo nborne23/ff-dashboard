@@ -124,6 +124,14 @@ interface UiState {
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
+  /**
+   * Off-canvas nav drawer, phone only. Deliberately NOT persisted (absent from
+   * `partialize`): a drawer that reopens itself on every load would cover the screen
+   * the app exists to show. `sidebarCollapsed` above is the opposite case — that one
+   * is a deliberate setup choice and does persist.
+   */
+  mobileNavOpen: boolean;
+  setMobileNavOpen: (open: boolean) => void;
   notifications: Notifications;
   setNotification: <K extends keyof Notifications>(key: K, value: Notifications[K]) => void;
   appearance: Appearance;
@@ -150,6 +158,8 @@ export const useUiStore = create<UiState>()(
       sidebarCollapsed: false,
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
+      mobileNavOpen: false,
+      setMobileNavOpen: (mobileNavOpen) => set({ mobileNavOpen }),
       notifications: NOTIFICATION_DEFAULTS,
       setNotification: (key, value) =>
         set((state) => ({ notifications: { ...state.notifications, [key]: value } })),
