@@ -26,6 +26,17 @@ class PlayerPoolEntry(BaseModel):
     # None when ESPN published no season projection. Distinct from 0.0, which is a
     # genuine value for a player projected to score nothing (design D2).
     season_proj_points: float | None
+    # ESPN's UNNUMBERED slot vocabulary, straight from `LINEUP_SLOT_MAP`: "QB", "RB",
+    # "WR", "TE", "FLEX", "RB/WR", "WR/TE", "REC_FLEX", "OP", "K", "DST", ...
+    #
+    # Deliberately NOT the internal `Slot` type. `Slot` numbers its positions
+    # (`RB1`, `RB2`) from per-roster counters in `_internal_slot`, and a pool player
+    # is on no roster — there is no counter context, so no basis for RB1 vs RB2.
+    #
+    # Persisted rather than derived from `position`, because eligibility is
+    # league-specific: a superflex league admits a QB to `OP`, and a TE-premium one
+    # to `REC_FLEX`. Deriving from position alone would get both wrong.
+    eligible_slots: list[str] = []
 
 
 class WaiverCandidate(PlayerPoolEntry):
@@ -44,16 +55,11 @@ class WaiverCandidate(PlayerPoolEntry):
     #
     # Both operands are SEASON-scoped. `RosterSlot.proj_points` is a weekly number
     # (21.57 vs 364.86 for the same player) and must never be an operand here.
-    delta_vs_worst_starter: float | None
-    # ESPN's UNNUMBERED slot vocabulary, straight from `LINEUP_SLOT_MAP`: "QB", "RB",
-    # "WR", "TE", "FLEX", "RB/WR", "WR/TE", "REC_FLEX", "OP", "K", "DST", ...
     #
-    # Deliberately NOT the internal `Slot` type. `Slot` numbers its positions
-    # (`RB1`, `RB2`) from per-roster counters in `_internal_slot`, and a pool player
-    # is on no roster — there is no counter context, so no basis for RB1 vs RB2.
-    # Used to pick the comparison starter: a FLEX-eligible RB is measured against
-    # the weakest of the RB/FLEX starters actually rostered.
-    eligible_slots: list[str]
+    # `eligible_slots` is inherited, and is what picks the comparison starter: a
+    # FLEX-eligible RB is measured against the weakest of the RB/FLEX starters
+    # actually rostered, not against a positional average.
+    delta_vs_worst_starter: float | None
 
 
 class WaiversData(BaseModel):

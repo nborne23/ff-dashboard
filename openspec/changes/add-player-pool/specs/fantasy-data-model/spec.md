@@ -7,7 +7,7 @@ The system SHALL persist, per league, the availability and season projection of 
 #### Scenario: Entity shape
 
 - **WHEN** a `PlayerPoolEntry` is persisted
-- **THEN** it is keyed `(league_id, player_id)` and carries: `status` (`FREEAGENT` | `WAIVERS` | `ONTEAM`), `on_team_id` (nullable), `percent_owned`, `percent_started`, `season_proj_points` (nullable), and `updated_at`
+- **THEN** it is keyed `(league_id, player_id)` and carries: `status` (`FREEAGENT` | `WAIVERS` | `ONTEAM`), `on_team_id` (nullable), `percent_owned`, `percent_started`, `season_proj_points` (nullable), `eligible_slots`, and `updated_at`
 - **AND** the player's platform-agnostic attributes (name, position, NFL team, headshot, bye week, injury status) live on the existing `Player` entity, not on this one.
 
 #### Scenario: Availability is per league, not per player
@@ -15,6 +15,19 @@ The system SHALL persist, per league, the availability and season projection of 
 - **WHEN** the same player is in the pool of one league and rostered in another
 - **THEN** each league has its own `PlayerPoolEntry` row with its own `status`
 - **AND** no availability or projection field is added to `Player`, which is shared across leagues and would otherwise hold whichever league synced last.
+
+#### Scenario: Eligibility is persisted, not derived from position
+
+- **WHEN** a `PlayerPoolEntry` records which slots a player can fill
+- **THEN** it stores the platform's own eligibility list, using that platform's unnumbered slot vocabulary (`RB`, `RB/WR`, `FLEX`, `REC_FLEX`, `OP`, …)
+- **AND** it SHALL NOT be derived from the player's position at read time, because eligibility is league-specific: a superflex league admits a QB to `OP` and a TE-premium league admits a TE to `REC_FLEX`, neither of which follows from position alone
+- **AND** the list SHALL NOT use the internal numbered `Slot` vocabulary (`RB1`, `RB2`), whose numbering comes from per-roster counters that do not exist for a player on no roster.
+
+#### Scenario: Bench and reserve slots are not starting slots
+
+- **WHEN** eligibility is used to choose which starter a candidate competes with
+- **THEN** bench and injured-reserve slots SHALL be excluded from consideration
+- **AND** this matters because the platform lists them as eligible for essentially every player, so treating them as startable would match every candidate against every roster spot.
 
 #### Scenario: Pool snapshot is authoritative per league
 

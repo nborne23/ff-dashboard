@@ -1,0 +1,152 @@
+{
+  "_comment": [
+    "Synthetic kona_player_info response, shaped from a real pull (see",
+    "scripts/probe-espn-player-pool.py). The stat-row ordering matters and is",
+    "reproduced faithfully: the seasonId=2025 projection appears BEFORE the",
+    "seasonId=2026 one, so an accessor that matches only on",
+    "(scoringPeriodId, statSourceId, statSplitTypeId) returns last season's number.",
+    "That ordering is what test_season_projection_prefers_current_season guards."
+  ],
+  "players": [
+    {
+      "id": 4429795,
+      "status": "FREEAGENT",
+      "onTeamId": 0,
+      "player": {
+        "id": 4429795,
+        "fullName": "Jahmyr Gibbs",
+        "defaultPositionId": 2,
+        "proTeamId": 8,
+        "injuryStatus": "ACTIVE",
+        "byeWeek": 5,
+        "eligibleSlots": [2, 3, 23, 20, 21],
+        "ownership": { "percentOwned": 99.91, "percentStarted": 98.2 },
+        "stats": [
+          {
+            "scoringPeriodId": 1,
+            "statSourceId": 1,
+            "statSplitTypeId": 1,
+            "seasonId": 2026,
+            "appliedTotal": 21.57
+          },
+          {
+            "scoringPeriodId": 0,
+            "statSourceId": 0,
+            "statSplitTypeId": 0,
+            "seasonId": 2025,
+            "appliedTotal": 366.9
+          },
+          {
+            "scoringPeriodId": 0,
+            "statSourceId": 0,
+            "statSplitTypeId": 0,
+            "seasonId": 2026,
+            "appliedTotal": 0.0
+          },
+          {
+            "scoringPeriodId": 0,
+            "statSourceId": 1,
+            "statSplitTypeId": 0,
+            "seasonId": 2025,
+            "appliedTotal": 317.28
+          },
+          {
+            "scoringPeriodId": 0,
+            "statSourceId": 1,
+            "statSplitTypeId": 0,
+            "seasonId": 2026,
+            "appliedTotal": 364.86
+          }
+        ]
+      }
+    },
+    {
+      "id": 4241389,
+      "status": "ONTEAM",
+      "onTeamId": 4,
+      "player": {
+        "id": 4241389,
+        "fullName": "CeeDee Lamb",
+        "defaultPositionId": 3,
+        "proTeamId": 6,
+        "injuryStatus": "QUESTIONABLE",
+        "byeWeek": 7,
+        "eligibleSlots": [4, 3, 5, 23, 25, 20, 21],
+        "ownership": { "percentOwned": 99.98, "percentStarted": 99.1 },
+        "stats": [
+          {
+            "scoringPeriodId": 0,
+            "statSourceId": 1,
+            "statSplitTypeId": 0,
+            "seasonId": 2026,
+            "appliedTotal": 288.4
+          }
+        ]
+      }
+    },
+    {
+      "id": 3915511,
+      "status": "FREEAGENT",
+      "onTeamId": 0,
+      "player": {
+        "id": 3915511,
+        "fullName": "Tommy DeVito",
+        "defaultPositionId": 1,
+        "proTeamId": 19,
+        "injuryStatus": "ACTIVE",
+        "byeWeek": 11,
+        "eligibleSlots": [0, 7, 20, 21],
+        "ownership": { "percentOwned": 1.1, "percentStarted": 0.0 },
+        "stats": [
+          {
+            "scoringPeriodId": 0,
+            "statSourceId": 1,
+            "statSplitTypeId": 0,
+            "seasonId": 2026,
+            "appliedTotal": 0.0
+          }
+        ]
+      }
+    },
+    {
+      "id": 4685702,
+      "status": "WAIVERS",
+      "onTeamId": 0,
+      "player": {
+        "id": 4685702,
+        "fullName": "Malik Washington",
+        "defaultPositionId": 3,
+        "proTeamId": 15,
+        "injuryStatus": "ACTIVE",
+        "byeWeek": 6,
+        "eligibleSlots": [4, 3, 5, 23, 25, 20, 21],
+        "ownership": { "percentOwned": 9.8, "percentStarted": 0.4 },
+        "stats": [
+          {
+            "scoringPeriodId": 1,
+            "statSourceId": 1,
+            "statSplitTypeId": 1,
+            "seasonId": 2026,
+            "appliedTotal": 4.2
+          }
+        ]
+      }
+    },
+    {
+      "id": 9999001,
+      "status": "FREEAGENT",
+      "onTeamId": 0,
+      "player": {
+        "id": 9999001,
+        "fullName": "Rookie Edge Rusher",
+        "defaultPositionId": 9,
+        "proTeamId": 12,
+        "injuryStatus": "ACTIVE",
+        "byeWeek": 10,
+        "eligibleSlots": [15, 20, 21],
+        "ownership": { "percentOwned": 0.2, "percentStarted": 0.0 },
+        "stats": []
+      }
+    }
+  ]
+}

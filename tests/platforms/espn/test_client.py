@@ -4,12 +4,13 @@ from datetime import UTC, datetime, timedelta
 import httpx
 import pytest
 import respx
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from backend.gridiron.config import Settings
 from backend.gridiron.db import make_engine
 from backend.gridiron.errors import AuthRequiredError
-from backend.gridiron.models import Base
+from backend.gridiron.models import Base, HttpCache
 from backend.gridiron.platforms.espn.client import EspnClient
 from backend.gridiron.services import cache
 
@@ -361,3 +362,94 @@ async def test_get_roster_expired_cache_refetches(session_factory) -> None:
     assert result == body  # refetched, not the stale cached payload
     assert route.call_count == 1
     await client.aclose()
+
+
+# ---------------------------------------------------------------------------
+# Player pool (add-player-pool group 2)
+# ---------------------------------------------------------------------------
+
+POOL_BODY = {"players": [{"id": 1, "status": "FREEAGENT", "player": {"id": 1}}]}
+
+
+@respx.mock
+async def test_get_player_pool_sends_the_filter_header(session_factory) -> None:
+    route = respx.get(LEAGUE_PATH_URL).mock(return_value=httpx.Response(200, json=POOL_BODY))
+    client = make_client(session_factory)
+
+    body = await client.get_player_pool(1234567, 2025)
+
+    assert body == POOL_BODY
+    sent = route.calls[0].request
+    assert sent.url.params["view"] == "kona_player_info"
+
+    filt = json.loads(sent.headers["x-fantasy-filter"])
+    # The filter IS the query — without filterStatus this endpoint returns something else.
+    assert filt["players"]["filterStatus"]["value"] == ["FREEAGENT", "WAIVERS", "ONTEAM"]
+    # ONTEAM is load-bearing: it is the only source of a season projection for a
+    # rostered player, which the waiver delta needs on both sides of its subtraction.
+    assert "ONTEAM" in filt["players"]["filterStatus"]["value"]
+
+
+@respx.mock
+async def test_get_player_pool_does_not_retain_the_raw_body(session_factory) -> None:
+    """Design D4 — the pool is ~3.7 MB per league and would add ~18.5 MB per refresh
+    across five. `player_pool_entries` is the durable record, not `http_cache`."""
+    respx.get(LEAGUE_PATH_URL).mock(return_value=httpx.Response(200, json=POOL_BODY))
+    client = make_client(session_factory)
+
+    await client.get_player_pool(1234567, 2025)
+
+    async with session_factory() as session:
+        rows = (await session.execute(select(HttpCache))).scalars().all()
+    pool_rows = [r for r in rows if r.endpoint == "player_pool"]
+    assert len(pool_rows) == 1
+    assert pool_rows[0].raw_json == ""
+
+
+@respx.mock
+async def test_get_player_pool_skips_a_fresh_league(session_factory) -> None:
+    """A fresh entry means "already persisted, nothing to do" — and because the body
+    is not retained, that has to surface as None rather than as a cached payload."""
+    route = respx.get(LEAGUE_PATH_URL).mock(return_value=httpx.Response(200, json=POOL_BODY))
+    client = make_client(session_factory)
+
+    assert await client.get_player_pool(1234567, 2025) == POOL_BODY
+    assert route.call_count == 1
+
+    assert await client.get_player_pool(1234567, 2025) is None
+    assert route.call_count == 1, "a fresh pool must not issue a second request"
+
+    assert await client.get_player_pool(1234567, 2025, force=True) == POOL_BODY
+    assert route.call_count == 2
+
+
+@respx.mock
+async def test_pool_cache_key_is_stable_across_filter_key_order(session_factory) -> None:
+    """The filter lives in a header, so it is folded into the cache key — and it is
+    serialized with sorted keys. Without sorting, a dict built in a different order
+    hashes differently every call, so every tick would miss and refetch 3.7 MB."""
+    respx.get(LEAGUE_PATH_URL).mock(return_value=httpx.Response(200, json=POOL_BODY))
+    client = make_client(session_factory)
+
+    headers = client._pool_filter(1500)
+    reordered = {
+        "x-fantasy-filter": json.dumps(json.loads(headers["x-fantasy-filter"]), sort_keys=True)
+    }
+    params = {"view": "kona_player_info"}
+
+    assert cache.params_hash(
+        client._cache_params(1234567, 2025, params, headers)
+    ) == cache.params_hash(client._cache_params(1234567, 2025, params, reordered))
+
+
+@respx.mock
+async def test_pool_cache_key_differs_from_other_endpoints(session_factory) -> None:
+    """Two different filters against one league must not share a single entry."""
+    client = make_client(session_factory)
+    params = {"view": "kona_player_info"}
+
+    narrow = cache.params_hash(client._cache_params(1234567, 2025, params, client._pool_filter(50)))
+    wide = cache.params_hash(client._cache_params(1234567, 2025, params, client._pool_filter(1500)))
+    unfiltered = cache.params_hash(client._cache_params(1234567, 2025, params))
+
+    assert len({narrow, wide, unfiltered}) == 3

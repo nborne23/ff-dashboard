@@ -242,6 +242,11 @@ export interface PlayerPoolEntry {
   /** null when no projection was published — distinct from 0.0, which is a real
    *  value for a player projected to score nothing. Render as an em dash. */
   season_proj_points: number | null;
+  /** ESPN's UNNUMBERED slot vocabulary — "QB", "RB", "WR", "TE", "FLEX", "RB/WR",
+   *  "WR/TE", "REC_FLEX", "OP", "K", "DST". Deliberately not `Slot`, which numbers
+   *  its positions (RB1, RB2) from per-roster counters; a pool player is on no
+   *  roster, so there is no basis for that numbering. */
+  eligible_slots: string[];
 }
 
 /** A pool entry presented as claimable. `status` is inherited and is always
@@ -252,11 +257,6 @@ export interface WaiverCandidate extends PlayerPoolEntry {
    *  eligible slot. null — never 0 — when either side has no projection or no
    *  eligible starter exists. Render as an em dash. */
   delta_vs_worst_starter: number | null;
-  /** ESPN's UNNUMBERED slot vocabulary — "QB", "RB", "WR", "TE", "FLEX", "RB/WR",
-   *  "WR/TE", "REC_FLEX", "OP", "K", "DST". Deliberately not `Slot`, which numbers
-   *  its positions (RB1, RB2) from per-roster counters; a pool player is on no
-   *  roster, so there is no basis for that numbering. */
-  eligible_slots: string[];
 }
 
 export interface WaiversData {

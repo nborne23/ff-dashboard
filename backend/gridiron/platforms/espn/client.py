@@ -23,6 +23,14 @@ FAN_API_BASE = "https://fan.api.espn.com"
 LEAGUE_SETTINGS_TTL = timedelta(hours=24)
 TEAM_METADATA_TTL = timedelta(hours=6)
 ROSTER_TTL = timedelta(hours=1)
+# The pool changes when waiver claims process (nightly), not during play — and each
+# pull is ~3.7 MB per league, so a fast cadence would cost a lot for nothing.
+PLAYER_POOL_TTL = timedelta(hours=6)
+
+# Upper bound on players requested per league. A live pull returned 1030 for an
+# undrafted league and the same 1030 at limit=3000, so this is a true ceiling rather
+# than a page size — no `offset` pagination is needed.
+PLAYER_POOL_LIMIT = 1500
 
 
 class EspnClient:
@@ -58,8 +66,10 @@ class EspnClient:
         response.raise_for_status()
         return response
 
-    async def get(self, path: str, *, params: dict | None = None) -> httpx.Response:
-        return await self.request("GET", path, params=params)
+    async def get(
+        self, path: str, *, params: dict | None = None, headers: dict | None = None
+    ) -> httpx.Response:
+        return await self.request("GET", path, params=params, headers=headers)
 
     async def discover_leagues(self, year: int) -> list[int]:
         """Every NFL fantasy league id this SWID belongs to for `year`.
@@ -98,6 +108,22 @@ class EspnClient:
     def _league_path(league_id: int, year: int) -> str:
         return f"/apis/v3/games/ffl/seasons/{year}/segments/0/leagues/{league_id}"
 
+    @staticmethod
+    def _cache_params(
+        league_id: int, year: int, http_params: dict, headers: dict | None = None
+    ) -> dict:
+        """The cache key's params for a league-scoped fetch.
+
+        `headers` is serialized with `sort_keys=True` so the key is canonical:
+        `json.dumps` preserves insertion order, so an unsorted filter would hash
+        differently each time the dict was built in a different order — a permanent
+        cache miss and a full refetch on every tick.
+        """
+        params = {**http_params, "league_id": league_id, "year": year}
+        if headers:
+            params["headers"] = json.dumps(headers, sort_keys=True)
+        return params
+
     async def _cached_league_fetch(
         self,
         league_id: int,
@@ -105,8 +131,11 @@ class EspnClient:
         endpoint: str,
         http_params: dict,
         ttl: timedelta,
+        headers: dict | None = None,
+        store_raw: bool = True,
     ) -> dict:
-        """Cache-checked fetch shared by `get_league`/`get_roster`/`get_matchup`.
+        """Cache-checked fetch shared by `get_league`/`get_roster`/`get_matchup`/
+        `get_player_pool`.
 
         On a fresh cache hit, returns the cached raw JSON without an outbound HTTP call.
         On a miss (or expired entry), fetches from ESPN, stores the raw response text
@@ -114,14 +143,27 @@ class EspnClient:
         schema changes), and returns the parsed body. `league_id`/`year` are folded into
         the cache key alongside `http_params` so distinct leagues/years/weeks never collide,
         even though they're also baked into the request path rather than sent as params.
+
+        `headers` exists for endpoints whose *result* varies by request header rather
+        than by query parameter — `kona_player_info`, where an `x-fantasy-filter` header
+        is what selects the pool. It is folded into the cache key for that reason: two
+        different filters against one league would otherwise share a single entry.
+
+        `store_raw=False` writes an empty cache body while still honoring the TTL.
+        Retaining raw text is design.md D7's default, but the pool payload is ~3.7 MB
+        per league and would add ~18.5 MB to SQLite on every refresh across five
+        leagues; `player_pool_entries` is the durable record instead, and
+        `scripts/probe-espn-player-pool.py` preserves the replay-debugging path.
         """
-        cache_params = {**http_params, "league_id": league_id, "year": year}
+        cache_params = self._cache_params(league_id, year, http_params, headers)
         async with self._session_factory() as session:
             cached = await cache.get(session, "espn", endpoint, cache_params)
-            if cached is not None and not cached.is_expired:
+            if cached is not None and not cached.is_expired and cached.raw_json:
                 return json.loads(cached.raw_json)
 
-            response = await self.get(self._league_path(league_id, year), params=http_params)
+            response = await self.get(
+                self._league_path(league_id, year), params=http_params, headers=headers
+            )
             raw_text = response.text
             fetched_at = datetime.now(UTC)
             await cache.set(
@@ -129,7 +171,7 @@ class EspnClient:
                 "espn",
                 endpoint,
                 cache_params,
-                raw_text,
+                raw_text if store_raw else "",
                 expires_at=fetched_at + ttl,
                 fetched_at=fetched_at,
             )
@@ -181,6 +223,65 @@ class EspnClient:
                 "matchupPeriodId": scoring_period,
             },
             cache.select_ttl(scoring_period, current_week, ROSTER_TTL),
+        )
+
+    @staticmethod
+    def _pool_filter(limit: int) -> dict:
+        """The `x-fantasy-filter` header. This filter IS the query — `filterStatus` is
+        what selects the pool, and without the header the endpoint returns something
+        else entirely.
+
+        `ONTEAM` is included deliberately, not for completeness. The season projection
+        is the only scale on which a waiver candidate and an incumbent starter can be
+        compared, and it exists for a rostered player nowhere else in the system —
+        `RosterSlot.proj_points` is a *weekly* number roughly an order of magnitude
+        smaller (21.57 vs 364.86 for the same player).
+        """
+        return {
+            "x-fantasy-filter": json.dumps(
+                {
+                    "players": {
+                        "filterStatus": {"value": ["FREEAGENT", "WAIVERS", "ONTEAM"]},
+                        "limit": limit,
+                        "offset": 0,
+                        "sortPercOwned": {"sortAsc": False, "sortPriority": 1},
+                    }
+                },
+                sort_keys=True,
+            )
+        }
+
+    async def get_player_pool(
+        self, league_id: int, year: int, *, limit: int = PLAYER_POOL_LIMIT, force: bool = False
+    ) -> dict | None:
+        """Every player in the league — free agents, waivers, and rostered alike.
+
+        Returns `None` when a cached entry is still within `PLAYER_POOL_TTL`, meaning
+        "nothing to do, the persisted pool is current". That is not the usual
+        cache-hit shape, and the reason is design D4: this response is not retained,
+        so there is no body to hand back. The durable record is `player_pool_entries`.
+        Callers skip a `None` league rather than treating it as an empty pool.
+
+        Pass `force=True` to refetch regardless — for a deliberate manual resync.
+        """
+        headers = self._pool_filter(limit)
+        http_params = {"view": "kona_player_info"}
+
+        if not force:
+            cache_params = self._cache_params(league_id, year, http_params, headers)
+            async with self._session_factory() as session:
+                cached = await cache.get(session, "espn", "player_pool", cache_params)
+            if cached is not None and not cached.is_expired:
+                return None
+
+        return await self._cached_league_fetch(
+            league_id,
+            year,
+            "player_pool",
+            http_params,
+            PLAYER_POOL_TTL,
+            headers=headers,
+            store_raw=False,
         )
 
     async def get_roster(

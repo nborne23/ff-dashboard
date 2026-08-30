@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Index, String, func
+from sqlalchemy import DateTime, Float, ForeignKey, Index, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.gridiron.models.base import Base
@@ -49,6 +49,15 @@ class PlayerPoolEntry(Base):
     # Nullable on purpose (design D2): "no projection published" and "projected to
     # score nothing" are different states, and 0.0 is a genuine observed value.
     season_proj_points: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # JSON-encoded list of ESPN's UNNUMBERED slot names ("RB", "RB/WR", "FLEX", ...),
+    # following the `BoardPlayer.flags` convention for list columns.
+    #
+    # Persisted rather than derived from `position` at read time because eligibility
+    # is league-specific: a superflex league admits a QB to `OP`, a TE-premium one
+    # admits a TE to `REC_FLEX`. It is what `get_waivers` uses to choose which of the
+    # user's starters a candidate is actually competing with.
+    eligible_slots: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False

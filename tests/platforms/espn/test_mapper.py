@@ -288,3 +288,110 @@ def test_map_matchup_projection_is_short_when_flex_collapses(roster_matchup_raw:
     assert matchup.home_proj - collapsed == pytest.approx(
         sum(s.proj_points for s in home_flex[:-1])
     )
+
+
+# ---------------------------------------------------------------------------
+# Player pool (add-player-pool group 2)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def player_pool_raw() -> dict:
+    return json.loads((FIXTURES / "player_pool.json").read_text())
+
+
+def _pool_player(raw: dict, name: str) -> dict:
+    for entry in raw["players"]:
+        if entry["player"]["fullName"] == name:
+            return entry["player"]
+    raise AssertionError(f"{name} not in fixture")
+
+
+def test_season_projection_prefers_current_season(player_pool_raw: dict) -> None:
+    """The regression design D2 exists to prevent.
+
+    Gibbs carries TWO rows with an identical (scoringPeriodId=0, statSourceId=1,
+    statSplitTypeId=0) tuple — seasonId 2025 (317.28) and 2026 (364.86) — and the
+    2025 one comes first, exactly as ESPN orders them. An accessor built like
+    `_player_points`, matching without a `seasonId` predicate, returns 317.28.
+    """
+    gibbs = _pool_player(player_pool_raw, "Jahmyr Gibbs")
+
+    assert mapper._season_projection(gibbs, 2026) == pytest.approx(364.86)
+    # The wrong answer is a real number in the payload, so pin it explicitly:
+    # a passing test must not be satisfiable by last season's projection.
+    assert mapper._season_projection(gibbs, 2025) == pytest.approx(317.28)
+
+
+def test_season_projection_ignores_weekly_and_actual_rows(player_pool_raw: dict) -> None:
+    """Malik Washington has only a WEEKLY projection (statSplitTypeId=1). A season
+    accessor must not fall back to it — 4.2 weekly is not a season total."""
+    washington = _pool_player(player_pool_raw, "Malik Washington")
+
+    assert mapper._season_projection(washington, 2026) is None
+
+
+def test_season_projection_missing_is_none_not_zero(player_pool_raw: dict) -> None:
+    """`None` (nothing published) and `0.0` (projected to score nothing) are different
+    states, and both occur — DeVito genuinely projects 0.0."""
+    devito = _pool_player(player_pool_raw, "Tommy DeVito")
+    rusher = _pool_player(player_pool_raw, "Rookie Edge Rusher")
+
+    assert mapper._season_projection(devito, 2026) == 0.0
+    assert mapper._season_projection(rusher, 2026) is None
+
+
+def test_map_player_pool_maps_availability(player_pool_raw: dict) -> None:
+    entries, skipped = mapper.map_player_pool(player_pool_raw, season=2026)
+    by_name = {e.player.name: e for e in entries}
+
+    gibbs = by_name["Jahmyr Gibbs"]
+    assert gibbs.status == "FREEAGENT"
+    assert gibbs.on_team_id is None  # onTeamId 0 means unrostered, not team "0"
+    assert gibbs.percent_owned == pytest.approx(99.91)
+    assert gibbs.percent_started == pytest.approx(98.2)
+    assert gibbs.season_proj_points == pytest.approx(364.86)
+
+    lamb = by_name["CeeDee Lamb"]
+    assert lamb.status == "ONTEAM"
+    assert lamb.on_team_id == "4"
+    assert skipped == 1  # the IDP entry
+
+
+def test_map_player_pool_eligible_slots_are_unnumbered(player_pool_raw: dict) -> None:
+    """Eligibility uses ESPN's unnumbered vocabulary. `RB1`/`WR2` cannot appear:
+    that numbering comes from per-roster counters, and a pool player is on no
+    roster."""
+    entries, _ = mapper.map_player_pool(player_pool_raw, season=2026)
+    by_name = {e.player.name: e for e in entries}
+
+    assert by_name["Jahmyr Gibbs"].eligible_slots == ["RB", "RB/WR", "FLEX", "BN", "IR"]
+    assert all(
+        not slot[-1].isdigit() for e in entries for slot in e.eligible_slots
+    ), "numbered slots leaked into pool eligibility"
+
+
+def test_map_player_pool_skips_unmappable_positions(player_pool_raw: dict) -> None:
+    """Design D6: one unknown position must not abort a 1000-player sync, and the
+    skip has to be counted rather than swallowed."""
+    entries, skipped = mapper.map_player_pool(player_pool_raw, season=2026)
+
+    assert skipped == 1
+    assert "Rookie Edge Rusher" not in {e.player.name for e in entries}
+    # Everything else still mapped — the skip is per entry, not fatal.
+    assert len(entries) == 4
+
+
+def test_map_player_pool_survives_an_unknown_eligible_slot(player_pool_raw: dict) -> None:
+    """`espn_slot_name` raises on an unknown lineupSlotId. A live pull only ever
+    yielded mapped ids, but eligibility is a wider vocabulary than the roster path
+    exercises, so an unknown id must skip the entry rather than crash the sync."""
+    raw = copy.deepcopy(player_pool_raw)
+    for entry in raw["players"]:
+        if entry["player"]["fullName"] == "Tommy DeVito":
+            entry["player"]["eligibleSlots"] = [999]
+
+    entries, skipped = mapper.map_player_pool(raw, season=2026)
+
+    assert "Tommy DeVito" not in {e.player.name for e in entries}
+    assert skipped == 2  # the IDP entry plus this one

@@ -102,6 +102,10 @@ _NUMBERED_SLOTS = {"RB", "WR", "FLEX", "OP"}
 STAT_SOURCE_ACTUAL = 0
 STAT_SOURCE_PROJECTED = 1
 
+# `statSplitTypeId`: 0 = season-scope totals, 1 = a single scoring period.
+STAT_SPLIT_SEASON = 0
+STAT_SPLIT_WEEK = 1
+
 
 def _scoring_type(settings: dict) -> schemas.ScoringType:
     scoring_settings = settings.get("scoringSettings", {})
@@ -216,6 +220,74 @@ def _player_points(player: dict, week: int, stat_source_id: int) -> float:
         if stat.get("scoringPeriodId") == week and stat.get("statSourceId") == stat_source_id:
             return stat.get("appliedTotal", 0.0)
     return 0.0
+
+
+def _season_projection(player: dict, season: int) -> float | None:
+    """The player's projected total for `season` under this league's scoring rules.
+
+    Deliberately NOT expressible via `_player_points`, which matches on
+    `scoringPeriodId` + `statSourceId` only. A `kona_player_info` payload carries
+    several rows sharing the season-projection tuple, differing solely by `seasonId`
+    — for Jahmyr Gibbs, 317.28 (2025) and 364.86 (2026), with 2025 listed first. An
+    accessor without the `seasonId` predicate returns whichever ESPN happened to
+    order first, which is last season's number.
+
+    Returns `None` rather than `0.0` when nothing is published: a projection of 0.0
+    is a real observed value (Tommy DeVito), so collapsing the two would misreport a
+    player the system knows nothing about as one expected to score nothing.
+    """
+    for stat in player.get("stats", []):
+        if (
+            stat.get("scoringPeriodId") == 0
+            and stat.get("statSourceId") == STAT_SOURCE_PROJECTED
+            and stat.get("statSplitTypeId") == STAT_SPLIT_SEASON
+            and stat.get("seasonId") == season
+        ):
+            return stat.get("appliedTotal")
+    return None
+
+
+def map_player_pool(raw: dict, season: int) -> tuple[list[schemas.PlayerPoolEntry], int]:
+    """Map a `view=kona_player_info` response to pool entries, plus a skip count.
+
+    Unlike the roster path, an entry this mapper cannot understand is skipped rather
+    than raised (design D6). A roster is the user's own lineup, where silently
+    dropping a player would corrupt it; the pool is a league-wide catalog of ~1000
+    players that legitimately contains positions and slots outside this app's
+    vocabulary, and one unknown id must not abort the whole sync. The count is
+    returned so degradation surfaces in the refresh run's summary instead of
+    vanishing.
+    """
+    entries: list[schemas.PlayerPoolEntry] = []
+    skipped = 0
+
+    for entry in raw.get("players", []):
+        player_raw = entry.get("player", {})
+        try:
+            player = _map_player(player_raw)
+            # Unnumbered on purpose: the internal `Slot` numbering (RB1/RB2) comes
+            # from per-roster counters, and a pool player is on no roster.
+            eligible = [espn_slot_name(sid) for sid in player_raw.get("eligibleSlots", [])]
+        except UnknownSlotError:
+            skipped += 1
+            continue
+
+        on_team_id = entry.get("onTeamId") or None
+        ownership = player_raw.get("ownership") or {}
+        entries.append(
+            schemas.PlayerPoolEntry(
+                league_id="",  # set by the caller, which knows which league it fetched
+                player=player,
+                status=entry.get("status", "FREEAGENT"),
+                on_team_id=str(on_team_id) if on_team_id else None,
+                percent_owned=ownership.get("percentOwned") or 0.0,
+                percent_started=ownership.get("percentStarted") or 0.0,
+                season_proj_points=_season_projection(player_raw, season),
+                eligible_slots=eligible,
+            )
+        )
+
+    return entries, skipped
 
 
 def _internal_slot(lineup_slot_id: int, counters: dict[str, int]) -> schemas.Slot:
