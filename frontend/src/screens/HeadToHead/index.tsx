@@ -197,7 +197,7 @@ export default function HeadToHead() {
         oppTeamName={oppTeam.name}
       />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+      <div className="h2h-bottom-grid">
         <RemainingPlayersCard mine={remaining.mine} theirs={remaining.theirs} />
         <ProjectedFinalCard
           myProj={oriented.myProj}

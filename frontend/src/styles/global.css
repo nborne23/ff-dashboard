@@ -810,11 +810,24 @@ html, body {
   grid-template-columns: 8fr 4fr;
   gap: 24px;
 }
+.dashboard-grid > * { min-width: 0; }
 .team-grid {
   display: grid;
   grid-template-columns: repeat(var(--team-cols, 2), 1fr);
   gap: 12px;
 }
+.season-grid {
+  display: grid;
+  grid-template-columns: 4fr 4fr 4fr;
+  gap: 24px;
+}
+.season-grid > * { min-width: 0; }
+.h2h-bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+.h2h-bottom-grid > * { min-width: 0; }
 .team-card {
   background: var(--surface);
   border-radius: 12px;
@@ -896,7 +909,7 @@ html, body {
   align-items: center;
   padding: 24px 0;
 }
-.h2h-side { text-align: center; }
+.h2h-side { text-align: center; min-width: 0; }
 .h2h-side .name { font-size: 14px; font-weight: 600; margin-bottom: 4px; letter-spacing: -0.01em; }
 .h2h-side.me .name { color: var(--move); }
 .h2h-side.opp .name { color: var(--stand); }
@@ -1171,12 +1184,30 @@ html, body {
 
   .dashboard-grid { grid-template-columns: 1fr; }
   .team-grid { grid-template-columns: 1fr; }
+  .season-grid { grid-template-columns: 1fr; }
+  .h2h-bottom-grid { grid-template-columns: 1fr; }
+
+  /* The 200px ring plus two unbreakable name/record columns measured 575px in a
+     375px viewport (.h2h-side floors at its own min-content since text doesn't
+     wrap). Put the ring on its own row and shrink the score so both sides fit
+     the remaining two columns. */
+  .h2h-top {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 16px 12px;
+  }
+  .h2h-top > *:nth-child(2) {
+    grid-column: 1 / -1;
+    justify-self: center;
+  }
+  .h2h-side .score-big { font-size: 36px; }
 
   /* Wide tabular content scrolls inside its own container rather than pushing the
      whole page sideways (the roster measured 551px in a 390px viewport). */
   .roster,
   .h2h-table {
     display: block;
+    width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }

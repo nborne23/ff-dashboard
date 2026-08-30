@@ -35,7 +35,7 @@ function SeasonSkeleton() {
         <Skeleton width="100%" height={180} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "4fr 4fr 4fr", gap: 24 }}>
+      <div className="season-grid">
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="card" style={{ padding: 14, minHeight: 68 }}>
@@ -119,7 +119,7 @@ export default function Season() {
         <SeasonChart weeks={weeks} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "4fr 4fr 4fr", gap: 24 }}>
+      <div className="season-grid">
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div className="section-label" style={{ marginBottom: 0 }}>
             Highlights
