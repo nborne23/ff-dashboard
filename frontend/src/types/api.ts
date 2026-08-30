@@ -226,6 +226,46 @@ export interface LiveNflGame {
   kickoff_at: string;
 }
 
+export type PoolStatus = "FREEAGENT" | "WAIVERS" | "ONTEAM";
+
+/** One player's availability and season projection *within one league*. Both facts
+ *  are league-scoped: a player free in one league may be rostered in another, and
+ *  `season_proj_points` is scored under that league's rules, so the same player
+ *  projects differently in a PPR league than in a half-PPR one. */
+export interface PlayerPoolEntry {
+  league_id: string;
+  player: Player;
+  status: PoolStatus;
+  on_team_id: string | null;
+  percent_owned: number;
+  percent_started: number;
+  /** null when no projection was published — distinct from 0.0, which is a real
+   *  value for a player projected to score nothing. Render as an em dash. */
+  season_proj_points: number | null;
+}
+
+/** A pool entry presented as claimable. `status` is inherited and is always
+ *  "FREEAGENT" or "WAIVERS" here — "ONTEAM" rows are ingested so incumbent starters
+ *  have a season projection to be compared against, but are never listed. */
+export interface WaiverCandidate extends PlayerPoolEntry {
+  /** Season projection minus that of the weakest starter the user rosters at an
+   *  eligible slot. null — never 0 — when either side has no projection or no
+   *  eligible starter exists. Render as an em dash. */
+  delta_vs_worst_starter: number | null;
+  /** ESPN's UNNUMBERED slot vocabulary — "QB", "RB", "WR", "TE", "FLEX", "RB/WR",
+   *  "WR/TE", "REC_FLEX", "OP", "K", "DST". Deliberately not `Slot`, which numbers
+   *  its positions (RB1, RB2) from per-roster counters; a pool player is on no
+   *  roster, so there is no basis for that numbering. */
+  eligible_slots: string[];
+}
+
+export interface WaiversData {
+  team_id: string;
+  league_id: string;
+  week: number;
+  candidates: WaiverCandidate[];
+}
+
 /** `{platform}:{platform_id}` → the platform prefix, per the stable-id scheme. */
 export function platformFromId(id: string): Platform | null {
   const prefix = id.split(":")[0];

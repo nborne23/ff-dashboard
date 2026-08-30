@@ -266,6 +266,50 @@ async def probe_limits_and_status(
             )
 
 
+async def probe_eligibility_and_positions(
+    client: httpx.AsyncClient, league_id: int, year: int
+) -> None:
+    """Q7 — two vocabulary questions the schema depends on.
+
+    (a) `eligibleSlots` is a list of raw lineupSlotId ints. They map to UNNUMBERED
+        names (RB, WR, FLEX) via LINEUP_SLOT_MAP — there is no basis for RB1 vs RB2
+        off a roster, since the internal Slot numbering comes from per-roster
+        counters. So the eligibility type cannot be the internal `Slot`. This reports
+        which ids actually appear and whether LINEUP_SLOT_MAP covers them.
+    (b) `Player.position` is a 6-value Literal. A 1030-player league-wide catalog
+        contains more than six positions, so this counts how many entries would be
+        skipped by design D6 — task 6.2 expects "a handful, not hundreds."
+    """
+    from backend.gridiron.platforms.espn.slot_table import LINEUP_SLOT_MAP
+
+    resp = await client.get(
+        league_path(league_id, year),
+        params={"view": "kona_player_info"},
+        headers={"x-fantasy-filter": pool_filter(1500)},
+    )
+    if resp.status_code != 200:
+        print(f"\n### Q7 — HTTP {resp.status_code}")
+        return
+    entries = resp.json().get("players", [])
+
+    slot_ids = Counter()
+    for e in entries:
+        for sid in entry_player(e).get("eligibleSlots", []):
+            slot_ids[sid] += 1
+    known = {sid: LINEUP_SLOT_MAP.get(sid) for sid in sorted(slot_ids)}
+    unknown = [sid for sid, name in known.items() if name is None]
+
+    print(f"\n### Q7a — eligibleSlots vocabulary across {len(entries)} players")
+    print(f"    distinct lineupSlotIds: {sorted(slot_ids)}")
+    print(f"    mapped: {[(sid, n) for sid, n in known.items() if n]}")
+    print(f"    UNMAPPED (espn_slot_name would raise): {unknown or 'none'}")
+
+    pos_ids = Counter(entry_player(e).get("defaultPositionId") for e in entries)
+    print(f"\n### Q7b — defaultPositionId distribution ({len(entries)} players)")
+    for pid, n in sorted(pos_ids.items(), key=lambda kv: -kv[1]):
+        print(f"    id={pid:<4} x{n}")
+
+
 async def probe_pool_size(client: httpx.AsyncClient, league_id: int, year: int) -> None:
     """Q5 — what does a FULL pool pull actually cost? `_cached_league_fetch` persists
     raw response text per design.md D7; this is the number that decides whether the
@@ -324,6 +368,7 @@ async def main() -> None:
         # One undrafted league (GAS Lab) and one drafted (THE LEAGUE) — the sizes differ
         # enough that quoting either alone would be misleading.
         await probe_limits_and_status(client, leagues[:2])
+        await probe_eligibility_and_positions(client, first_league_id, year)
 
 
 if __name__ == "__main__":

@@ -5,11 +5,11 @@
 
 ## 1. Contract (gate — do first, everything forks from here)
 
-- [ ] 1.1 Add `backend/gridiron/models/player_pool.py` — `PlayerPoolEntry`, `__tablename__ = "player_pool_entries"`, composite PK `(league_id, player_id)`, both FKs. Columns: `status` (String(16)), `on_team_id` (String(255), nullable), `percent_owned` (Float), `percent_started` (Float), `season_proj_points` (Float, **nullable** per design D2), `updated_at`. Index `(league_id, season_proj_points)` for the ranked read in 4.1. Export from `models/__init__.py`.
-- [ ] 1.2 Alembic revision creating the table. `uv run alembic revision --autogenerate -m "add player_pool_entries"`, then read the generated file — autogenerate does not always get composite PKs or partial indexes right.
-- [ ] 1.3 Add `backend/gridiron/schemas/player_pool.py` — `PlayerPoolEntry` (the normalized entity, embedding `Player`) and `WaiverCandidate` (adds `delta_vs_worst_starter: float | None`, `eligible_slots: list[str]`). Per the `fantasy-data-model` delta.
-- [ ] 1.4 Mirror both in `frontend/src/types/api.ts`, plus `WaiversData`.
-- [ ] 1.5 Write `frontend/src/screens/Waivers/fixtures.ts` — a typed `WaiversData` fixture spanning at least one player with a null projection and one with a null delta. Unblocks lane 5 before the endpoint exists.
+- [x] 1.1 Add `backend/gridiron/models/player_pool.py` — `PlayerPoolEntry`, `__tablename__ = "player_pool_entries"`, composite PK `(league_id, player_id)`, both FKs. Columns: `status` (String(16)), `on_team_id` (String(255), nullable), `percent_owned` (Float), `percent_started` (Float), `season_proj_points` (Float, **nullable** per design D2), `updated_at`. Index `(league_id, season_proj_points)` for the ranked read in 4.1. Export from `models/__init__.py`.
+- [x] 1.2 Alembic revision creating the table. `uv run alembic revision --autogenerate -m "add player_pool_entries"`, then read the generated file — autogenerate does not always get composite PKs or partial indexes right.
+- [x] 1.3 Add `backend/gridiron/schemas/player_pool.py` — `PlayerPoolEntry` (the normalized entity, embedding `Player`) and `WaiverCandidate` (adds `delta_vs_worst_starter: float | None`, `eligible_slots: list[str]`). Per the `fantasy-data-model` delta.
+- [x] 1.4 Mirror both in `frontend/src/types/api.ts`, plus `WaiversData`.
+- [x] 1.5 Write `frontend/src/screens/Waivers/fixtures.ts` — a typed `WaiversData` fixture spanning at least one player with a null projection and one with a null delta. Unblocks lane 5 before the endpoint exists.
 
 ## 2. ESPN fetch + mapper (lane A)
 

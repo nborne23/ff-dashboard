@@ -43,6 +43,12 @@ from backend.gridiron.schemas.events import (
 from backend.gridiron.schemas.leagues import League, ScoringType
 from backend.gridiron.schemas.live_nfl_games import LiveNflGame
 from backend.gridiron.schemas.matchups import Matchup, MatchupSlot
+from backend.gridiron.schemas.player_pool import (
+    PlayerPoolEntry,
+    PoolStatus,
+    WaiverCandidate,
+    WaiversData,
+)
 from backend.gridiron.schemas.players import InjuryStatus, Player, Position
 from backend.gridiron.schemas.roster_slots import RosterSlot
 from backend.gridiron.schemas.season_weeks import SeasonWeek
@@ -73,7 +79,9 @@ __all__ = [
     "Platform",
     "PlatformStatus",
     "Player",
+    "PlayerPoolEntry",
     "PoolData",
+    "PoolStatus",
     "Position",
     "Rank",
     "Record",
@@ -93,4 +101,6 @@ __all__ = [
     "TierChangeEvent",
     "TurnPairOut",
     "UndoResultData",
+    "WaiverCandidate",
+    "WaiversData",
 ]
