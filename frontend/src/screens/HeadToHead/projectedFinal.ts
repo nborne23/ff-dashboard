@@ -30,6 +30,21 @@ export interface ProjectedFinalInput {
   oppProj: number;
   myRemaining: number;
   oppRemaining: number;
+  /**
+   * Clamp `confidencePct` to [50, 99] — the "floored, favorite view". Defaults to
+   * `true`, so every existing caller keeps its current behavior.
+   *
+   * The floor exists because a single-matchup surface (Head-to-Head) reads better
+   * stating how confident the favorite is than announcing "you probably lose"; the
+   * prototype's confidence badge never showed a sub-50 number.
+   *
+   * Game Day opts out (`clamp: false`). It renders six matchups at once, and six
+   * panels each reading >= 50% would tell the user they are favored in every league
+   * while two are lost — the floor stops being a presentation choice and becomes a
+   * false claim (design D7). Unclamped, the raw rounded percent is returned with
+   * neither the 50 floor nor the 99 ceiling.
+   */
+  clamp?: boolean;
 }
 
 export interface ProjectedFinalResult {
@@ -39,7 +54,10 @@ export interface ProjectedFinalResult {
   myCeiling: number;
   oppFloor: number;
   oppCeiling: number;
-  /** Win probability for "my" side, as a whole-number percent clamped to [50, 99]. */
+  /**
+   * Win probability for "my" side as a whole-number percent — clamped to [50, 99] by
+   * default, or the raw rounded value when `clamp: false`.
+   */
   confidencePct: number;
 }
 
@@ -48,6 +66,7 @@ export function computeProjectedFinal({
   oppProj,
   myRemaining,
   oppRemaining,
+  clamp = true,
 }: ProjectedFinalInput): ProjectedFinalResult {
   const mySigma = SIGMA_PER_PLAYER * Math.sqrt(Math.max(0, myRemaining));
   const oppSigma = SIGMA_PER_PLAYER * Math.sqrt(Math.max(0, oppRemaining));
@@ -61,11 +80,13 @@ export function computeProjectedFinal({
     combinedSigma === 0 ? (diff === 0 ? 0 : diff > 0 ? Infinity : -Infinity) : diff / combinedSigma;
 
   const rawPct = normalCdfApprox(z) * 100;
-  // Clamp is intentionally one-sided-friendly per spec: it always reads
-  // >= 50 (a "floored, favorite view"), even when the raw model favors the
-  // opponent — this mirrors the prototype's confidence badge, which never
-  // shows "my team probably loses."
-  const confidencePct = Math.min(99, Math.max(50, Math.round(rawPct)));
+  // Clamped (the default) this is intentionally one-sided-friendly per spec: it always
+  // reads >= 50 (a "floored, favorite view"), even when the raw model favors the
+  // opponent — mirroring the prototype's confidence badge, which never shows "my team
+  // probably loses." Multi-matchup views pass `clamp: false` to get the true value; see
+  // the `clamp` doc on ProjectedFinalInput.
+  const rounded = Math.round(rawPct);
+  const confidencePct = clamp ? Math.min(99, Math.max(50, rounded)) : rounded;
 
   return {
     mySigma,

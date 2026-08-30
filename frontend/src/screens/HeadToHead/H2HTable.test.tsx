@@ -27,6 +27,13 @@ function makeSlot(overrides: Partial<MatchupSlot> = {}): MatchupSlot {
     away_player: makePlayer({ id: "away", name: "Away Guy" }),
     home_pts: 20,
     away_pts: 10,
+    // Per-side live state (add-game-day-view). The endpoint always sends these, so
+    // they're required on the type rather than optional — a component reading
+    // `undefined` here would be reading a case that cannot happen in production.
+    home_state: "post",
+    away_state: "post",
+    home_is_live: false,
+    away_is_live: false,
     ...overrides,
   };
 }

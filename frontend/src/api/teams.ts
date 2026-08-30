@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import type {
   Envelope,
+  GameDayData,
   League,
   Matchup,
   MatchupSlot,
@@ -87,5 +88,20 @@ export function useTeamSeason(id: string) {
     queryFn: () => apiClient.get<Envelope<TeamSeasonData>>(`/api/teams/${id}/season`),
     staleTime: STALE_TIME_MS,
     enabled: Boolean(id),
+  });
+}
+
+/**
+ * The Game Day bulk envelope — every matchup involving a user team in one request,
+ * replacing what would otherwise be a `/h2h` + `/{id}` pair per team (design D5).
+ *
+ * The key is `["gameday", week]`, a two-element key so `api/events.ts` can invalidate
+ * the whole screen with the `["gameday"]` prefix without enumerating weeks (design D9).
+ */
+export function useGameDay(week: number) {
+  return useQuery({
+    queryKey: ["gameday", week],
+    queryFn: () => apiClient.get<Envelope<GameDayData>>(`/api/teams/game-day?week=${week}`),
+    staleTime: STALE_TIME_MS,
   });
 }

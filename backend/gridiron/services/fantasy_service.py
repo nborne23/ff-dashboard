@@ -57,7 +57,29 @@ PLATFORMS: tuple[str, ...] = ("yahoo", "espn")
 ACCENT_COLOR = "#FF2D55"
 
 STARTER_EXCLUDED_SLOTS = ("BN", "IR")
-SLOT_ORDER = ["QB", "RB1", "RB2", "WR1", "WR2", "TE", "FLEX", "K", "DST", "BN", "IR"]
+# Display/sort order. Every value in `schemas.Slot` must appear here: `_SLOT_RANK.get`
+# falls back to `len(SLOT_ORDER)` for anything missing, which gives every unlisted slot
+# an IDENTICAL rank — they would sort after DST in whatever order the query happened to
+# return, with no test able to see it (`sorted` is stable, so it looks plausible).
+SLOT_ORDER = [
+    "QB",
+    "RB1",
+    "RB2",
+    "WR1",
+    "WR2",
+    "TE",
+    "FLEX",
+    "FLEX1",
+    "FLEX2",
+    "FLEX3",
+    "FLEX4",
+    "OP1",
+    "OP2",
+    "K",
+    "DST",
+    "BN",
+    "IR",
+]
 _SLOT_RANK = {slot: i for i, slot in enumerate(SLOT_ORDER)}
 
 # Adaptive backoff (live-updates spec): a platform that rate-limits or 5xxes during a
@@ -107,6 +129,52 @@ class H2HData(BaseModel):
     matchup: schemas.Matchup
     slots: list[schemas.MatchupSlot]
     remaining: Remaining
+
+
+class GameDayMatchup(BaseModel):
+    """One user team's complete head-to-head, flattened onto the user's perspective.
+
+    Everything is already oriented — `team_*` is always the user's side and `opp_*` the
+    opponent's, whichever side of `matchups` they sit on — so the consumer never
+    re-derives home/away for the panel-level values. `slots` keeps the raw home/away
+    `MatchupSlot` shape and is oriented client-side via `orientSlot(slot, iAmHome)`,
+    which the Head-to-Head screen already owns.
+
+    No `win_prob` (design D7): the endpoint returns `proj`, `opp_proj` and `remaining`
+    — the only three inputs the client's `computeProjectedFinal` takes — so a
+    server-side copy would mean maintaining a second implementation of that model.
+    """
+
+    team_id: str
+    team_name: str
+    opp_team_id: str
+    opp_team_name: str
+    league_id: str
+    league_name: str
+    # Derived from the team id's `{platform}:` prefix — `Team` carries no `platform`
+    # field (design D5).
+    platform: str
+    record: schemas.Record
+    rank: schemas.Rank
+    score: float
+    opp_score: float
+    proj: float
+    opp_proj: float
+    remaining: Remaining
+    is_complete: bool
+    # Which side of the underlying matchup the user's team sits on. Everything else on
+    # this model is already oriented, but `slots` deliberately keeps the raw home/away
+    # shape so the client can reuse Head-to-Head's `orientSlot(slot, iAmHome)` — and
+    # `MatchupSlot` carries no team ids, so without this flag that call has no input and
+    # the slots are unorientable. (Additive to the field list in the spec's "Bulk
+    # game-day matchups" scenario, which that scenario's own "Orientation" requirement
+    # in specs/game-day/spec.md implicitly needs.)
+    i_am_home: bool
+    slots: list[schemas.MatchupSlot]
+
+
+class GameDayData(BaseModel):
+    matchups: list[GameDayMatchup]
 
 
 class MostStarted(BaseModel):
@@ -521,6 +589,74 @@ async def get_team(session: AsyncSession, team_id: str, week: int) -> TeamDetail
     )
 
 
+def _slot_is_remaining(game_state: str | None) -> bool:
+    """A starter counts as "yet to play" until its NFL game is final. Discovery leaves
+    `game_state` NULL (pre-classification), which counts as not-finished."""
+    return game_state != "post"
+
+
+async def _per_side_slot_state(
+    session: AsyncSession, team_ids: list[str], week: int
+) -> dict[tuple[str, str], tuple[str | None, bool]]:
+    """`(team_id, player_id) -> (game_state, is_live)` for one week's roster slots.
+
+    This is the join behind `MatchupSlot`'s per-side state (design D6). The key is
+    **player identity, not the slot label**: the Yahoo path pairs matchup slots by
+    internal slot label (`_pair_matchup_slots`) while the ESPN path receives them
+    natively from `espn.mapper.map_matchup`, so slot labels are not comparable across
+    platforms.
+
+    `team_id` is part of the key because `(player_id, week)` alone is **not** unique —
+    `roster_slots`' constraint is `uq_roster_slots_team_week_player`, so one player
+    rostered in two of the user's leagues has one row per team. Scoping the lookup by
+    the matchup's own home/away team ids keeps the join on player identity (D6's actual
+    requirement) while matching the uniqueness that really holds. Joining on
+    `(player_id, week)` alone would let a multi-league player pick up the wrong league's
+    state.
+
+    Takes a list of team ids so callers building many matchups at once (`game_day`) load
+    every side in one query rather than one query per team.
+    """
+    if not team_ids:
+        return {}
+    rows = (
+        (
+            await session.execute(
+                select(RosterSlot).where(RosterSlot.team_id.in_(team_ids), RosterSlot.week == week)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return {(r.team_id, r.player_id): (r.game_state, r.is_live) for r in rows}
+
+
+def _matchup_slot_schema(
+    row: MatchupSlot,
+    players: dict[str, Player],
+    state: dict[tuple[str, str], tuple[str | None, bool]],
+    home_team_id: str,
+    away_team_id: str,
+) -> schemas.MatchupSlot:
+    """Build the read-path `MatchupSlot`, overlaying each side's live state from the
+    `roster_slots` row for that (team, player). A player with no roster row that week
+    falls back to `(None, False)` — unclassified, not live."""
+    home_state, home_is_live = state.get((home_team_id, row.home_player_id), (None, False))
+    away_state, away_is_live = state.get((away_team_id, row.away_player_id), (None, False))
+    return schemas.MatchupSlot(
+        matchup_id=row.matchup_id,
+        slot=row.slot,
+        home_player=_player_schema(players[row.home_player_id]),
+        away_player=_player_schema(players[row.away_player_id]),
+        home_pts=row.home_pts,
+        away_pts=row.away_pts,
+        home_state=home_state,
+        away_state=away_state,
+        home_is_live=home_is_live,
+        away_is_live=away_is_live,
+    )
+
+
 async def _remaining_count(session: AsyncSession, team_id: str, week: int) -> int:
     """Starters whose NFL game hasn't finished (game_state != 'post'). Discovery leaves
     game_state NULL (pre-classification), which counts as not-finished."""
@@ -569,15 +705,13 @@ async def get_h2h(session: AsyncSession, team_id: str, week: int) -> H2HData | N
         .scalars()
         .all()
     }
+    state = await _per_side_slot_state(
+        session, [matchup_row.home_team_id, matchup_row.away_team_id], week
+    )
     slots = sorted(
         (
-            schemas.MatchupSlot(
-                matchup_id=s.matchup_id,
-                slot=s.slot,
-                home_player=_player_schema(players[s.home_player_id]),
-                away_player=_player_schema(players[s.away_player_id]),
-                home_pts=s.home_pts,
-                away_pts=s.away_pts,
+            _matchup_slot_schema(
+                s, players, state, matchup_row.home_team_id, matchup_row.away_team_id
             )
             for s in slot_rows
         ),
@@ -594,6 +728,184 @@ async def get_h2h(session: AsyncSession, team_id: str, week: int) -> H2HData | N
         theirs=await _remaining_count(session, opp_id, week),
     )
     return H2HData(matchup=_matchup_schema(matchup_row), slots=slots, remaining=remaining)
+
+
+async def game_day(session: AsyncSession, week: int) -> GameDayData:
+    """Every matchup involving a user team for `week`, each already oriented onto that
+    user team's perspective — the bulk read behind the Game Day screen (design D5).
+
+    Replaces what would otherwise be one `/h2h` + one `/{id}` request per team (twelve
+    for a six-league user) with a single envelope, so an SSE tick costs one refetch.
+
+    **Bounded query count** (fantasy-data-model spec, "No N+1"): this issues a fixed
+    number of queries regardless of how many teams the user has — the user teams, the
+    week's matchups, the teams on both sides, their leagues, the matchup slots, the
+    players, and the week's roster slots, each loaded once for the whole set.
+
+    It deliberately does **not** call `_team_schema`, despite tasks.md 2.3 suggesting
+    it. `_team_schema` costs roughly four queries *per team* (its own matchup lookup, an
+    opponent `session.get`, the sparkline select, and `_team_is_live`) and three of the
+    things it computes — `spark_last_6`, `accent_color`, `is_live` — are not on
+    `GameDayMatchup` at all. Reusing it would pay all of that cost for a minority of its
+    output and break the bounded-query requirement, which is the normative one. The
+    fields it *does* share (`record`, `rank`, and the week-scoped
+    `score`/`opp_score`/`opp_team_name`) are derived here from the same sources it uses:
+    the `teams` row and the week's `matchups` row.
+
+    One entry per *user team*, keyed by `team_id` — so if two of the user's own teams
+    happen to meet in the same league, each gets its own panel from its own side.
+    """
+    # Disabled leagues are excluded, matching `list_teams` and `day_rings` — a league
+    # the user has switched off in Settings must not reappear here just because this is
+    # a different read. Discovery also skips writing to it, so its rows go stale rather
+    # than being deleted, which is exactly why the filter has to live on every read.
+    user_teams = (
+        (
+            await session.execute(
+                select(Team)
+                .join(League, Team.league_id == League.id)
+                .where(Team.is_user_team.is_(True), League.is_enabled.is_(True))
+                .order_by(Team.league_id, Team.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not user_teams:
+        return GameDayData(matchups=[])
+
+    user_team_ids = [t.id for t in user_teams]
+    matchup_rows = (
+        (
+            await session.execute(
+                select(Matchup).where(
+                    Matchup.week == week,
+                    Matchup.home_team_id.in_(user_team_ids)
+                    | Matchup.away_team_id.in_(user_team_ids),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not matchup_rows:
+        return GameDayData(matchups=[])
+
+    # One matchup can be the home side of one user team and the away side of another, so
+    # index by team id rather than assuming a 1:1 team/matchup mapping.
+    matchup_by_team: dict[str, Matchup] = {}
+    for m in matchup_rows:
+        matchup_by_team.setdefault(m.home_team_id, m)
+        matchup_by_team.setdefault(m.away_team_id, m)
+
+    all_team_ids = sorted(
+        {m.home_team_id for m in matchup_rows} | {m.away_team_id for m in matchup_rows}
+    )
+    teams_by_id = {
+        t.id: t
+        for t in (await session.execute(select(Team).where(Team.id.in_(all_team_ids))))
+        .scalars()
+        .all()
+    }
+    league_ids = sorted({t.league_id for t in teams_by_id.values()})
+    league_names = {
+        row_id: name
+        for row_id, name in (
+            await session.execute(select(League.id, League.name).where(League.id.in_(league_ids)))
+        ).all()
+    }
+
+    matchup_ids = [m.id for m in matchup_rows]
+    slot_rows = (
+        (await session.execute(select(MatchupSlot).where(MatchupSlot.matchup_id.in_(matchup_ids))))
+        .scalars()
+        .all()
+    )
+    slots_by_matchup: dict[str, list[MatchupSlot]] = {}
+    for row in slot_rows:
+        slots_by_matchup.setdefault(row.matchup_id, []).append(row)
+
+    player_ids = {r.home_player_id for r in slot_rows} | {r.away_player_id for r in slot_rows}
+    players = {
+        pl.id: pl
+        for pl in (await session.execute(select(Player).where(Player.id.in_(player_ids))))
+        .scalars()
+        .all()
+    }
+
+    # One roster-slot load serves both the per-side state overlay and the remaining
+    # counts, rather than `_per_side_slot_state` plus a `_remaining_count` per side.
+    roster_rows = (
+        (
+            await session.execute(
+                select(RosterSlot).where(
+                    RosterSlot.team_id.in_(all_team_ids), RosterSlot.week == week
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    state = {(r.team_id, r.player_id): (r.game_state, r.is_live) for r in roster_rows}
+    remaining_by_team: dict[str, int] = dict.fromkeys(all_team_ids, 0)
+    for r in roster_rows:
+        if r.slot in STARTER_EXCLUDED_SLOTS:
+            continue
+        if _slot_is_remaining(r.game_state):
+            remaining_by_team[r.team_id] += 1
+
+    entries: list[GameDayMatchup] = []
+    for team in user_teams:
+        matchup = matchup_by_team.get(team.id)
+        if matchup is None:
+            continue
+        i_am_home = matchup.home_team_id == team.id
+        opp_id = matchup.away_team_id if i_am_home else matchup.home_team_id
+        opp = teams_by_id.get(opp_id)
+
+        slots = sorted(
+            (
+                _matchup_slot_schema(
+                    row, players, state, matchup.home_team_id, matchup.away_team_id
+                )
+                for row in slots_by_matchup.get(matchup.id, [])
+            ),
+            key=lambda sl: _SLOT_RANK.get(sl.slot, len(SLOT_ORDER)),
+        )
+
+        entries.append(
+            GameDayMatchup(
+                team_id=team.id,
+                team_name=team.name,
+                opp_team_id=opp_id,
+                opp_team_name=opp.name if opp is not None else "",
+                league_id=team.league_id,
+                league_name=league_names.get(team.league_id, ""),
+                # `Team` carries no platform field (design D5) — it lives in the id's
+                # `{platform}:{platform_id}` prefix, the same split Sidebar.tsx does.
+                platform=_split_id(team.id)[0],
+                record=schemas.Record(w=team.record_w, l=team.record_l, t=team.record_t),
+                rank=schemas.Rank(current=team.rank_current, total=team.rank_total),
+                # Scores come from the *week's* matchup row, so a past-week request
+                # reports that week's values rather than the current week's.
+                score=matchup.home_score if i_am_home else matchup.away_score,
+                opp_score=matchup.away_score if i_am_home else matchup.home_score,
+                proj=matchup.home_proj if i_am_home else matchup.away_proj,
+                opp_proj=matchup.away_proj if i_am_home else matchup.home_proj,
+                remaining=Remaining(
+                    mine=remaining_by_team.get(team.id, 0),
+                    theirs=remaining_by_team.get(opp_id, 0),
+                ),
+                is_complete=matchup.is_complete,
+                i_am_home=i_am_home,
+                slots=slots,
+            )
+        )
+
+    # Stable, human-sensible order for a first render; the client persists its own order
+    # on top of this and reconciles against it (design D8).
+    entries.sort(key=lambda e: (e.league_name, e.team_name, e.team_id))
+    return GameDayData(matchups=entries)
 
 
 async def _most_started(session: AsyncSession, team_id: str) -> MostStarted | None:
@@ -920,6 +1232,14 @@ def _pair_matchup_slots(
             away_player=away[slot].player,
             home_pts=home[slot].actual_points,
             away_pts=away[slot].actual_points,
+            # No join needed here: this write path already holds both sides' RosterSlot
+            # schemas, which carry game_state/is_live directly. The read path
+            # (`_per_side_slot_state`) has to look them up because `matchup_slots`
+            # persists only the points.
+            home_state=home[slot].game_state,
+            away_state=away[slot].game_state,
+            home_is_live=home[slot].is_live,
+            away_is_live=away[slot].is_live,
         )
         for slot in sorted(set(home) & set(away), key=lambda s: _SLOT_RANK.get(s, len(SLOT_ORDER)))
     ]

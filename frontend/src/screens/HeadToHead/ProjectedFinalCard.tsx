@@ -18,7 +18,15 @@ export function ProjectedFinalCard({
   myRemaining,
   oppRemaining,
 }: ProjectedFinalCardProps) {
-  const result = computeProjectedFinal({ myProj, oppProj, myRemaining, oppRemaining });
+  // `clamp: true` is the default; stated explicitly because Game Day passes `false`
+  // (design D7) and the difference should be visible at the call site.
+  const result = computeProjectedFinal({
+    myProj,
+    oppProj,
+    myRemaining,
+    oppRemaining,
+    clamp: true,
+  });
   const diff = myProj - oppProj;
   const range = result.myCeiling - result.myFloor;
   const markerPct =

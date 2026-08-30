@@ -84,6 +84,16 @@ function invalidateScopes(queryClient: QueryClient, scopes: string[]): void {
     // own invalidation is deliberately widened to include them too, rather than adding
     // a whole new backend scope for one small extra query.
     if (scope === "teams") void queryClient.invalidateQueries({ queryKey: ["day-rings"] });
+
+    // Same escape hatch, for Game Day (design D9). `queryKeyForScope` maps one scope to
+    // one key prefix, and Game Day spans *every* team — it has no single scope of its
+    // own, so it can't live in that map. Instead any scope that could have moved a
+    // score widens to the `["gameday"]` prefix key, which matches `["gameday", week]`
+    // for every week without enumerating them. Net effect on a tick: one refetch of the
+    // bulk envelope instead of twelve per-team requests.
+    if (scope === "teams" || scope.startsWith("team:") || scope.startsWith("h2h:")) {
+      void queryClient.invalidateQueries({ queryKey: ["gameday"] });
+    }
   }
 }
 

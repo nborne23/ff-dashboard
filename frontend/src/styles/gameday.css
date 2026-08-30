@@ -1,0 +1,584 @@
+/* Game Day (add-game-day-view).
+ *
+ * Authored from design.md D1–D4 and specs/game-day/spec.md rather than ported: the
+ * `design/gameday.css` prototype the change's task 5.1 names does not exist in this
+ * repo or its git history. Every color is a token from tokens.css — no hex outside
+ * that file, per gridiron-ui's pixel-fidelity requirement.
+ *
+ * The organizing idea is that DENSITY IS A FUNCTION OF THE PANEL'S OWN WIDTH, not of
+ * the viewport and not of a React prop (design D3). The panel declares
+ * `container-type: inline-size`; every size below is chosen by a container query. That
+ * is what lets a manually widened panel adopt the next density band with no
+ * width-measuring JavaScript, and what lets the roster reveal itself by width alone.
+ */
+
+/* ==== Control bar ==== */
+.gd-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.gd-controls-spacer {
+  flex: 1;
+}
+.gd-seg {
+  display: inline-flex;
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+.gd-seg-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-system);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+.gd-seg-btn:hover {
+  color: var(--text);
+}
+.gd-seg-btn.active {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+/* ==== Stage ==== */
+.gd-stage {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+}
+.gd-stage[data-layout="g2"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.gd-stage[data-layout="g3"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.gd-stage[data-layout="c4"] {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+/* Spotlight-on-stage: one large panel plus a rail of the rest. */
+.gd-stage[data-layout="spot"] {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+.gd-stage[data-layout="spot"] > .gd-panel:first-child {
+  grid-row: span 3;
+}
+
+/* ==== Panel ==== */
+.gd-panel {
+  /* The whole density ladder hangs off this one declaration. */
+  container-type: inline-size;
+  container-name: gdpanel;
+
+  position: relative;
+  background: var(--surface);
+  border-radius: 12px;
+  border: 1px solid transparent;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  transition:
+    opacity 200ms ease,
+    border-color 200ms ease,
+    box-shadow 200ms ease;
+}
+
+/* --- Cue 3: any player in the panel is live (persistent) ---------------------------
+ * Bound to `home_is_live || away_is_live` across the slots — never to a game_state
+ * comparison (design D4). */
+.gd-panel[data-live="true"] {
+  border-color: color-mix(in srgb, var(--live) 45%, transparent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--live) 14%, transparent);
+}
+
+/* --- Cue 4: the panel is settled (persistent) --------------------------------------
+ * The load-bearing cue. By late Sunday most panels are done; dropping them back lets
+ * the two still in play own the screen without anything moving. Bound to
+ * `matchup.is_complete`, which is populated and authoritative — deriving it from
+ * game_state would make it permanently false for discovery-written rows. */
+.gd-panel[data-settled="true"] {
+  opacity: 0.52;
+}
+.gd-panel[data-settled="true"]:hover {
+  opacity: 1;
+}
+
+/* --- Cue 2: a lead flipped (1.4s double-pulse) ------------------------------------- */
+.gd-panel[data-lead-flip="true"] {
+  animation: gd-lead-flip 1400ms ease-out;
+}
+@keyframes gd-lead-flip {
+  0%,
+  100% {
+    background: var(--surface);
+  }
+  15%,
+  65% {
+    background: color-mix(in srgb, var(--move) 22%, var(--surface));
+  }
+  40%,
+  90% {
+    background: var(--surface);
+  }
+}
+
+/* ==== Meta row ==== */
+.gd-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  cursor: grab;
+}
+.gd-meta:active {
+  cursor: grabbing;
+}
+.gd-team-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gd-league-name {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gd-live-pill,
+.gd-final-pill {
+  flex: none;
+  margin-left: auto;
+}
+.gd-final-pill {
+  margin-left: 0;
+}
+.gd-spotlight-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1;
+  padding: 4px;
+  cursor: pointer;
+  flex: none;
+}
+.gd-spotlight-btn:hover {
+  color: var(--text);
+}
+
+/* ==== Score row ====
+ * Only the LABELS carry color; values stay white and the trailing side drops to
+ * --text-secondary, so the leader is a brightness difference before it is a number
+ * (design D1). */
+.gd-scores {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+.gd-score-side {
+  min-width: 0;
+  text-align: center;
+}
+.gd-score-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+.gd-score-side[data-side="mine"] .gd-score-label {
+  color: var(--move);
+}
+.gd-score-side[data-side="theirs"] .gd-score-label {
+  color: var(--stand);
+}
+.gd-score-value {
+  /* Overridden per density band below; this is the < 360px floor. */
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+.gd-score-side[data-trailing="true"] .gd-score-value {
+  color: var(--text-secondary);
+}
+.gd-score-sub {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+/* The one place lead/deficit is stated outright. */
+.gd-margin-chip {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.gd-margin-chip[data-sign="pos"] {
+  background: color-mix(in srgb, var(--exercise) 16%, transparent);
+  color: var(--exercise);
+}
+.gd-margin-chip[data-sign="neg"] {
+  background: color-mix(in srgb, var(--move) 16%, transparent);
+  color: var(--move);
+}
+.gd-margin-chip[data-sign="tied"] {
+  background: color-mix(in srgb, var(--pill) 24%, transparent);
+  color: var(--text-tertiary);
+}
+
+/* ==== Stat strip ==== */
+.gd-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  border-top: 0.5px solid var(--separator);
+  padding-top: 10px;
+}
+.gd-stat {
+  min-width: 0;
+}
+.gd-stat-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gd-stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.gd-stat-unit {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-left: 4px;
+}
+
+/* ==== Disclosure ==== */
+.gd-disclosure {
+  appearance: none;
+  border: 0;
+  border-top: 0.5px solid var(--separator);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-system);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 8px 0 0;
+  cursor: pointer;
+  width: 100%;
+}
+.gd-disclosure:hover {
+  color: var(--text);
+}
+
+/* ==== Mirrored roster ====
+ * ALWAYS in the DOM at every width and arrangement (design D3). CSS cannot set React
+ * state, so "open by default at >= 540px" cannot be a useState initializer; the
+ * container query below hides it under 540px instead, and [data-roster] overrides that
+ * query in both directions. */
+.gd-roster {
+  display: flex;
+  flex-direction: column;
+  border-top: 0.5px solid var(--separator);
+  padding-top: 8px;
+}
+.gd-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  border-radius: 4px;
+}
+
+/* --- Cue 1: a player's points changed (1.2s row flash) -----------------------------
+ * Driven by the existing useChangedValuePulse, so it reuses that hook's
+ * [data-just-changed] attribute but overrides global.css's text-shadow flash with a
+ * whole-row background wash — at this density the row is the unit that changed. */
+.gd-row[data-just-changed="true"] {
+  /* 900ms, matching useChangedValuePulse's PULSE_ANIMATION_MS — that hook owns the
+     duration. It removes [data-just-changed] on its own 900ms timer, so a longer
+     animation declared here would simply be cut off mid-cycle rather than running to
+     completion; the design table's "1.2s" is not achievable without changing the hook,
+     which Head-to-Head and Dashboard also depend on. */
+  animation: gd-row-flash 900ms ease-out;
+}
+@keyframes gd-row-flash {
+  0% {
+    background: color-mix(in srgb, var(--live) 26%, transparent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+.gd-side {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+}
+.gd-side[data-side="mine"] {
+  justify-content: flex-end;
+  flex-direction: row;
+}
+.gd-side[data-side="theirs"] {
+  justify-content: flex-start;
+  flex-direction: row-reverse;
+}
+/* A player whose game has not kicked off renders dimmed, so a 0.0 that means "hasn't
+ * played" never reads as a 0.0 that means "was shut out". */
+.gd-side[data-state="pre"] {
+  opacity: 0.45;
+}
+.gd-player-name {
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gd-nfl-team {
+  font-size: 10px;
+  color: var(--text-secondary);
+  flex: none;
+}
+.gd-pts {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+  min-width: 34px;
+  text-align: right;
+}
+.gd-side[data-side="theirs"] .gd-pts {
+  text-align: left;
+}
+
+.gd-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  flex: none;
+  min-width: 46px;
+  padding: 0 4px;
+  border-left: 1px dashed var(--separator);
+  border-right: 1px dashed var(--separator);
+}
+.gd-slot-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+.gd-slot-diff {
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.gd-slot-diff[data-sign="pos"] {
+  color: var(--exercise);
+}
+.gd-slot-diff[data-sign="neg"] {
+  color: var(--move);
+}
+.gd-slot-diff[data-sign="tied"] {
+  color: var(--text-tertiary);
+}
+
+/* The live dot is the ONLY continuously-animating element in the view (design D4). */
+.gd-live-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--live);
+  flex: none;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+/* ==== Resize handle ====
+ * A corner target disjoint from the header's reorder drag, so the two gestures never
+ * compete for the same pointerdown. */
+.gd-resize-handle {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 14px;
+  height: 14px;
+  border-right: 2px solid var(--separator);
+  border-bottom: 2px solid var(--separator);
+  border-bottom-right-radius: 4px;
+  cursor: nwse-resize;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+.gd-panel:hover .gd-resize-handle {
+  opacity: 1;
+}
+
+/* ==== Spotlight overlay ==== */
+.gd-spotlight-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+.gd-spotlight-frame {
+  width: min(1100px, 92vw);
+  max-height: 90vh;
+  overflow: auto;
+}
+.gd-panel[data-spotlight="true"] {
+  /* Never dimmed while spotlit — the user is deliberately staring at it. */
+  opacity: 1;
+}
+
+/* ==== Density ladder (design D3) ==================================================
+ * Four bands, driven by the PANEL's inline size. Score runs 26 -> 64px; no value that
+ * carries meaning drops below 15px, per the across-the-room reading constraint — which
+ * is why the sub-15px sizes above belong only to labels and units, never to a number.
+ */
+
+/* Band 1, < 360px (4-column): the base rules above already apply. The NFL team code is
+ * the first thing to go — it is the least load-bearing token in a row. */
+@container gdpanel (max-width: 359px) {
+  .gd-nfl-team {
+    display: none;
+  }
+}
+
+/* Band 2, 360–539px (3-across). */
+@container gdpanel (min-width: 360px) {
+  .gd-score-value {
+    font-size: 32px;
+  }
+  .gd-player-name,
+  .gd-pts {
+    font-size: 13px;
+  }
+}
+
+/* Band 3, >= 540px (2-across) — wide enough to read a roster, so it appears. */
+@container gdpanel (min-width: 540px) {
+  .gd-score-value {
+    font-size: 46px;
+  }
+  .gd-player-name,
+  .gd-pts {
+    font-size: 15px;
+  }
+  .gd-stat-value {
+    font-size: 20px;
+  }
+  .gd-stat-label,
+  .gd-nfl-team,
+  .gd-slot-diff {
+    font-size: 11px;
+  }
+}
+
+/* Band 4, >= 900px (spotlight). */
+@container gdpanel (min-width: 900px) {
+  .gd-score-value {
+    font-size: 64px;
+  }
+  .gd-player-name,
+  .gd-pts {
+    font-size: 17px;
+  }
+  .gd-team-name {
+    font-size: 15px;
+  }
+  .gd-stat-value {
+    font-size: 24px;
+  }
+}
+
+/* The roster's default visibility is the container query's call... */
+@container gdpanel (max-width: 539px) {
+  .gd-roster {
+    display: none;
+  }
+}
+
+/* ...and the disclosure button's job is to beat that query in BOTH directions. These
+ * live outside the @container block deliberately: an attribute on the panel has to win
+ * over a query about the panel, at any width. A panel with no data-roster attribute at
+ * all falls through to the query above — which is why the attribute is omitted rather
+ * than set to "auto" when the user has expressed no preference. */
+.gd-panel[data-roster="open"] .gd-roster {
+  display: flex;
+}
+.gd-panel[data-roster="shut"] .gd-roster {
+  display: none;
+}
+/* The disclosure control is never hidden — it is the only way to open a roster the
+ * query has closed, so hiding it at exactly the widths where the roster is hidden
+ * would make the override unreachable in the direction that needs it most. */
+
+/* ==== Skeleton ==== */
+.gd-panel-skeleton {
+  gap: 12px;
+}
+
+/* ==== Reduced motion ====
+ * The three transient cues stop entirely; the live dot stops pulsing. The persistent
+ * cues (live border, settled dim) are unaffected — they carry state, not motion, and
+ * are the ones the screen actually depends on. */
+@media (prefers-reduced-motion: reduce) {
+  .gd-panel[data-lead-flip="true"],
+  .gd-row[data-just-changed="true"] {
+    animation: none;
+  }
+  .gd-live-dot {
+    animation: none;
+  }
+  .gd-panel {
+    transition: none;
+  }
+}

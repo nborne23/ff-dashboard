@@ -4,6 +4,7 @@ import App from "./App";
 import { DRAFT_ASSISTANT } from "./features";
 import Dashboard from "./screens/Dashboard";
 import Draft from "./screens/Draft";
+import GameDay from "./screens/GameDay";
 import HeadToHead from "./screens/HeadToHead";
 import MyTeam from "./screens/MyTeam";
 import Season from "./screens/Season";
@@ -15,6 +16,7 @@ export const router = createBrowserRouter([
     element: <App />,
     children: [
       { index: true, element: <Dashboard /> },
+      { path: "gameday", element: <GameDay /> },
       { path: "team/:teamId", element: <MyTeam /> },
       { path: "team/:teamId/h2h", element: <HeadToHead /> },
       { path: "team/:teamId/season", element: <Season /> },

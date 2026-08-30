@@ -13,7 +13,30 @@ export type Platform = "yahoo" | "espn";
 export type LiveState = "live" | "game_day" | "off_day";
 
 /** The internal roster/matchup slot vocabulary (design.md D12). */
-export type Slot = "QB" | "RB1" | "RB2" | "WR1" | "WR2" | "TE" | "FLEX" | "K" | "DST" | "BN" | "IR";
+/**
+ * Repeatable starter slots are numbered by order of appearance, the same rule that
+ * governs RB1/RB2 and WR1/WR2 — a lineup can hold several flex spots, and one shared
+ * `FLEX` label collapsed them. `"FLEX"` unnumbered is retained as a legacy value: the
+ * backend still validates it on read for rows written by earlier syncs.
+ */
+export type Slot =
+  | "QB"
+  | "RB1"
+  | "RB2"
+  | "WR1"
+  | "WR2"
+  | "TE"
+  | "FLEX"
+  | "FLEX1"
+  | "FLEX2"
+  | "FLEX3"
+  | "FLEX4"
+  | "OP1"
+  | "OP2"
+  | "K"
+  | "DST"
+  | "BN"
+  | "IR";
 
 export interface PlatformStatus {
   ok: boolean;
@@ -126,6 +149,56 @@ export interface MatchupSlot {
   away_player: Player;
   home_pts: number;
   away_pts: number;
+  // Per-side live state, mirrored from the roster_slots rows for the same
+  // players (fantasy-data-model spec, "Per-side live state on matchup slots").
+  // `*_state` distinguishes "0.0 because he hasn't played" (`pre`) from "0.0
+  // because he was shut out" (`post`); panel-level live/settled state comes
+  // from `*_is_live` and `Matchup.is_complete`, never from these (design D4).
+  home_state: GameState | null;
+  away_state: GameState | null;
+  home_is_live: boolean;
+  away_is_live: boolean;
+}
+
+/**
+ * One entry of `GET /api/teams/game-day` — a user team's complete head-to-head,
+ * already oriented onto the user's perspective (`team_*` is always the user's
+ * side, `opp_*` the opponent's, whichever side of the matchup they sit on).
+ *
+ * `slots` keeps the raw home/away shape and is oriented client-side with
+ * `orientSlot(slot, iAmHome)`. There is deliberately no `win_prob` (design D7)
+ * — `proj`, `opp_proj` and `remaining` are `computeProjectedFinal`'s only
+ * inputs, so win probability has exactly one implementation, client-side.
+ */
+export interface GameDayMatchup {
+  team_id: string;
+  team_name: string;
+  opp_team_id: string;
+  opp_team_name: string;
+  league_id: string;
+  league_name: string;
+  /** Derived from the team id's `{platform}:` prefix — `Team` has no platform field. */
+  platform: Platform;
+  record: { w: number; l: number; t: number };
+  rank: { current: number; total: number };
+  score: number;
+  opp_score: number;
+  proj: number;
+  opp_proj: number;
+  remaining: { mine: number; theirs: number };
+  is_complete: boolean;
+  /**
+   * Which side of the underlying matchup the user's team sits on. Every other field
+   * here is already oriented; `slots` keeps the raw home/away shape so Head-to-Head's
+   * `orientSlot(slot, iAmHome)` can be reused unchanged — and since `MatchupSlot`
+   * carries no team ids, this flag is that function's only possible input.
+   */
+  i_am_home: boolean;
+  slots: MatchupSlot[];
+}
+
+export interface GameDayData {
+  matchups: GameDayMatchup[];
 }
 
 export interface SeasonWeek {

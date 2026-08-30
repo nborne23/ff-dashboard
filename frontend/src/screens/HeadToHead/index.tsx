@@ -119,6 +119,10 @@ export default function HeadToHead() {
     oppProj: oriented.oppProj,
     myRemaining: remaining.mine,
     oppRemaining: remaining.theirs,
+    // Explicit even though it's the default: Head-to-Head is the surface the [50, 99]
+    // floor was designed for, and Game Day now passes `false`, so the intent should be
+    // readable at both call sites rather than at neither.
+    clamp: true,
   });
 
   return (

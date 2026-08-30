@@ -64,6 +64,21 @@ async def get_day_rings(
     return await _envelope(session, data)
 
 
+# Registered before `/{team_id}` for the same reason `/day-rings` is: FastAPI/Starlette
+# match in registration order, so "game-day" would otherwise be swallowed as a team id
+# and 404 out of `get_team` (fantasy-data-model spec, "Route registration order").
+@router.get("/game-day", response_model=Envelope[fantasy_service.GameDayData])
+async def get_game_day(
+    response: Response,
+    week: int | None = None,
+    session: AsyncSession = Depends(get_session),
+) -> Envelope[fantasy_service.GameDayData]:
+    response.headers["Cache-Control"] = CACHE_CONTROL
+    week = await _resolve_week(session, week)
+    data = await fantasy_service.game_day(session, week)
+    return await _envelope(session, data)
+
+
 @router.get("/{team_id}", response_model=Envelope[TeamDetailData])
 async def get_team(
     team_id: str,

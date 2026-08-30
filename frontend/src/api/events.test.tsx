@@ -165,11 +165,14 @@ describe("useLiveEvents", () => {
 
     await waitFor(() => expect(invalidateSpy).toHaveBeenCalled());
 
-    // Exactly two calls, one per scope, each with exactly the mapped key — not
-    // "teams", not a third catch-all invalidateQueries() with no args, nothing else.
-    expect(invalidateSpy).toHaveBeenCalledTimes(2);
+    // One call per scope with exactly the mapped key, plus the one deliberate
+    // widening: an `h2h:` scope also refreshes Game Day's bulk envelope (design D9,
+    // add-game-day-view). Still no "teams", no catch-all invalidateQueries() with no
+    // args — and `season:` widens to nothing, since it can't move a live score.
+    expect(invalidateSpy).toHaveBeenCalledTimes(3);
     expect(invalidateSpy.mock.calls).toEqual([
       [{ queryKey: ["team", "yahoo:l1.t1", "h2h"] }],
+      [{ queryKey: ["gameday"] }],
       [{ queryKey: ["team", "yahoo:l1.t1", "season"] }],
     ]);
   });
@@ -208,6 +211,8 @@ describe("useLiveEvents", () => {
     expect(invalidateSpy.mock.calls).toEqual([
       [{ queryKey: ["teams"] }],
       [{ queryKey: ["day-rings"] }],
+      // The second cross-team escape hatch, on the same "teams" scope (design D9).
+      [{ queryKey: ["gameday"] }],
     ]);
   });
 
@@ -226,11 +231,51 @@ describe("useLiveEvents", () => {
 
     await waitFor(() => expect(invalidateSpy).toHaveBeenCalled());
 
-    // "teams" resolves (+ its day-rings side-effect, task 10.6); "something_else" maps
-    // to nothing and is silently skipped rather than invalidating anything for it.
-    expect(invalidateSpy).toHaveBeenCalledTimes(2);
+    // "teams" resolves, plus its two cross-team side-effects (day-rings, task 10.6;
+    // gameday, design D9). "something_else" maps to nothing and is silently skipped
+    // rather than invalidating anything for it.
+    expect(invalidateSpy).toHaveBeenCalledTimes(3);
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["teams"] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["day-rings"] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["gameday"] });
+  });
+
+  it("invalidates the gameday prefix key for a team: scope (design D9)", async () => {
+    const queryClient = new QueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    renderWithClient(queryClient);
+
+    act(() => {
+      FakeEventSource.instances[0].emit("data.changed", {
+        type: "data.changed",
+        scopes: ["team:yahoo:l1.t1"],
+        as_of: "2025-12-07T18:00:00",
+      });
+    });
+
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalled());
+
+    // A prefix key, not ["gameday", week] — it matches every cached week without the
+    // handler having to know which one is on screen.
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["gameday"] });
+  });
+
+  it("does not touch gameday for scopes that cannot move a live score", async () => {
+    const queryClient = new QueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    renderWithClient(queryClient);
+
+    act(() => {
+      FakeEventSource.instances[0].emit("data.changed", {
+        type: "data.changed",
+        scopes: ["season:yahoo:l1.t1", "live_nfl_games", "draft"],
+        as_of: "2025-12-07T18:00:00",
+      });
+    });
+
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalled());
+
+    expect(invalidateSpy).not.toHaveBeenCalledWith({ queryKey: ["gameday"] });
   });
 
   it("updates liveState from a live_state.changed event", async () => {

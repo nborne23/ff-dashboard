@@ -93,3 +93,51 @@ describe("computeProjectedFinal", () => {
     expect(large.confidencePct).toBeGreaterThanOrEqual(small.confidencePct);
   });
 });
+
+describe("computeProjectedFinal clamp option (design D7)", () => {
+  // A clearly losing matchup: 30 points behind with only a couple of players left, so
+  // the raw model is well under 50%.
+  const losing = {
+    myProj: 90,
+    oppProj: 120,
+    myRemaining: 2,
+    oppRemaining: 2,
+  };
+
+  it("floors at 50 by default, preserving the existing favorite view", () => {
+    expect(computeProjectedFinal(losing).confidencePct).toBe(50);
+  });
+
+  it("floors at 50 when clamp is passed explicitly", () => {
+    expect(computeProjectedFinal({ ...losing, clamp: true }).confidencePct).toBe(50);
+  });
+
+  it("returns the true sub-50 probability when clamp is false", () => {
+    const raw = computeProjectedFinal({ ...losing, clamp: false }).confidencePct;
+    expect(raw).toBeLessThan(50);
+    expect(raw).toBeGreaterThan(0);
+  });
+
+  it("drops the 99 ceiling too, not just the 50 floor", () => {
+    const winning = { myProj: 160, oppProj: 80, myRemaining: 1, oppRemaining: 1 };
+    expect(computeProjectedFinal({ ...winning, clamp: true }).confidencePct).toBe(99);
+    expect(computeProjectedFinal({ ...winning, clamp: false }).confidencePct).toBe(100);
+  });
+
+  it("agrees with the clamped value whenever the raw value is already inside [50, 99]", () => {
+    const close = { myProj: 112, oppProj: 105, myRemaining: 4, oppRemaining: 4 };
+    const clamped = computeProjectedFinal({ ...close, clamp: true }).confidencePct;
+    const unclamped = computeProjectedFinal({ ...close, clamp: false }).confidencePct;
+    expect(unclamped).toBeGreaterThan(50);
+    expect(unclamped).toBeLessThan(99);
+    expect(clamped).toBe(unclamped);
+  });
+
+  it("leaves the non-probability outputs untouched", () => {
+    const a = computeProjectedFinal({ ...losing, clamp: true });
+    const b = computeProjectedFinal({ ...losing, clamp: false });
+    expect(b.mySigma).toBe(a.mySigma);
+    expect(b.myFloor).toBe(a.myFloor);
+    expect(b.oppCeiling).toBe(a.oppCeiling);
+  });
+});
