@@ -11,6 +11,7 @@ import { useFreshness } from "../../hooks/useFreshness";
 import { useLiveConnectionStore } from "../../stores/live";
 import { useUiStore } from "../../stores/ui";
 import {
+  IconBolt,
   IconChevR,
   IconDashboard,
   IconFlame,
@@ -30,6 +31,8 @@ export function Sidebar() {
   const navigate = useNavigate();
   const [teamsExpanded, setTeamsExpanded] = useState(false);
   const week = useUiStore((s) => s.week);
+  const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
+  const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const teamsQuery = useTeams(week);
   const freshness = useFreshness(teamsQuery.data?.meta?.as_of);
   const connectionLostLong = useLiveConnectionStore((s) => s.connectionLostLong);
@@ -52,6 +55,18 @@ export function Sidebar() {
           <IconFootball size={24} color="var(--move)" />
         </span>
         <span className="name">GridIron</span>
+        {/* Collapsing to icons hands ~184px back to the content column — the reason it
+            exists is Game Day, where that width goes straight into panel density. */}
+        <button
+          type="button"
+          className="sidebar-toggle"
+          onClick={toggleSidebar}
+          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-expanded={!sidebarCollapsed}
+          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          <IconChevR size={12} />
+        </button>
       </div>
 
       <div className="nav-group">
@@ -60,6 +75,16 @@ export function Sidebar() {
             <IconDashboard size={18} />
           </span>
           <span className="label">Dashboard</span>
+        </NavLink>
+
+        {/* Between Dashboard and the "My Teams" group, and — unlike Matchups and
+            Season below — a DIRECT link rather than a primaryTeamId one: Game Day
+            spans every team, so there is no team to select. */}
+        <NavLink to="/gameday" className={navItemClassName}>
+          <span className="icon">
+            <IconBolt size={18} />
+          </span>
+          <span className="label">Game Day</span>
         </NavLink>
 
         <button

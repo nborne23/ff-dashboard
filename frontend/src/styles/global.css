@@ -877,6 +877,65 @@ html, body {
 .muted { color: var(--text-secondary); }
 .tnum { font-variant-numeric: tabular-nums; }
 
+/* ==== Manual sidebar collapse ====
+   Same icon-only geometry as the <1024px responsive rule below, driven by
+   `data-sidebar="collapsed"` on `.app` instead of by viewport width. Hands ~184px back
+   to the content column — which on Game Day goes straight into panel width, and
+   therefore into the container-query density band each panel lands in. */
+.sidebar .brand {
+  position: relative;
+}
+.sidebar-toggle {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 4px;
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 140ms ease, background 140ms ease, transform 180ms ease;
+}
+.sidebar-toggle:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+.app[data-sidebar="collapsed"] .sidebar-toggle {
+  transform: rotate(180deg);
+}
+
+.app[data-sidebar="collapsed"] .sidebar .brand .name,
+.app[data-sidebar="collapsed"] .sidebar .nav-item .label,
+.app[data-sidebar="collapsed"] .sidebar .nav-label,
+.app[data-sidebar="collapsed"] .sidebar .nav-item .chev,
+.app[data-sidebar="collapsed"] .sidebar .footer .label,
+.app[data-sidebar="collapsed"] .sidebar .sub-item {
+  display: none;
+}
+.app[data-sidebar="collapsed"] .sidebar .brand {
+  /* Stack logo over toggle: side by side there is no room for both at 56px. */
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 0 16px;
+  justify-content: center;
+}
+.app[data-sidebar="collapsed"] .sidebar-toggle {
+  margin-left: 0;
+}
+.app[data-sidebar="collapsed"] .sidebar .nav-item {
+  justify-content: center;
+  padding: 10px 0;
+}
+.app[data-sidebar="collapsed"] .sidebar .nav-item.active::before {
+  left: 0;
+}
+.app[data-sidebar="collapsed"] .sidebar .footer {
+  justify-content: center;
+  padding: 12px 0;
+}
+
 /* Responsive (>1440 caps content; below 1024 collapses sidebar) */
 @media (max-width: 1023px) {
   .app { grid-template-columns: 56px 1fr; }
