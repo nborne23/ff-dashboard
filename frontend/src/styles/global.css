@@ -700,6 +700,13 @@ html, body {
 .roster tr.bench-row td { color: var(--text-secondary); }
 .roster tr.bench-row .player-name { color: var(--text-tertiary); }
 
+.roster-col-slot { width: 64px; }
+.roster-col-opp { width: 90px; }
+.roster-col-status { width: 140px; }
+.roster-col-proj,
+.roster-col-actual { width: 88px; text-align: right; }
+.roster-col-delta { width: 80px; text-align: right; }
+
 .player-cell {
   display: flex;
   align-items: center;
@@ -1204,13 +1211,49 @@ html, body {
 
   /* Wide tabular content scrolls inside its own container rather than pushing the
      whole page sideways (the roster measured 551px in a 390px viewport). */
-  .roster,
   .h2h-table {
     display: block;
     width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
+
+  /* Unlike h2h-table, roster is narrowed to fit instead of scrolled: `display:
+     block` (needed to make a table independently scrollable) also disables the
+     table-layout algorithm, so the column widths below would be ignored while
+     it stays a scroll container. Opp is near-always "—" until kickoff;
+     dropping it (rather than shrinking everything a little) is what actually
+     gets Proj/Actual on-screen. Status keeps a narrow column since OUT and the
+     live dot are exactly what someone checks this table for mid-game. */
+  .roster {
+    table-layout: fixed;
+  }
+  /* table-layout:fixed still banks a hidden cell's declared width against the
+     column budget unless the width itself is zeroed, not just display:none. */
+  .roster-col-opp,
+  .roster-col-delta { display: none; width: 0; }
+  /* Percent, not px: table-layout:fixed derives column widths from these at
+     whatever width the phone actually has, and they're pinned to sum to
+     100% of the table so nothing is left for the browser to guess about — a
+     calc(100% - Npx) mix on a table-cell was silently ignored (fixed layout
+     likely resolves column widths before the table's own pixel width exists
+     to subtract from). Ratios mirror the desktop px widths (40/56/42/58 of
+     a ~343px table). */
+  .roster-col-slot { width: 12%; }
+  .roster-col-status { width: 16%; }
+  .roster-col-proj { width: 12%; }
+  .roster-col-actual { width: 17%; }
+  .roster-col-player { width: 43%; }
+  .roster tbody td { padding: 0 4px; }
+  .roster thead th {
+    padding: 8px 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .roster .headshot { width: 28px; height: 28px; }
+  .roster .player-cell { gap: 8px; }
+  .roster .player-info-row { flex-wrap: wrap; row-gap: 2px; }
 
   /* The Tweaks panel is a design-time affordance for tuning layout on a desktop. On a
      phone it is a floating target over the content with sliders too small to use. */

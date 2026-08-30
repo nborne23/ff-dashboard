@@ -45,8 +45,8 @@ function RosterRow({ slot, isBench }: { slot: RosterSlot; isBench?: boolean }) {
   return (
     <tr className={slot.is_live ? "live-row" : isBench ? "bench-row" : ""}>
       <td
+        className="roster-col-slot"
         style={{
-          width: 64,
           fontWeight: 700,
           fontSize: 13,
           color: "var(--text-secondary)",
@@ -55,7 +55,7 @@ function RosterRow({ slot, isBench }: { slot: RosterSlot; isBench?: boolean }) {
       >
         {slot.slot}
       </td>
-      <td>
+      <td className="roster-col-player">
         <div className="player-cell">
           <Headshot name={slot.player.name} url={slot.player.headshot_url} />
           <div className="player-info">
@@ -67,10 +67,8 @@ function RosterRow({ slot, isBench }: { slot: RosterSlot; isBench?: boolean }) {
           </div>
         </div>
       </td>
-      <td style={{ width: 90 }} className="muted">
-        {slot.player.nfl_opponent ?? "—"}
-      </td>
-      <td style={{ width: 140 }}>
+      <td className="muted roster-col-opp">{slot.player.nfl_opponent ?? "—"}</td>
+      <td className="roster-col-status">
         {slot.is_live ? (
           <span
             style={{
@@ -101,13 +99,11 @@ function RosterRow({ slot, isBench }: { slot: RosterSlot; isBench?: boolean }) {
           </span>
         )}
       </td>
-      <td style={{ width: 88, textAlign: "right" }} className="num muted">
-        {slot.proj_points.toFixed(1)}
-      </td>
-      <td style={{ width: 88, textAlign: "right" }} className="num">
+      <td className="num muted roster-col-proj">{slot.proj_points.toFixed(1)}</td>
+      <td className="num roster-col-actual">
         {slot.actual_points ? slot.actual_points.toFixed(1) : "—"}
       </td>
-      <td style={{ width: 80, textAlign: "right" }}>
+      <td className="roster-col-delta">
         {slot.actual_points > 0 ? (
           <span className={"delta " + (delta > 0.05 ? "pos" : delta < -0.05 ? "neg" : "zero")}>
             {delta > 0 ? "+" : ""}
@@ -132,13 +128,13 @@ export function RosterTable({ starters, bench }: RosterTableProps) {
       <table className="roster">
         <thead>
           <tr>
-            <th style={{ width: 64 }}>Slot</th>
-            <th>Player</th>
-            <th>Opp</th>
-            <th>Status</th>
-            <th style={{ textAlign: "right" }}>Proj</th>
-            <th style={{ textAlign: "right" }}>Actual</th>
-            <th style={{ textAlign: "right" }}>+/–</th>
+            <th className="roster-col-slot">Slot</th>
+            <th className="roster-col-player">Player</th>
+            <th className="roster-col-opp">Opp</th>
+            <th className="roster-col-status">Status</th>
+            <th className="roster-col-proj">Proj</th>
+            <th className="roster-col-actual">Actual</th>
+            <th className="roster-col-delta">+/–</th>
           </tr>
         </thead>
         <tbody>
