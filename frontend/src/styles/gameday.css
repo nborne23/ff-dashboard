@@ -398,7 +398,12 @@
   flex-direction: row;
 }
 .gd-side[data-side="theirs"] {
-  justify-content: flex-start;
+  /* row-reverse swaps which edge is "start", so flex-end (not flex-start) is what
+     pins the score against the center divider — mirroring how "mine" pins its
+     score there via flex-end in normal row direction. flex-start here packed the
+     [score, name] cluster against the outer edge instead, so the score's x
+     position tracked the opponent's name length instead of staying put. */
+  justify-content: flex-end;
   flex-direction: row-reverse;
 }
 /* A player whose game has not kicked off renders dimmed, so a 0.0 that means "hasn't
