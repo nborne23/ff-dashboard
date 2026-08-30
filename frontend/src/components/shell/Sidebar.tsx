@@ -8,6 +8,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useTeams } from "../../api/teams";
 import { DRAFT_ASSISTANT } from "../../features";
 import { useFreshness } from "../../hooks/useFreshness";
+import { parseTeamRoute, resolveTeamId, teamRoutePath } from "../../hooks/teamRoute";
 import { useLiveConnectionStore } from "../../stores/live";
 import { useUiStore } from "../../stores/ui";
 import {
@@ -33,20 +34,37 @@ export function Sidebar() {
   const week = useUiStore((s) => s.week);
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
+  const activeTeamId = useUiStore((s) => s.activeTeamId);
   const teamsQuery = useTeams(week);
   const freshness = useFreshness(teamsQuery.data?.meta?.as_of);
   const connectionLostLong = useLiveConnectionStore((s) => s.connectionLostLong);
 
   const teams = teamsQuery.data?.data.teams ?? [];
-  // Matchups/Season link to a "selected" team; before any team exists (nothing
-  // connected yet) there's nothing to select, so fall back to the dashboard,
-  // which already has its own "connect a league" empty state.
-  const primaryTeamId = teams[0]?.id;
+  // Matchups/Season link to the team the user was last looking at — not to whichever
+  // team happens to sort first, which is what made those two screens feel unrelated to
+  // the team you had just opened. `resolveTeamId` falls back to the first team when the
+  // remembered one is gone, and to `undefined` when nothing is connected at all, in
+  // which case these links point at the dashboard and its "connect a league" state.
+  const selectedTeamId = resolveTeamId(activeTeamId, teams);
 
-  const isTeamRoute = location.pathname.startsWith("/team/");
-  const isH2H = location.pathname.endsWith("/h2h");
-  const isSeason = location.pathname.endsWith("/season");
-  const isMyTeamActive = isTeamRoute && !isH2H && !isSeason;
+  const teamRoute = parseTeamRoute(location.pathname);
+  const onTeamRoute = teamRoute !== null;
+
+  // Open the team list on ARRIVAL at a team screen, so the sidebar reflects where you
+  // are instead of hiding the list you just navigated through.
+  //
+  // Two shapes were rejected before this one. A derived `teamsExpanded || onTeamRoute`
+  // makes the toggle button inert while a team screen is open — it can never win
+  // against the OR. An effect calling `setTeamsExpanded` is the cascading-render
+  // pattern the lint rules reject. This is React's documented adjust-state-during-
+  // render form: track the last value of the condition, and act only on the edge, so
+  // entering a team route opens the list and a manual collapse while already on one
+  // sticks.
+  const [wasOnTeamRoute, setWasOnTeamRoute] = useState(false);
+  if (onTeamRoute !== wasOnTeamRoute) {
+    setWasOnTeamRoute(onTeamRoute);
+    if (onTeamRoute) setTeamsExpanded(true);
+  }
 
   return (
     <aside className="sidebar">
@@ -89,7 +107,7 @@ export function Sidebar() {
 
         <button
           type="button"
-          className={"nav-item" + (isMyTeamActive ? " active" : "")}
+          className={"nav-item" + (onTeamRoute ? " active" : "")}
           onClick={() => setTeamsExpanded((v) => !v)}
         >
           <span className="icon">
@@ -103,8 +121,10 @@ export function Sidebar() {
         {teamsExpanded &&
           teams.map((t) => {
             const platform = t.id.split(":")[0];
-            const teamPath = `/team/${t.id}`;
-            const isActive = isMyTeamActive && location.pathname === teamPath;
+            const teamPath = teamRoutePath(t.id, "roster");
+            // Highlight the team while ANY of its three views is on screen, not just
+            // its roster — the section is shown by the TeamContextBar's tabs.
+            const isActive = teamRoute?.teamId === t.id;
             return (
               <button
                 key={t.id}
@@ -126,7 +146,7 @@ export function Sidebar() {
           })}
 
         <NavLink
-          to={primaryTeamId ? `/team/${primaryTeamId}/h2h` : "/"}
+          to={selectedTeamId ? teamRoutePath(selectedTeamId, "h2h") : "/"}
           className={navItemClassName}
         >
           <span className="icon">
@@ -135,7 +155,7 @@ export function Sidebar() {
           <span className="label">Matchups</span>
         </NavLink>
         <NavLink
-          to={primaryTeamId ? `/team/${primaryTeamId}/season` : "/"}
+          to={selectedTeamId ? teamRoutePath(selectedTeamId, "season") : "/"}
           className={navItemClassName}
         >
           <span className="icon">

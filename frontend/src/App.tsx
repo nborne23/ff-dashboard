@@ -4,8 +4,11 @@ import { Outlet, useLocation } from "react-router-dom";
 import { useLiveEvents } from "./api/events";
 import { Aurora } from "./components/shell/Aurora";
 import { Sidebar } from "./components/shell/Sidebar";
+import { TeamContextBar } from "./components/shell/TeamContextBar";
 import { Topbar } from "./components/shell/Topbar";
 import { TweaksPanel } from "./components/shell/TweaksPanel";
+import { useActiveTeamSync } from "./hooks/useActiveTeam";
+import { parseTeamRoute } from "./hooks/teamRoute";
 import { useWeekParam } from "./hooks/useWeekParam";
 import { COLLAPSED_SIDEBAR_W, useUiStore } from "./stores/ui";
 
@@ -30,6 +33,7 @@ export default function App() {
   const setMobileNavOpen = useUiStore((s) => s.setMobileNavOpen);
   useWeekParam();
   useLiveEvents();
+  useActiveTeamSync();
 
   useEffect(() => {
     const root = document.documentElement;
@@ -59,6 +63,7 @@ export default function App() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [mobileNavOpen, setMobileNavOpen]);
 
+  const teamRoute = parseTeamRoute(location.pathname);
   const auroraColor = auroraColorForPath(location.pathname, tweaks.auroraIntensity);
 
   return (
@@ -83,6 +88,10 @@ export default function App() {
         <Topbar />
         <div className="content">
           <div className="content-inner" data-testid="content-inner">
+            {/* Rendered by the shell rather than by each of the three team screens, so
+                the bar keeps its identity across a team/section switch instead of
+                unmounting and remounting with the screen under it. */}
+            {teamRoute && <TeamContextBar teamId={teamRoute.teamId} section={teamRoute.section} />}
             <Outlet />
           </div>
         </div>

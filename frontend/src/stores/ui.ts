@@ -132,6 +132,18 @@ interface UiState {
    */
   mobileNavOpen: boolean;
   setMobileNavOpen: (open: boolean) => void;
+  /**
+   * The team the three team-scoped screens were last pointed at, so Matchups and Season
+   * resolve to the team the user has been looking at instead of whichever team happened
+   * to sort first. Persisted for the same reason `sidebarCollapsed` is — it is a "which
+   * team am I following" choice, not ephemeral UI state — but never trusted on its own:
+   * see `resolveTeamId` in hooks/teamRoute.ts, which validates it against the live team
+   * list before any link is built from it.
+   *
+   * The URL remains authoritative for what renders; this is only a memory of it.
+   */
+  activeTeamId: string | null;
+  setActiveTeamId: (teamId: string | null) => void;
   notifications: Notifications;
   setNotification: <K extends keyof Notifications>(key: K, value: Notifications[K]) => void;
   appearance: Appearance;
@@ -160,6 +172,8 @@ export const useUiStore = create<UiState>()(
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
       mobileNavOpen: false,
       setMobileNavOpen: (mobileNavOpen) => set({ mobileNavOpen }),
+      activeTeamId: null,
+      setActiveTeamId: (activeTeamId) => set({ activeTeamId }),
       notifications: NOTIFICATION_DEFAULTS,
       setNotification: (key, value) =>
         set((state) => ({ notifications: { ...state.notifications, [key]: value } })),
@@ -192,6 +206,7 @@ export const useUiStore = create<UiState>()(
       partialize: (state) => ({
         tweaks: state.tweaks,
         sidebarCollapsed: state.sidebarCollapsed,
+        activeTeamId: state.activeTeamId,
         notifications: state.notifications,
         appearance: state.appearance,
         gameDay: state.gameDay,

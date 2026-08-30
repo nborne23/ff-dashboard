@@ -338,6 +338,120 @@ html, body {
   margin: 0 0 12px;
 }
 
+
+/* ==== Team context bar ==== */
+/* Sits above the routed screen on /team/:teamId/... and answers the two questions the
+   URL used to be the only answer to: which team is this, and what else can I see about
+   it. Rendered by the shell (App.tsx), so it survives a team/section switch. */
+.team-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 0.5px solid var(--separator);
+}
+
+.team-switcher {
+  position: relative;
+}
+/* The sidebar's dot rule is scoped to `.sidebar .sub-item`, so the bar needs its own
+   sizing or the span renders at zero width and the platform cue silently disappears. */
+.team-context .platform-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.team-switcher-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 7px 12px;
+  border-radius: 9px;
+  border: 0.5px solid var(--separator);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+.team-switcher-btn:hover:not(:disabled) { background: var(--surface-hover); }
+.team-switcher-btn:disabled { opacity: 0.5; cursor: default; }
+.team-switcher-btn .chev { display: flex; transition: transform 160ms ease; }
+.team-switcher-btn .chev.open { transform: rotate(90deg); }
+/* The name is the only elastic part: the dot and chevron keep their size and the name
+   ellipses, rather than the whole control overflowing a 390px screen. */
+.team-switcher-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-switcher-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 60;
+  min-width: 100%;
+  max-width: min(88vw, 320px);
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border-radius: 12px;
+  border: 0.5px solid var(--separator);
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+.team-switcher-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.team-switcher-option:hover { background: var(--surface-hover); color: var(--text); }
+.team-switcher-option.active { color: var(--text); font-weight: 600; }
+
+.team-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--surface);
+}
+.team-tab {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+.team-tab:hover { color: var(--text); }
+.team-tab.active {
+  background: var(--surface-hover);
+  color: var(--text);
+  font-weight: 600;
+}
+
 /* ==== Card ==== */
 .card {
   background: var(--surface);
@@ -1044,6 +1158,16 @@ html, body {
   .content {
     padding: 16px;
   }
+
+  /* Stack the switcher over the tabs and let each take the full width: side by side,
+     a long team name and three tabs do not both fit at 390px. */
+  .team-context {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .team-tabs { justify-content: space-between; }
+  .team-tab { flex: 1; padding: 8px 6px; text-align: center; }
 
   .dashboard-grid { grid-template-columns: 1fr; }
   .team-grid { grid-template-columns: 1fr; }
