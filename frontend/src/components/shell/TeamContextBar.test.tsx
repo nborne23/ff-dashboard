@@ -3,9 +3,17 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import {
+  MemoryRouter,
+  Route,
+  Routes,
+  createMemoryRouter,
+  RouterProvider,
+  useLocation,
+} from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import App from "../../App";
 import { TeamContextBar } from "./TeamContextBar";
 import { Sidebar } from "./Sidebar";
 import { useUiStore } from "../../stores/ui";
@@ -184,5 +192,47 @@ describe("Sidebar team scoping", () => {
     stubTeams();
     renderSidebarAt("/team/yahoo:l-9-t-3/season");
     await waitFor(() => expect(screen.getByText("Rival Squad")).toBeTruthy());
+  });
+});
+
+describe("route -> remembered team wiring", () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    useUiStore.setState({ activeTeamId: null });
+  });
+
+  /**
+   * Renders the real shell, so `useActiveTeamSync` actually runs. The Sidebar tests
+   * above inject `activeTeamId` by hand — good isolation for `resolveTeamId`, but they
+   * would all still pass with the sync hook deleted, because nothing in them asserts
+   * that VISITING a team route writes the store. This is the test that fails if that
+   * one wire is cut, which is the wire the whole feature hangs on.
+   */
+  function renderShellAt(path: string) {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const router = createMemoryRouter(
+      [{ path: "/", element: <App />, children: [{ path: "team/:teamId/season", element: null }] }],
+      { initialEntries: [path] },
+    );
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+  }
+
+  it("makes the sidebar's Matchups link follow the team the route is showing", async () => {
+    stubTeams();
+    // Nothing remembered yet, and the visited team is deliberately NOT teams[0] — so a
+    // pass cannot come from the fallback.
+    renderShellAt("/team/yahoo:l-9-t-3/season");
+
+    await waitFor(() =>
+      expect(screen.getByText("Matchups").closest("a")?.getAttribute("href")).toBe(
+        "/team/yahoo:l-9-t-3/h2h",
+      ),
+    );
+    expect(useUiStore.getState().activeTeamId).toBe("yahoo:l-9-t-3");
   });
 });
