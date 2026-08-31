@@ -49,6 +49,7 @@ def test_jobs_registry_includes_the_phase_8_jobs() -> None:
         "sync_discovery",
         "refresh_fantasy",
         "refresh_nfl_state",
+        "refresh_player_pool",
         "backup_db",
     }
 
@@ -340,11 +341,17 @@ async def test_refresh_fantasy_interval_seconds_live_defaults_to_30s(session_fac
 
 
 @pytest.mark.asyncio
-async def test_start_scheduler_registers_all_four_jobs_then_shuts_down() -> None:
+async def test_start_scheduler_registers_every_job_then_shuts_down() -> None:
     running = scheduler.start_scheduler()
     try:
         job_ids = {job.id for job in running.get_jobs()}
-        assert job_ids == {"sync_discovery", "refresh_fantasy", "refresh_nfl_state", "backup_db"}
+        assert job_ids == {
+            "sync_discovery",
+            "refresh_fantasy",
+            "refresh_nfl_state",
+            "refresh_player_pool",
+            "backup_db",
+        }
     finally:
         scheduler.shutdown_scheduler()
 
@@ -361,5 +368,59 @@ async def test_reschedule_refresh_fantasy_updates_the_running_job_interval(sessi
 
         job = running.get_job("refresh_fantasy")
         assert job.trigger.interval.total_seconds() == 10
+    finally:
+        scheduler.shutdown_scheduler()
+
+
+# ---------------------------------------------------------------------------
+# refresh_player_pool (add-player-pool group 3)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_refresh_player_pool_runs_via_run_job(session_factory) -> None:
+    """No ESPN connection persisted, so the job is a well-behaved no-op: it records a
+    successful run rather than erroring, matching how the other jobs treat a
+    disconnected platform."""
+    async with session_factory() as session:
+        run = await scheduler.run_job("refresh_player_pool", session)
+
+        assert run.ok is True
+        assert run.error is None
+        rows = (await session.execute(select(RefreshRun))).scalars().all()
+        assert [r.job_name for r in rows] == ["refresh_player_pool"]
+
+
+@pytest.mark.asyncio
+async def test_player_pool_cadence_outlasts_its_cache_ttl() -> None:
+    """The interval must exceed `PLAYER_POOL_TTL`, not equal it.
+
+    If they matched, a tick arriving a moment early (scheduler jitter, a slow previous
+    run) would find its own cache entry still fresh, skip every league, and leave the
+    pool stale for another full interval.
+    """
+    from backend.gridiron.platforms.espn.client import PLAYER_POOL_TTL
+
+    assert scheduler.PLAYER_POOL_INTERVAL_SECONDS > PLAYER_POOL_TTL.total_seconds()
+
+
+@pytest.mark.asyncio
+async def test_player_pool_interval_is_fixed_not_live_adaptive(session_factory) -> None:
+    """Design D8: the pool job fans out ~3.7 MB per league, so it must never inherit
+    `refresh_fantasy`'s live-tier cadence — that would issue the fan-out up to 120x an
+    hour during games."""
+    running = scheduler.start_scheduler()
+    try:
+        before = running.get_job("refresh_player_pool").trigger.interval.total_seconds()
+
+        live_state.set_current_live_state("live")
+        async with session_factory() as session:
+            await scheduler.reschedule_refresh_fantasy(session)
+
+        after = running.get_job("refresh_player_pool").trigger.interval.total_seconds()
+        fantasy = running.get_job("refresh_fantasy").trigger.interval.total_seconds()
+
+        assert after == before == scheduler.PLAYER_POOL_INTERVAL_SECONDS
+        assert fantasy < after, "sanity: the fantasy job did drop to a live cadence"
     finally:
         scheduler.shutdown_scheduler()

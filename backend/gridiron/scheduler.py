@@ -55,6 +55,16 @@ OFF_DAY_INTERVAL_SECONDS = 30 * 60
 # `refresh_fantasy` back off further during the off-season (task 11.7, services/quiescence.py).
 NFL_STATE_INTERVAL_SECONDS = 30
 
+# `refresh_player_pool` cadence — fixed, never rescheduled from live_state
+# (add-player-pool design D8).
+#
+# Deliberately a few minutes LONGER than the client's `PLAYER_POOL_TTL` (6h). If the
+# two were equal, a tick arriving a moment early — scheduler jitter, a slow previous
+# run — would find its own cache entry still fresh, skip every league, and leave the
+# pool unrefreshed for another full interval. The margin makes expiry always precede
+# the next tick.
+PLAYER_POOL_INTERVAL_SECONDS = 6 * 60 * 60 + 5 * 60
+
 
 class UnknownJobError(GridironError):
     """Raised when a job name isn't in the `JOBS` registry."""
@@ -154,6 +164,17 @@ async def _refresh_nfl_state(session: AsyncSession) -> str | None:
     return None
 
 
+async def _refresh_player_pool(session: AsyncSession) -> str | None:
+    """Free-agent/waiver/rostered pool + season projections, per league.
+
+    No self-rescheduling counterpart to `_refresh_fantasy`'s: this job's cadence is
+    fixed by design (D8). It fans out across every league at ~3.7 MB each, so binding
+    it to the live tier would issue that fan-out up to 120x an hour during games — for
+    data that only moves when waiver claims process.
+    """
+    return await fantasy_service.refresh_player_pool(session)
+
+
 async def _backup_db(session: AsyncSession) -> str | None:
     """Nightly SQLite backup + prune (task 11.4). Doesn't touch `session` — the backup
     runs against the on-disk file directly via `sqlite3`'s own online-backup API — but
@@ -169,6 +190,7 @@ JOBS: dict[str, Callable[[AsyncSession], Awaitable[str | None]]] = {
     "sync_discovery": _sync_discovery,
     "refresh_fantasy": _refresh_fantasy,
     "refresh_nfl_state": _refresh_nfl_state,
+    "refresh_player_pool": _refresh_player_pool,
     "backup_db": _backup_db,
 }
 
@@ -246,6 +268,16 @@ def start_scheduler() -> AsyncIOScheduler:
         IntervalTrigger(seconds=NFL_STATE_INTERVAL_SECONDS),
         args=["refresh_nfl_state"],
         id="refresh_nfl_state",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        _scheduled,
+        # Fixed cadence, deliberately NOT adaptive (add-player-pool design D8): the job
+        # pulls ~3.7 MB per league across every league, and the pool only changes when
+        # waiver claims process.
+        IntervalTrigger(seconds=PLAYER_POOL_INTERVAL_SECONDS),
+        args=["refresh_player_pool"],
+        id="refresh_player_pool",
         replace_existing=True,
     )
     scheduler.add_job(

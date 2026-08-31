@@ -10,7 +10,7 @@ from urllib.parse import quote
 import httpx
 import pytest
 import respx
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from backend.gridiron.config import Settings
@@ -24,6 +24,7 @@ from backend.gridiron.models import (
     Matchup,
     MatchupSlot,
     Player,
+    PlayerPoolEntry,
     RosterSlot,
     SeasonWeek,
     Team,
@@ -1019,3 +1020,379 @@ async def test_refresh_fantasy_invalidates_cache_only_when_live(
     async with session_factory() as session:
         await fantasy_service.refresh_fantasy(session, settings=make_settings())
     assert set(calls) == {"yahoo", "espn"}
+
+
+# ---------------------------------------------------------------------------
+# refresh_player_pool (add-player-pool group 3)
+# ---------------------------------------------------------------------------
+
+
+def _pool_body(gibbs_season_proj: float) -> dict:
+    """A two-player pool. `gibbs_season_proj` is what varies between leagues — it is
+    an `appliedTotal`, i.e. a SCORED value, so a PPR and a half-PPR league genuinely
+    report different numbers for the same pass-catcher."""
+    return {
+        "players": [
+            {
+                "id": 4429795,
+                "status": "FREEAGENT",
+                "onTeamId": 0,
+                "player": {
+                    "id": 4429795,
+                    "fullName": "Jahmyr Gibbs",
+                    "defaultPositionId": 2,
+                    "proTeamId": 8,
+                    "injuryStatus": "ACTIVE",
+                    "byeWeek": 5,
+                    "eligibleSlots": [2, 3, 23],
+                    "ownership": {"percentOwned": 99.9, "percentStarted": 98.0},
+                    "stats": [
+                        {
+                            "scoringPeriodId": 0,
+                            "statSourceId": 1,
+                            "statSplitTypeId": 0,
+                            "seasonId": 2024,
+                            "appliedTotal": gibbs_season_proj,
+                        }
+                    ],
+                },
+            },
+            {
+                "id": 3139477,
+                "status": "ONTEAM",
+                "onTeamId": 2,
+                "player": {
+                    "id": 3139477,
+                    "fullName": "Patrick Mahomes",
+                    "defaultPositionId": 1,
+                    "proTeamId": 12,
+                    "injuryStatus": "ACTIVE",
+                    "byeWeek": 6,
+                    "eligibleSlots": [0],
+                    "ownership": {"percentOwned": 100.0, "percentStarted": 99.0},
+                    "stats": [
+                        {
+                            "scoringPeriodId": 0,
+                            "statSourceId": 1,
+                            "statSplitTypeId": 0,
+                            "seasonId": 2024,
+                            "appliedTotal": 300.0,
+                        }
+                    ],
+                },
+            },
+        ]
+    }
+
+
+async def _seed_two_espn_leagues(session_factory) -> None:
+    """Two ESPN leagues with different scoring types, each with a user team."""
+    async with session_factory() as session:
+        session.add(
+            Connection(
+                platform="espn",
+                swid_enc=credentials.encrypt(TEST_SECRET, ESPN_SWID),
+                espn_s2_enc=credentials.encrypt(TEST_SECRET, "s2-value"),
+            )
+        )
+        for lid, name, scoring in (
+            ("1111111", "PPR League", "ppr"),
+            ("2222222", "Half League", "half_ppr"),
+        ):
+            session.add(
+                League(
+                    id=f"espn:{lid}",
+                    platform="espn",
+                    platform_id=lid,
+                    name=name,
+                    season=2024,
+                    team_count=10,
+                    scoring_type=scoring,
+                    current_week=9,
+                )
+            )
+            session.add(
+                Team(
+                    id=f"espn:l-{lid}-t-2",
+                    league_id=f"espn:{lid}",
+                    platform="espn",
+                    platform_id="2",
+                    name=f"My {name} Team",
+                    manager_name="Nick B",
+                    record_w=5,
+                    record_l=4,
+                    record_t=0,
+                    rank_current=3,
+                    rank_total=10,
+                    points_for=900.0,
+                    points_against=880.0,
+                    is_user_team=True,
+                )
+            )
+        await session.commit()
+
+
+def _mock_two_league_pools() -> None:
+    for lid, proj in (("1111111", 364.86), ("2222222", 330.97)):
+        respx.get(f"{ESPN_BASE}/apis/v3/games/ffl/seasons/2024/segments/0/leagues/{lid}").mock(
+            return_value=httpx.Response(200, json=_pool_body(proj))
+        )
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_refresh_player_pool_is_scoped_per_league(session_factory) -> None:
+    """Design D1's regression test.
+
+    One player, two leagues, two DIFFERENT season projections — the exact situation a
+    column on `players` could not represent, since it would hold whichever league
+    synced last and be wrong for the other.
+    """
+    await _seed_two_espn_leagues(session_factory)
+    _mock_two_league_pools()
+
+    async with session_factory() as session:
+        error = await fantasy_service.refresh_player_pool(session, settings=make_settings())
+
+    assert error is None
+
+    async with session_factory() as session:
+        rows = (
+            (
+                await session.execute(
+                    select(PlayerPoolEntry).where(PlayerPoolEntry.player_id == "espn:p-4429795")
+                )
+            )
+            .scalars()
+            .all()
+        )
+        by_league = {r.league_id: r.season_proj_points for r in rows}
+
+    assert by_league == {
+        "espn:1111111": pytest.approx(364.86),
+        "espn:2222222": pytest.approx(330.97),
+    }
+    assert len(set(by_league.values())) == 2, "the two leagues must not collapse to one value"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_refresh_player_pool_persists_availability_and_eligibility(session_factory) -> None:
+    await _seed_two_espn_leagues(session_factory)
+    _mock_two_league_pools()
+
+    async with session_factory() as session:
+        await fantasy_service.refresh_player_pool(session, settings=make_settings())
+
+    async with session_factory() as session:
+        gibbs = await session.get(PlayerPoolEntry, ("espn:1111111", "espn:p-4429795"))
+        mahomes = await session.get(PlayerPoolEntry, ("espn:1111111", "espn:p-3139477"))
+
+        assert gibbs.status == "FREEAGENT"
+        assert gibbs.on_team_id is None
+        assert json.loads(gibbs.eligible_slots) == ["RB", "RB/WR", "FLEX"]
+
+        # ONTEAM rows are ingested deliberately: they are the only source of a season
+        # projection for an incumbent starter, which the waiver delta needs.
+        assert mahomes.status == "ONTEAM"
+        assert mahomes.on_team_id == "2"
+        assert mahomes.season_proj_points == pytest.approx(300.0)
+
+        # The player rows themselves went through the normal upsert path.
+        player = await session.get(Player, "espn:p-4429795")
+        assert player is not None and player.platform_id == "4429795"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_refresh_player_pool_replaces_rather_than_merges(session_factory) -> None:
+    """A player claimed since the last sync must DISAPPEAR. A merge would leave the
+    stale FREEAGENT row behind, offering a waiver claim on someone already rostered."""
+    await _seed_two_espn_leagues(session_factory)
+    _mock_two_league_pools()
+
+    async with session_factory() as session:
+        await fantasy_service.refresh_player_pool(session, settings=make_settings())
+
+    respx.reset()
+    # Second sync: Gibbs is gone from the pool entirely.
+    shrunk = _pool_body(364.86)
+    shrunk["players"] = shrunk["players"][1:]
+    for lid in ("1111111", "2222222"):
+        respx.get(f"{ESPN_BASE}/apis/v3/games/ffl/seasons/2024/segments/0/leagues/{lid}").mock(
+            return_value=httpx.Response(200, json=shrunk)
+        )
+
+    async with session_factory() as session:
+        # Expire the 6h freshness marker the first run wrote — otherwise the second
+        # call correctly no-ops (see test_refresh_player_pool_skips_a_fresh_pool).
+        await cache_service.invalidate(session, platform="espn")
+        await fantasy_service.refresh_player_pool(session, settings=make_settings())
+
+    async with session_factory() as session:
+        rows = (await session.execute(select(PlayerPoolEntry))).scalars().all()
+
+    assert {r.player_id for r in rows} == {"espn:p-3139477"}
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_refresh_player_pool_skips_leagues_without_a_user_team(session_factory) -> None:
+    """Only leagues the user actually plays in. The ownership column is
+    `is_user_team` — there is no `is_mine`."""
+    await _seed_two_espn_leagues(session_factory)
+    async with session_factory() as session:
+        team = await session.get(Team, "espn:l-2222222-t-2")
+        team.is_user_team = False
+        await session.commit()
+
+    route_1 = respx.get(
+        f"{ESPN_BASE}/apis/v3/games/ffl/seasons/2024/segments/0/leagues/1111111"
+    ).mock(return_value=httpx.Response(200, json=_pool_body(364.86)))
+    route_2 = respx.get(
+        f"{ESPN_BASE}/apis/v3/games/ffl/seasons/2024/segments/0/leagues/2222222"
+    ).mock(return_value=httpx.Response(200, json=_pool_body(330.97)))
+
+    async with session_factory() as session:
+        await fantasy_service.refresh_player_pool(session, settings=make_settings())
+
+    assert route_1.call_count == 1
+    assert route_2.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_refresh_player_pool_without_espn_connected_is_a_clean_noop(session_factory) -> None:
+    async with session_factory() as session:
+        assert await fantasy_service.refresh_player_pool(session, settings=make_settings()) is None
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_refresh_player_pool_skips_a_fresh_pool(session_factory) -> None:
+    """Within the 6h TTL the job is a no-op, whether triggered by the scheduler or by
+    hand. The cost is the reason: each league is a ~3.7 MB pull, ~18.5 MB across five,
+    so a repeated manual trigger must not re-download the universe.
+
+    The scheduled cadence is deliberately longer than the TTL, so a scheduled run
+    always finds the marker expired — this only suppresses *extra* runs.
+    """
+    await _seed_two_espn_leagues(session_factory)
+    route = respx.get(
+        f"{ESPN_BASE}/apis/v3/games/ffl/seasons/2024/segments/0/leagues/1111111"
+    ).mock(return_value=httpx.Response(200, json=_pool_body(364.86)))
+    respx.get(f"{ESPN_BASE}/apis/v3/games/ffl/seasons/2024/segments/0/leagues/2222222").mock(
+        return_value=httpx.Response(200, json=_pool_body(330.97))
+    )
+
+    async with session_factory() as session:
+        await fantasy_service.refresh_player_pool(session, settings=make_settings())
+    assert route.call_count == 1
+
+    async with session_factory() as session:
+        error = await fantasy_service.refresh_player_pool(session, settings=make_settings())
+
+    assert error is None, "a fresh pool is success, not failure"
+    assert route.call_count == 1, "a fresh pool must not re-download the universe"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_refresh_player_pool_isolates_a_failing_league(session_factory) -> None:
+    """One league erroring must not cost the others their sync."""
+    await _seed_two_espn_leagues(session_factory)
+    respx.get(f"{ESPN_BASE}/apis/v3/games/ffl/seasons/2024/segments/0/leagues/1111111").mock(
+        return_value=httpx.Response(500)
+    )
+    respx.get(f"{ESPN_BASE}/apis/v3/games/ffl/seasons/2024/segments/0/leagues/2222222").mock(
+        return_value=httpx.Response(200, json=_pool_body(330.97))
+    )
+
+    async with session_factory() as session:
+        error = await fantasy_service.refresh_player_pool(session, settings=make_settings())
+
+    assert error is not None and "PPR League" in error
+
+    async with session_factory() as session:
+        rows = (await session.execute(select(PlayerPoolEntry))).scalars().all()
+
+    assert {r.league_id for r in rows} == {"espn:2222222"}
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_refresh_player_pool_refetches_when_the_marker_outlives_the_rows(
+    session_factory,
+) -> None:
+    """A fresh cache marker over an EMPTY pool must not skip the league.
+
+    The marker is written when the fetch succeeds; the rows land afterwards. Anything
+    that interrupts that gap — a crash, a DB error, a caller that fetched without
+    persisting — would otherwise leave the league unqueryable for a full 6h TTL with
+    no retry. Observed for real: a smoke-test fetch wrote markers for three leagues
+    that were then skipped on the next scheduled run.
+    """
+    await _seed_two_espn_leagues(session_factory)
+    route = respx.get(
+        f"{ESPN_BASE}/apis/v3/games/ffl/seasons/2024/segments/0/leagues/1111111"
+    ).mock(return_value=httpx.Response(200, json=_pool_body(364.86)))
+    respx.get(f"{ESPN_BASE}/apis/v3/games/ffl/seasons/2024/segments/0/leagues/2222222").mock(
+        return_value=httpx.Response(200, json=_pool_body(330.97))
+    )
+
+    async with session_factory() as session:
+        await fantasy_service.refresh_player_pool(session, settings=make_settings())
+    assert route.call_count == 1
+
+    # Simulate the gap: marker stays fresh, rows vanish.
+    async with session_factory() as session:
+        await session.execute(
+            delete(PlayerPoolEntry).where(PlayerPoolEntry.league_id == "espn:1111111")
+        )
+        await session.commit()
+
+    async with session_factory() as session:
+        await fantasy_service.refresh_player_pool(session, settings=make_settings())
+
+    assert route.call_count == 2, "an empty pool must refetch despite a fresh marker"
+
+    async with session_factory() as session:
+        rows = (
+            (
+                await session.execute(
+                    select(PlayerPoolEntry).where(PlayerPoolEntry.league_id == "espn:1111111")
+                )
+            )
+            .scalars()
+            .all()
+        )
+    assert len(rows) == 2
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_refresh_player_pool_skips_disabled_leagues(session_factory) -> None:
+    """Same `is_enabled` seam the discovery path honors.
+
+    Observed live: a stale practice league 404s on every pull, which would otherwise
+    pin the job to ok=False forever and leave Settings' "last refresh" line reading
+    failed indefinitely. Disabling the league is the user-facing way to silence it.
+    """
+    await _seed_two_espn_leagues(session_factory)
+    async with session_factory() as session:
+        league = await session.get(League, "espn:2222222")
+        league.is_enabled = False
+        await session.commit()
+
+    route_1 = respx.get(
+        f"{ESPN_BASE}/apis/v3/games/ffl/seasons/2024/segments/0/leagues/1111111"
+    ).mock(return_value=httpx.Response(200, json=_pool_body(364.86)))
+    route_2 = respx.get(
+        f"{ESPN_BASE}/apis/v3/games/ffl/seasons/2024/segments/0/leagues/2222222"
+    ).mock(return_value=httpx.Response(404))
+
+    async with session_factory() as session:
+        error = await fantasy_service.refresh_player_pool(session, settings=make_settings())
+
+    assert error is None
+    assert route_1.call_count == 1
+    assert route_2.call_count == 0

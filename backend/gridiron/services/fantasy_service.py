@@ -14,6 +14,7 @@ Two very different halves, by design (design.md D7):
 """
 
 import asyncio
+import json
 import logging
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
@@ -35,6 +36,7 @@ from backend.gridiron.models import (
     Matchup,
     MatchupSlot,
     Player,
+    PlayerPoolEntry,
     RefreshRun,
     RosterSlot,
     SeasonWeek,
@@ -1123,6 +1125,35 @@ async def _replace_roster(
         )
 
 
+async def _upsert_player_pool_entries(
+    session: AsyncSession, league_id: str, entries: list[schemas.PlayerPoolEntry]
+) -> None:
+    """Replace one league's pool wholesale, the same shape as `_replace_roster`.
+
+    Replace rather than merge because the pool is an authoritative snapshot: a player
+    claimed since the last sync has to *disappear*, and a merge would leave the stale
+    `FREEAGENT` row behind, offering the user a waiver claim on someone already
+    rostered.
+    """
+    for entry in entries:
+        await _upsert_player(session, entry.player)
+
+    await session.execute(delete(PlayerPoolEntry).where(PlayerPoolEntry.league_id == league_id))
+    for entry in entries:
+        session.add(
+            PlayerPoolEntry(
+                league_id=league_id,
+                player_id=entry.player.id,
+                status=entry.status,
+                on_team_id=entry.on_team_id,
+                percent_owned=entry.percent_owned,
+                percent_started=entry.percent_started,
+                season_proj_points=entry.season_proj_points,
+                eligible_slots=json.dumps(entry.eligible_slots),
+            )
+        )
+
+
 async def _upsert_matchup(session: AsyncSession, matchup: schemas.Matchup) -> None:
     await session.merge(
         Matchup(
@@ -1496,6 +1527,114 @@ def summarize_outcomes(outcomes: dict[str, PlatformOutcome]) -> str | None:
     succeeded (or was simply not connected)."""
     errors = [f"{p}: {o.error}" for p, o in outcomes.items() if not o.ok]
     return "; ".join(errors) if errors else None
+
+
+async def refresh_player_pool(
+    session: AsyncSession, settings: Settings | None = None
+) -> str | None:
+    """Refresh the free-agent/waiver/rostered pool for every league the user plays in.
+
+    Return value follows the `JOBS` protocol: `None` means success, and any string is
+    recorded as `refresh_runs.error` with `ok=False`. That is why a clean run returns
+    `None` rather than a count — a summary string would mark every successful run as
+    failed. The per-league totals are logged instead.
+
+    A nonzero skip count IS returned, and so does mark the run not-ok. That is
+    deliberate: a live pull across two leagues mapped 2002 entries with zero skips, so
+    skips are not a normal operating condition — they mean ESPN introduced a position
+    or slot this app cannot read, and that should be visible in Settings' "last
+    refresh" line rather than buried. The sync still persists everything it could
+    (design D6); "not ok" here means "degraded", not "aborted".
+    """
+    settings = settings or get_settings()
+
+    conn = await session.get(Connection, "espn")
+    if conn is None or not conn.swid_enc or not conn.espn_s2_enc:
+        return None  # ESPN not connected — nothing to do, and not an error
+
+    swid = credentials.decrypt(settings.gridiron_secret_key, conn.swid_enc)
+    espn_s2 = credentials.decrypt(settings.gridiron_secret_key, conn.espn_s2_enc)
+
+    # Only leagues the user actually plays in. The ownership column is `is_user_team`.
+    league_rows = (
+        (
+            await session.execute(
+                select(League)
+                .join(Team, Team.league_id == League.id)
+                .where(
+                    League.platform == "espn",
+                    League.is_enabled.is_(True),
+                    Team.is_user_team.is_(True),
+                )
+                .distinct()
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not league_rows:
+        return None
+
+    factory = async_sessionmaker(session.bind, expire_on_commit=False)
+    client = EspnClient(settings, swid=swid, espn_s2=espn_s2, session_factory=factory)
+
+    total_entries = 0
+    total_skipped = 0
+    synced = 0
+    fresh = 0
+    errors: list[str] = []
+
+    try:
+        for league in league_rows:
+            # The freshness marker is written when the fetch succeeds, but the rows are
+            # persisted afterwards — so anything that interrupts the gap (a crash, a DB
+            # error, a caller that fetched without persisting) leaves a fresh marker
+            # over an empty pool, and the league would then be skipped for a full TTL.
+            # Checking what is actually persisted makes the job self-healing.
+            persisted = await session.scalar(
+                select(func.count())
+                .select_from(PlayerPoolEntry)
+                .where(PlayerPoolEntry.league_id == league.id)
+            )
+
+            try:
+                raw = await client.get_player_pool(
+                    int(league.platform_id), league.season, force=not persisted
+                )
+            except (httpx.HTTPStatusError, httpx.HTTPError, AuthRequiredError) as exc:
+                errors.append(f"{league.name}: {_classify_error(exc)}")
+                continue
+
+            if raw is None:
+                # Still within PLAYER_POOL_TTL — the persisted pool is current, and the
+                # body was not retained to hand back (design D4).
+                fresh += 1
+                continue
+
+            entries, skipped = espn_mapper.map_player_pool(raw, season=league.season)
+            async with factory() as write_session:
+                await _upsert_player_pool_entries(write_session, league.id, entries)
+                await write_session.commit()
+
+            total_entries += len(entries)
+            total_skipped += skipped
+            synced += 1
+    finally:
+        await client.aclose()
+
+    logger.info(
+        "player_pool: %d leagues synced (%d already fresh), %d entries, %d skipped",
+        synced,
+        fresh,
+        total_entries,
+        total_skipped,
+    )
+
+    if errors:
+        return "; ".join(errors)
+    if total_skipped:
+        return f"skipped {total_skipped} unmappable entries across {synced} league(s)"
+    return None
 
 
 async def refresh_fantasy(session: AsyncSession, settings: Settings | None = None) -> str | None:
