@@ -591,6 +591,138 @@ async def get_team(session: AsyncSession, team_id: str, week: int) -> TeamDetail
     )
 
 
+def _base_slot(slot: str) -> str:
+    """`RB1` -> `RB`, `FLEX2` -> `FLEX`, `QB` -> `QB`.
+
+    Bridges the two slot vocabularies. Internal `Slot` labels are numbered by
+    per-roster counters (`_internal_slot`); the platform's `eligibleSlots` are the
+    same names unnumbered, because a player off a roster has no counter context. The
+    unnumbered form is what the two can be compared on.
+    """
+    return slot.rstrip("0123456789")
+
+
+def _startable_eligibility(eligible_slots: list[str]) -> set[str]:
+    """The candidate's eligible slots, minus the ones that are not starting spots.
+
+    The platform lists `BN` and `IR` as eligible for essentially every player — a live
+    pull returns `['RB', 'RB/WR', 'FLEX', 'OP', 'BN', 'IR']` for a running back — so
+    leaving them in would make every candidate "contest" every bench spot, and the
+    weakest-starter comparison would silently match against a benched player.
+    """
+    return {s for s in eligible_slots if s not in STARTER_EXCLUDED_SLOTS}
+
+
+async def get_waivers(
+    session: AsyncSession,
+    team_id: str,
+    week: int,
+    position: str | None = None,
+    limit: int = 50,
+) -> schemas.WaiversData | None:
+    """Claimable players in this team's league, ranked, each measured against the
+    starter it would actually replace. `None` for an unknown team (the API layer 404s).
+    """
+    team_row = await session.get(Team, team_id)
+    if team_row is None:
+        return None
+    league_id = team_row.league_id
+
+    # 1 of 2 queries: the user's current starters, each with its SEASON projection
+    # joined from the pool. Deliberately an outer join — a starter missing a pool row
+    # (a sync that has not run) must leave the delta null, not drop the starter.
+    starter_rows = (
+        await session.execute(
+            select(RosterSlot.slot, PlayerPoolEntry.season_proj_points)
+            .outerjoin(
+                PlayerPoolEntry,
+                (PlayerPoolEntry.player_id == RosterSlot.player_id)
+                & (PlayerPoolEntry.league_id == league_id),
+            )
+            .where(
+                RosterSlot.team_id == team_id,
+                RosterSlot.week == week,
+                RosterSlot.slot.not_in(STARTER_EXCLUDED_SLOTS),
+            )
+        )
+    ).all()
+    # base slot -> the season projections of the user's starters occupying it
+    starters_by_slot: dict[str, list[float]] = {}
+    for slot, proj in starter_rows:
+        if proj is not None:
+            starters_by_slot.setdefault(_base_slot(slot), []).append(proj)
+
+    # 2 of 2: the candidates themselves. ONTEAM rows are ingested for the comparison
+    # above and are never claimable, so they are excluded here.
+    stmt = (
+        select(PlayerPoolEntry, Player)
+        .join(Player, PlayerPoolEntry.player_id == Player.id)
+        .where(
+            PlayerPoolEntry.league_id == league_id,
+            PlayerPoolEntry.status.in_(("FREEAGENT", "WAIVERS")),
+        )
+    )
+    if position is not None:
+        stmt = stmt.where(Player.position == position)
+
+    # Ranking happens in Python, not SQL, because the sort key is the delta — and the
+    # delta is not a column. Ordering by `season_proj_points` in SQL and slicing to
+    # `limit` there produces a leaderboard of raw scorers: against real data every top
+    # row came back a quarterback with a NEGATIVE delta, i.e. eight players worse than
+    # the one already started. That is exactly the uselessness the delta exists to
+    # avoid, so it has to drive the order, not just decorate it.
+    #
+    # Bounded by construction: one league's pool is ~1000 rows, loaded once, and only
+    # `limit` of them are turned into schemas.
+    scored: list[tuple[float | None, float | None, PlayerPoolEntry, Player, list[str]]] = []
+    for entry, player in (await session.execute(stmt)).all():
+        eligible = json.loads(entry.eligible_slots or "[]")
+        contested = [
+            proj
+            for slot, projs in starters_by_slot.items()
+            if slot in _startable_eligibility(eligible)
+            for proj in projs
+        ]
+
+        # Null, never 0.0: "no comparison available" and "exactly as good as the
+        # weakest starter" are different answers, and both occur.
+        delta = None
+        if entry.season_proj_points is not None and contested:
+            delta = entry.season_proj_points - min(contested)
+
+        scored.append((delta, entry.season_proj_points, entry, player, eligible))
+
+    # Biggest upgrade first; unrankable rows (no delta, then no projection) last.
+    # Projection breaks ties, so two equal upgrades order by the better player.
+    scored.sort(
+        key=lambda row: (
+            row[0] is None,
+            -(row[0] if row[0] is not None else 0.0),
+            row[1] is None,
+            -(row[1] if row[1] is not None else 0.0),
+        )
+    )
+
+    candidates = [
+        schemas.WaiverCandidate(
+            league_id=league_id,
+            player=_player_schema(player),
+            status=entry.status,
+            on_team_id=entry.on_team_id,
+            percent_owned=entry.percent_owned,
+            percent_started=entry.percent_started,
+            season_proj_points=entry.season_proj_points,
+            eligible_slots=eligible,
+            delta_vs_worst_starter=delta,
+        )
+        for delta, _proj, entry, player, eligible in scored[:limit]
+    ]
+
+    return schemas.WaiversData(
+        team_id=team_id, league_id=league_id, week=week, candidates=candidates
+    )
+
+
 def _slot_is_remaining(game_state: str | None) -> bool:
     """A starter counts as "yet to play" until its NFL game is final. Discovery leaves
     `game_state` NULL (pre-classification), which counts as not-finished."""

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.gridiron import scheduler
 from backend.gridiron.db import get_session
-from backend.gridiron.schemas import Envelope
+from backend.gridiron.schemas import Envelope, WaiversData
 from backend.gridiron.services import fantasy_service
 from backend.gridiron.services.fantasy_service import (
     H2HData,
@@ -120,3 +120,20 @@ async def get_season(
     if season is None:
         raise _not_found("team_not_found", f"unknown team id: {team_id}")
     return await _envelope(session, season)
+
+
+@router.get("/{team_id}/waivers", response_model=Envelope[WaiversData])
+async def get_waivers(
+    team_id: str,
+    response: Response,
+    week: int | None = None,
+    position: str | None = None,
+    limit: int = 50,
+    session: AsyncSession = Depends(get_session),
+) -> Envelope[WaiversData]:
+    response.headers["Cache-Control"] = CACHE_CONTROL
+    week = await _resolve_week(session, week)
+    waivers = await fantasy_service.get_waivers(session, team_id, week, position, limit)
+    if waivers is None:
+        raise _not_found("team_not_found", f"unknown team id: {team_id}")
+    return await _envelope(session, waivers)

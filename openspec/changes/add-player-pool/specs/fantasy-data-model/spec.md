@@ -43,7 +43,7 @@ The system SHALL expose REST endpoints that the frontend consumes, returning JSO
 #### Scenario: Waiver candidates for a team
 
 - **WHEN** the frontend requests `GET /api/teams/{team_id}/waivers?week={n}&position={pos}&limit={n}`
-- **THEN** the response envelope carries the pool for that team's league, ranked by `season_proj_points` descending with null projections sorted last, optionally filtered to one position
+- **THEN** the response envelope carries the pool for that team's league, ranked by `delta_vs_worst_starter` descending with unrankable rows (no delta, then no projection) sorted last, optionally filtered to one position
 - **AND** only players whose `status` is `FREEAGENT` or `WAIVERS` are listed as candidates; `ONTEAM` rows are ingested for comparison and never presented as claimable
 - **AND** each candidate carries `delta_vs_worst_starter`: its season projection minus that of the lowest-projected starter the user currently rosters at a slot the candidate is eligible for
 - **AND** `delta_vs_worst_starter` is null — never `0.0` — when the candidate has no projection or the user starts nobody at an eligible slot.
@@ -58,7 +58,14 @@ The system SHALL expose REST endpoints that the frontend consumes, returning JSO
 
 - **WHEN** candidates are ranked for presentation
 - **THEN** the delta is computed against the user's own weakest eligible starter rather than a positional average, so a FLEX-eligible running back is compared against the weakest of the RB/FLEX starters actually rostered
+- **AND** the delta SHALL determine the sort order, not merely appear as a column
 - **AND** this is the ranking's purpose: "is this player better than what I would drop" is the decision being made, and a raw projection leaderboard does not answer it.
+
+#### Scenario: Raw projection is not a ranking
+
+- **WHEN** the candidate list is ordered by season projection instead of by the delta
+- **THEN** the result is a leaderboard of the highest-scoring positions rather than of available upgrades — observed against real data as eight consecutive quarterbacks, every one with a negative delta, meaning every top row was worse than the player already started
+- **AND** season projection therefore serves only as a tie-breaker between equally-ranked candidates.
 
 #### Scenario: Unknown team
 

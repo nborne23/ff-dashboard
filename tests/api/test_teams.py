@@ -1,5 +1,6 @@
 """`/api/teams*` — envelope shape, Cache-Control headers, 404 typed errors, week defaulting."""
 
+import json
 from collections.abc import AsyncIterator
 
 import httpx
@@ -13,6 +14,7 @@ from backend.gridiron.models import (
     Matchup,
     MatchupSlot,
     Player,
+    PlayerPoolEntry,
     RosterSlot,
     SeasonWeek,
     Team,
@@ -832,3 +834,157 @@ async def test_game_day_excludes_disabled_leagues(client, db) -> None:
 
     assert team_ids == [USER_TEAM]
     assert "espn:l-999-t-7" not in team_ids
+
+
+# ---------------------------------------------------------------------------
+# /api/teams/{team_id}/waivers (add-player-pool group 4)
+# ---------------------------------------------------------------------------
+
+WAIVER_TEAM = "yahoo:461.l.123456.t.1"
+
+
+async def _seed_waiver_pool(db) -> None:
+    """A pool for the already-seeded league: one starter to compare against, and two
+    candidates straddling that starter's projection."""
+    async with db() as session:
+        session.add(
+            RosterSlot(
+                team_id=USER_TEAM,
+                week=14,
+                slot="RB1",
+                player_id="yahoo:461.p.100",
+                proj_points=9.0,
+                actual_points=0.0,
+                is_live=False,
+                game_state=None,
+                status_text="",
+            )
+        )
+        for pid, name, pos in (
+            ("yahoo:461.p.100", "Incumbent RB", "RB"),
+            ("yahoo:461.p.200", "Upgrade RB", "RB"),
+            ("yahoo:461.p.201", "Downgrade RB", "RB"),
+        ):
+            session.add(
+                Player(
+                    id=pid,
+                    platform="yahoo",
+                    platform_id=pid.split(":")[1],
+                    name=name,
+                    position=pos,
+                    nfl_team="DET",
+                    nfl_opponent=None,
+                    nfl_game_id=None,
+                    bye_week=5,
+                    injury_status="ACTIVE",
+                )
+            )
+        eligible = json.dumps(["RB", "RB/WR", "FLEX", "BN", "IR"])
+        session.add(
+            PlayerPoolEntry(
+                league_id=LEAGUE_ID,
+                player_id="yahoo:461.p.100",
+                status="ONTEAM",
+                on_team_id="1",
+                percent_owned=95.0,
+                percent_started=90.0,
+                season_proj_points=153.0,
+                eligible_slots=eligible,
+            )
+        )
+        session.add(
+            PlayerPoolEntry(
+                league_id=LEAGUE_ID,
+                player_id="yahoo:461.p.200",
+                status="FREEAGENT",
+                on_team_id=None,
+                percent_owned=30.0,
+                percent_started=5.0,
+                season_proj_points=200.0,
+                eligible_slots=eligible,
+            )
+        )
+        session.add(
+            PlayerPoolEntry(
+                league_id=LEAGUE_ID,
+                player_id="yahoo:461.p.201",
+                status="WAIVERS",
+                on_team_id=None,
+                percent_owned=10.0,
+                percent_started=1.0,
+                season_proj_points=None,
+                eligible_slots=eligible,
+            )
+        )
+        await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_get_waivers_shape(client, db) -> None:
+    await seed(db)
+    await _seed_waiver_pool(db)
+
+    response = await client.get(f"/api/teams/{USER_TEAM}/waivers?week=14")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert_envelope(body)
+    data = body["data"]
+    assert set(data) == {"team_id", "league_id", "week", "candidates"}
+    assert data["team_id"] == USER_TEAM
+    assert response.headers["Cache-Control"] == CACHE_CONTROL
+
+    names = [c["player"]["name"] for c in data["candidates"]]
+    assert names == ["Upgrade RB", "Downgrade RB"]  # projection desc, nulls last
+    assert "Incumbent RB" not in names  # ONTEAM is never claimable
+
+    upgrade = data["candidates"][0]
+    assert upgrade["delta_vs_worst_starter"] == pytest.approx(47.0)  # 200.0 - 153.0
+
+    # A missing value must serialize as null, never 0 — the UI renders an em dash.
+    downgrade = data["candidates"][1]
+    assert downgrade["season_proj_points"] is None
+    assert downgrade["delta_vs_worst_starter"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_waivers_position_filter(client, db) -> None:
+    await seed(db)
+    await _seed_waiver_pool(db)
+
+    response = await client.get(f"/api/teams/{USER_TEAM}/waivers?week=14&position=WR")
+
+    assert response.status_code == 200
+    assert response.json()["data"]["candidates"] == []
+
+
+@pytest.mark.asyncio
+async def test_get_waivers_unknown_team_returns_typed_404(client, db) -> None:
+    await seed(db)
+
+    response = await client.get("/api/teams/yahoo:nope/waivers?week=14")
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "team_not_found"
+
+
+@pytest.mark.asyncio
+async def test_get_waivers_empty_pool_returns_an_empty_list(client, db) -> None:
+    """A league whose pool has never synced is empty, not broken."""
+    await seed(db)
+
+    response = await client.get(f"/api/teams/{USER_TEAM}/waivers?week=14")
+
+    assert response.status_code == 200
+    assert response.json()["data"]["candidates"] == []
+
+
+@pytest.mark.asyncio
+async def test_get_waivers_defaults_the_week(client, db) -> None:
+    await seed(db)
+    await _seed_waiver_pool(db)
+
+    response = await client.get(f"/api/teams/{USER_TEAM}/waivers")
+
+    assert response.status_code == 200
+    assert response.json()["data"]["week"] == 14

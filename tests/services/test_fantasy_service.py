@@ -1396,3 +1396,311 @@ async def test_refresh_player_pool_skips_disabled_leagues(session_factory) -> No
     assert error is None
     assert route_1.call_count == 1
     assert route_2.call_count == 0
+
+
+# ---------------------------------------------------------------------------
+# get_waivers (add-player-pool group 4)
+# ---------------------------------------------------------------------------
+
+WAIVER_LEAGUE = "espn:1111111"
+WAIVER_TEAM = "espn:l-1111111-t-2"
+
+
+async def _seed_waiver_league(session_factory) -> None:
+    """One league, one user team with two starters, and a pool.
+
+    The numbers are chosen so a weekly-vs-season unit mismatch is detectable: the
+    starters' WEEKLY projections (`roster_slots.proj_points`) are ~1/17th of their
+    season ones, exactly the real ratio (21.57 weekly vs 364.86 season for Gibbs).
+    """
+    async with session_factory() as session:
+        session.add(
+            League(
+                id=WAIVER_LEAGUE,
+                platform="espn",
+                platform_id="1111111",
+                name="Waiver League",
+                season=2024,
+                team_count=10,
+                scoring_type="ppr",
+                current_week=5,
+            )
+        )
+        session.add(
+            Team(
+                id=WAIVER_TEAM,
+                league_id=WAIVER_LEAGUE,
+                platform="espn",
+                platform_id="2",
+                name="My Team",
+                manager_name="Nick B",
+                record_w=3,
+                record_l=1,
+                record_t=0,
+                rank_current=2,
+                rank_total=10,
+                points_for=500.0,
+                points_against=440.0,
+                is_user_team=True,
+            )
+        )
+
+        # (player_id, name, position, slot, weekly_proj, season_proj)
+        starters = [
+            ("espn:p-100", "Starter RB", "RB", "RB1", 14.0, 238.0),
+            ("espn:p-101", "Weak RB", "RB", "RB2", 8.0, 136.0),
+            ("espn:p-102", "Starter QB", "QB", "QB", 20.0, 340.0),
+            ("espn:p-103", "Benched RB", "RB", "BN", 3.0, 51.0),
+        ]
+        for pid, name, pos, slot, weekly, season_proj in starters:
+            session.add(
+                Player(
+                    id=pid,
+                    platform="espn",
+                    platform_id=pid.split("-")[-1],
+                    name=name,
+                    position=pos,
+                    nfl_team="DET",
+                    nfl_opponent=None,
+                    nfl_game_id=None,
+                    bye_week=5,
+                    injury_status="ACTIVE",
+                )
+            )
+            session.add(
+                RosterSlot(
+                    team_id=WAIVER_TEAM,
+                    week=5,
+                    slot=slot,
+                    player_id=pid,
+                    proj_points=weekly,
+                    actual_points=0.0,
+                    is_live=False,
+                    game_state=None,
+                    status_text="",
+                )
+            )
+            session.add(
+                PlayerPoolEntry(
+                    league_id=WAIVER_LEAGUE,
+                    player_id=pid,
+                    status="ONTEAM",
+                    on_team_id="2",
+                    percent_owned=90.0,
+                    percent_started=80.0,
+                    season_proj_points=season_proj,
+                    eligible_slots=json.dumps(
+                        ["RB", "RB/WR", "FLEX", "BN", "IR"] if pos == "RB" else ["QB", "BN", "IR"]
+                    ),
+                )
+            )
+
+        # (player_id, name, position, season_proj, eligible)
+        pool = [
+            ("espn:p-200", "Better RB", "RB", 190.0, ["RB", "RB/WR", "FLEX", "BN", "IR"]),
+            ("espn:p-201", "Worse RB", "RB", 90.0, ["RB", "RB/WR", "FLEX", "BN", "IR"]),
+            ("espn:p-202", "Unprojected WR", "WR", None, ["WR", "RB/WR", "FLEX", "BN", "IR"]),
+            ("espn:p-203", "Lonely K", "K", 120.0, ["K", "BN", "IR"]),
+        ]
+        for pid, name, pos, season_proj, eligible in pool:
+            session.add(
+                Player(
+                    id=pid,
+                    platform="espn",
+                    platform_id=pid.split("-")[-1],
+                    name=name,
+                    position=pos,
+                    nfl_team="GB",
+                    nfl_opponent=None,
+                    nfl_game_id=None,
+                    bye_week=6,
+                    injury_status="ACTIVE",
+                )
+            )
+            session.add(
+                PlayerPoolEntry(
+                    league_id=WAIVER_LEAGUE,
+                    player_id=pid,
+                    status="FREEAGENT",
+                    on_team_id=None,
+                    percent_owned=20.0,
+                    percent_started=1.0,
+                    season_proj_points=season_proj,
+                    eligible_slots=json.dumps(eligible),
+                )
+            )
+        await session.commit()
+
+
+def _by_name(data) -> dict:
+    return {c.player.name: c for c in data.candidates}
+
+
+@pytest.mark.asyncio
+async def test_get_waivers_delta_uses_season_not_weekly_projections(session_factory) -> None:
+    """Task 4.2a — the unit-mismatch regression.
+
+    "Worse RB" projects 90.0 for the season; the user's weakest eligible starter
+    ("Weak RB") projects 136.0. The honest delta is NEGATIVE: -46.0.
+
+    Computed against `roster_slots.proj_points` instead, the weakest starter reads
+    8.0, and the delta would come out at +82.0 — a strong recommendation to claim a
+    player who is materially worse. That wrong answer looks entirely plausible in the
+    UI, which is why this is pinned rather than left to review.
+    """
+    await _seed_waiver_league(session_factory)
+
+    async with session_factory() as session:
+        data = await fantasy_service.get_waivers(session, WAIVER_TEAM, week=5)
+
+    worse = _by_name(data)["Worse RB"]
+    assert worse.delta_vs_worst_starter == pytest.approx(-46.0)
+    assert worse.delta_vs_worst_starter < 0, "a worse player must not read as an upgrade"
+
+    better = _by_name(data)["Better RB"]
+    assert better.delta_vs_worst_starter == pytest.approx(54.0)
+
+
+@pytest.mark.asyncio
+async def test_get_waivers_ignores_bench_and_ir_eligibility(session_factory) -> None:
+    """The platform lists BN and IR as eligible for essentially every player. Counting
+    them would let the comparison match a benched player — here "Benched RB" at 51.0,
+    which is lower than every real starter and would inflate every RB's delta."""
+    await _seed_waiver_league(session_factory)
+
+    async with session_factory() as session:
+        data = await fantasy_service.get_waivers(session, WAIVER_TEAM, week=5)
+
+    worse = _by_name(data)["Worse RB"]
+    # Against the weakest STARTER (136.0) -> -46.0.
+    # Against the benched player (51.0)  -> +39.0.
+    assert worse.delta_vs_worst_starter == pytest.approx(-46.0)
+
+
+@pytest.mark.asyncio
+async def test_get_waivers_matches_eligibility_across_slot_numbering(session_factory) -> None:
+    """Starter slots are numbered (`RB1`, `RB2`); pool eligibility is not (`RB`). The
+    comparison has to bridge the two, or no RB ever matches an RB starter."""
+    await _seed_waiver_league(session_factory)
+
+    async with session_factory() as session:
+        data = await fantasy_service.get_waivers(session, WAIVER_TEAM, week=5)
+
+    assert _by_name(data)["Better RB"].delta_vs_worst_starter is not None
+
+
+@pytest.mark.asyncio
+async def test_get_waivers_nulls_are_null_not_zero(session_factory) -> None:
+    """Two distinct absences, neither of which may render as 0.0: a candidate with no
+    projection, and a candidate with no eligible starter to compare against."""
+    await _seed_waiver_league(session_factory)
+
+    async with session_factory() as session:
+        data = await fantasy_service.get_waivers(session, WAIVER_TEAM, week=5)
+
+    unprojected = _by_name(data)["Unprojected WR"]
+    assert unprojected.season_proj_points is None
+    assert unprojected.delta_vs_worst_starter is None
+
+    # The user starts no kicker, so there is nothing for a K to displace.
+    kicker = _by_name(data)["Lonely K"]
+    assert kicker.season_proj_points == pytest.approx(120.0)
+    assert kicker.delta_vs_worst_starter is None
+
+
+@pytest.mark.asyncio
+async def test_get_waivers_excludes_rostered_players(session_factory) -> None:
+    """ONTEAM rows exist for the comparison and must never be offered as claimable."""
+    await _seed_waiver_league(session_factory)
+
+    async with session_factory() as session:
+        data = await fantasy_service.get_waivers(session, WAIVER_TEAM, week=5)
+
+    assert all(c.status in ("FREEAGENT", "WAIVERS") for c in data.candidates)
+    assert "Starter RB" not in _by_name(data)
+
+
+@pytest.mark.asyncio
+async def test_get_waivers_ranks_by_upgrade_not_raw_projection(session_factory) -> None:
+    """The delta drives the ORDER, not just a column in it.
+
+    Ranking by raw season projection produces a leaderboard of big scorers rather than
+    of upgrades. Against real data that returned eight quarterbacks, every one with a
+    negative delta — i.e. eight players worse than the one already being started.
+
+    Here "Lonely K" (120.0) out-projects "Worse RB" (90.0) but has no eligible starter
+    to displace, so it is unrankable and sorts BELOW the RB that is at least
+    comparable. Projection only breaks ties among equally-ranked rows.
+    """
+    await _seed_waiver_league(session_factory)
+
+    async with session_factory() as session:
+        data = await fantasy_service.get_waivers(session, WAIVER_TEAM, week=5)
+
+    names = [c.player.name for c in data.candidates]
+    assert names == ["Better RB", "Worse RB", "Lonely K", "Unprojected WR"]
+
+    deltas = [c.delta_vs_worst_starter for c in data.candidates]
+    assert deltas[0] == pytest.approx(54.0)
+    assert deltas[1] == pytest.approx(-46.0)
+    assert deltas[2] is None and deltas[3] is None
+
+
+@pytest.mark.asyncio
+async def test_get_waivers_position_filter_and_limit(session_factory) -> None:
+    await _seed_waiver_league(session_factory)
+
+    async with session_factory() as session:
+        rbs = await fantasy_service.get_waivers(session, WAIVER_TEAM, week=5, position="RB")
+        capped = await fantasy_service.get_waivers(session, WAIVER_TEAM, week=5, limit=2)
+
+    assert {c.player.name for c in rbs.candidates} == {"Better RB", "Worse RB"}
+    assert len(capped.candidates) == 2
+
+
+@pytest.mark.asyncio
+async def test_get_waivers_unknown_team_returns_none(session_factory) -> None:
+    await _seed_waiver_league(session_factory)
+
+    async with session_factory() as session:
+        assert await fantasy_service.get_waivers(session, "espn:nope", week=5) is None
+
+
+@pytest.mark.asyncio
+async def test_get_waivers_empty_pool_is_not_an_error(session_factory) -> None:
+    """A league whose pool has never synced returns an empty list, not a failure."""
+    await _seed_waiver_league(session_factory)
+    async with session_factory() as session:
+        await session.execute(delete(PlayerPoolEntry))
+        await session.commit()
+
+    async with session_factory() as session:
+        data = await fantasy_service.get_waivers(session, WAIVER_TEAM, week=5)
+
+    assert data is not None
+    assert data.candidates == []
+
+
+@pytest.mark.asyncio
+async def test_get_waivers_query_count_is_bounded(session_factory) -> None:
+    """Task 4.3 — the delta must be computed in memory from one roster load, not with
+    a query per candidate."""
+    await _seed_waiver_league(session_factory)
+
+    from sqlalchemy import event
+
+    async with session_factory() as session:
+        statements: list[str] = []
+
+        def _count(conn, cursor, statement, *args):
+            statements.append(statement)
+
+        sync_engine = session.bind.sync_engine
+        event.listen(sync_engine, "before_cursor_execute", _count)
+        try:
+            await fantasy_service.get_waivers(session, WAIVER_TEAM, week=5)
+        finally:
+            event.remove(sync_engine, "before_cursor_execute", _count)
+
+    selects = [s for s in statements if s.lstrip().upper().startswith("SELECT")]
+    assert len(selects) <= 4, f"expected a bounded query count, got {len(selects)}: {selects}"
