@@ -18,6 +18,7 @@ import {
   IconFlame,
   IconFootball,
   IconMatchups,
+  IconPlus,
   IconSeason,
   IconSettings,
   IconTeams,
@@ -162,6 +163,17 @@ export function Sidebar() {
             <IconSeason size={18} />
           </span>
           <span className="label">Season</span>
+        </NavLink>
+        {/* Team-scoped like Matchups and Season above, not a direct link like Game
+            Day: the pool belongs to one league, so there is no cross-league view. */}
+        <NavLink
+          to={selectedTeamId ? teamRoutePath(selectedTeamId, "waivers") : "/"}
+          className={navItemClassName}
+        >
+          <span className="icon">
+            <IconPlus size={18} />
+          </span>
+          <span className="label">Waivers</span>
         </NavLink>
         {DRAFT_ASSISTANT && (
           <NavLink to="/draft" className={navItemClassName}>

@@ -42,13 +42,13 @@
 
 ## 5. Frontend (lane C; builds against 1.5's fixture)
 
-- [ ] 5.1 Add `useWaivers(teamId, week, position)` to `frontend/src/api/teams.ts` — `queryKey: ["waivers", teamId, week, position]`, `staleTime: STALE_TIME_MS`, matching the file's existing hook shape.
-- [ ] 5.2 `screens/Waivers/WaiverTable.tsx` — one row per candidate: headshot, name, position pill, NFL team, % owned, season projection, and the delta chip. Reuse `.roster` table classes and the `roster-col-*` width vocabulary rather than inventing a parallel set; they already carry the mobile column-hiding rules.
-- [ ] 5.3 Render a null `delta_vs_worst_starter` as an em dash, and a null `season_proj_points` as an em dash — never as `0.0`. D2/D7 both depend on the distinction surviving to the UI.
-- [ ] 5.4 `screens/Waivers/index.tsx` — position filter control, the table, and `EmptyState` / `ErrorCard` wired via `usePlatformsDisconnected`, matching Head-to-Head and Season.
-- [ ] 5.5 `screens/Waivers/WaiversSkeleton.tsx` matching loaded geometry, following the `SeasonSkeleton` approach in `screens/Season/index.tsx:24`.
-- [ ] 5.6 Add `/team/:teamId/waivers` to `frontend/src/routes.tsx` and a sidebar entry in the team group in `components/shell/Sidebar.tsx`, following the team-scoped pattern Matchups and Season already use.
-- [ ] 5.7 Component tests: ranked render, position filter, empty pool, error state, and the two null-rendering cases from 5.3.
+- [x] 5.1 Add `useWaivers(teamId, week, position)` to `frontend/src/api/teams.ts` — `queryKey: ["waivers", teamId, week, position]`, `staleTime: STALE_TIME_MS`, matching the file's existing hook shape.
+- [x] 5.2 `screens/Waivers/WaiverTable.tsx` — one row per candidate: headshot, name, position pill, NFL team, % owned, season projection, and the delta chip. Reuse `.roster` table classes and the `roster-col-*` width vocabulary rather than inventing a parallel set; they already carry the mobile column-hiding rules.
+- [x] 5.3 Render a null `delta_vs_worst_starter` as an em dash, and a null `season_proj_points` as an em dash — never as `0.0`. D2/D7 both depend on the distinction surviving to the UI.
+- [x] 5.4 `screens/Waivers/index.tsx` — position filter control, the table, and `EmptyState` / `ErrorCard` wired via `usePlatformsDisconnected`, matching Head-to-Head and Season.
+- [x] 5.5 `screens/Waivers/WaiversSkeleton.tsx` matching loaded geometry, following the `SeasonSkeleton` approach in `screens/Season/index.tsx:24`.
+- [x] 5.6 Add `/team/:teamId/waivers` to `frontend/src/routes.tsx` and a sidebar entry in the team group in `components/shell/Sidebar.tsx`, following the team-scoped pattern Matchups and Season already use.
+- [x] 5.7 Component tests: ranked render, position filter, empty pool, error state, and the two null-rendering cases from 5.3.
 
 ## 6. Verification
 

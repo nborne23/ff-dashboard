@@ -4,7 +4,7 @@
 // ported from specs/fantasy-data-model/spec.md's "Read API for the frontend"
 // requirement and design.md D12.
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import type {
   Envelope,
@@ -16,6 +16,7 @@ import type {
   RosterSlot,
   SeasonWeek,
   Team,
+  WaiverCandidate,
 } from "../types/api";
 import { apiClient } from "./client";
 
@@ -103,5 +104,37 @@ export function useGameDay(week: number) {
     queryKey: ["gameday", week],
     queryFn: () => apiClient.get<Envelope<GameDayData>>(`/api/teams/game-day?week=${week}`),
     staleTime: STALE_TIME_MS,
+  });
+}
+
+export interface WaiversResponseData {
+  team_id: string;
+  league_id: string;
+  week: number;
+  candidates: WaiverCandidate[];
+}
+
+/**
+ * Claimable players in this team's league, ranked by how much they would upgrade the
+ * lineup. `position` narrows to one position; omitting it returns the full ranking.
+ */
+export function useWaivers(id: string, week: number, position?: string) {
+  return useQuery({
+    queryKey: ["waivers", id, week, position ?? null],
+    queryFn: () => {
+      const params = new URLSearchParams({ week: String(week) });
+      if (position) params.set("position", position);
+      return apiClient.get<Envelope<WaiversResponseData>>(
+        `/api/teams/${id}/waivers?${params.toString()}`,
+      );
+    },
+    staleTime: STALE_TIME_MS,
+    enabled: Boolean(id),
+    // Changing the position filter changes the query key, which would otherwise make
+    // this a brand-new query with `isLoading: true` — replacing the entire screen,
+    // filter buttons included, with a skeleton on every click. Keeping the previous
+    // page means the control narrows a visible list instead of reloading the page out
+    // from under the user's cursor.
+    placeholderData: keepPreviousData,
   });
 }

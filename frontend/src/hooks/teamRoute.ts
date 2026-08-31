@@ -1,11 +1,11 @@
-// The three team-scoped screens — My Team, Matchups (Head-to-Head), and Season — are
-// all `/team/:teamId/...` routes, so the URL is the single source of truth for which
+// The team-scoped screens — My Team, Matchups (Head-to-Head), Season, and Waivers —
+// are all `/team/:teamId/...` routes, so the URL is the single source of truth for which
 // team is on screen. Everything here is pure so both the shell (Sidebar's links, the
 // TeamContextBar's switcher and tabs) and the tests can share one parser instead of
 // each re-deriving "is this the h2h route?" with its own `pathname.endsWith` check.
 
-/** The three views a team has. `"roster"` is the bare `/team/:teamId` route. */
-export type TeamSection = "roster" | "h2h" | "season";
+/** The views a team has. `"roster"` is the bare `/team/:teamId` route. */
+export type TeamSection = "roster" | "h2h" | "season" | "waivers";
 
 export interface TeamRouteMatch {
   teamId: string;
@@ -17,6 +17,7 @@ export const TEAM_SECTIONS: { id: TeamSection; label: string }[] = [
   { id: "roster", label: "Roster" },
   { id: "h2h", label: "Matchup" },
   { id: "season", label: "Season" },
+  { id: "waivers", label: "Waivers" },
 ];
 
 /**
@@ -44,7 +45,7 @@ export function parseTeamRoute(pathname: string): TeamRouteMatch | null {
 
   const tail = segments[2];
   if (tail === undefined) return { teamId, section: "roster" };
-  if (tail === "h2h" || tail === "season") return { teamId, section: tail };
+  if (tail === "h2h" || tail === "season" || tail === "waivers") return { teamId, section: tail };
   return null;
 }
 
