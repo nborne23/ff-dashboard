@@ -52,8 +52,8 @@
 
 ## 6. Verification
 
-- [ ] 6.1 `make lint && make test` clean.
-- [ ] 6.2 Run `POST /api/admin/refresh?job=refresh_player_pool` against the real account and confirm all five leagues populate, with the skip count reported and plausible (a handful of IDP/unknown positions, not hundreds).
-- [ ] 6.3 Confirm the D4 cost decision held: `http_cache` growth after a full pool refresh is negligible, and `player_pool_entries` holds roughly 1000 rows **per league** — expect ~1030 for an undrafted league and ~970 for a drafted one, not a uniform count. Each drafted league should show a nonzero `ONTEAM` share (~150 for a 12-team league); zero `ONTEAM` rows in a drafted league means the filter lost `ONTEAM` and D7's delta is silently broken.
-- [ ] 6.4 Spot-check D1 end to end against the live data — pick one pass-catcher rostered in neither THE LEAGUE nor GAS Lab and confirm the two leagues show different `season_proj_points`, matching the probe's ppr/half_ppr split.
+- [x] 6.1 `make lint && make test` clean.
+- [x] 6.2 Run `POST /api/admin/refresh?job=refresh_player_pool` against the real account and confirm all five leagues populate, with the skip count reported and plausible (a handful of IDP/unknown positions, not hundreds).
+- [x] 6.3 Confirm the D4 cost decision held: `http_cache` growth after a full pool refresh is negligible, and `player_pool_entries` holds roughly 1000 rows **per league** — expect ~1030 for an undrafted league and ~970 for a drafted one, not a uniform count. Each drafted league should show a nonzero `ONTEAM` share (~150 for a 12-team league); zero `ONTEAM` rows in a drafted league means the filter lost `ONTEAM` and D7's delta is silently broken.
+- [x] 6.4 Spot-check D1 end to end against the live data — pick one pass-catcher rostered in neither THE LEAGUE nor GAS Lab and confirm the two leagues show different `season_proj_points`, matching the probe's ppr/half_ppr split.
 - [ ] 6.5 Acceptance: open `/team/:id/waivers` on a phone over Tailscale, confirm the table fits without horizontal scroll at 375px, and confirm the top-ranked candidate is one you'd actually consider claiming — if the ranking is obviously wrong, D7's comparison is the thing to revisit.
