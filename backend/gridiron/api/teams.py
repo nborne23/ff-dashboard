@@ -137,3 +137,16 @@ async def get_waivers(
     if waivers is None:
         raise _not_found("team_not_found", f"unknown team id: {team_id}")
     return await _envelope(session, waivers)
+
+
+@router.get("/{team_id}/league", response_model=Envelope[fantasy_service.LeagueStandingsData])
+async def get_league_standings(
+    team_id: str,
+    response: Response,
+    session: AsyncSession = Depends(get_session),
+) -> Envelope[fantasy_service.LeagueStandingsData]:
+    response.headers["Cache-Control"] = CACHE_CONTROL
+    standings = await fantasy_service.get_league_standings(session, team_id)
+    if standings is None:
+        raise _not_found("team_not_found", f"unknown team id: {team_id}")
+    return await _envelope(session, standings)

@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     gridiron_scheduler_enabled: bool = False
     gridiron_db_path: str = "data/gridiron.db"
     gridiron_headshots_path: str = "data/headshots"
+    gridiron_team_logos_path: str = "data/team-logos"
     # Task 11.3: empty (default) means console-only logging, matching today's dev
     # behavior unchanged. Set to a directory (e.g. ~/Library/Logs/gridiron on the iMac)
     # to also rotate app + scheduler logs to a file there.

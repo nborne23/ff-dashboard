@@ -988,3 +988,40 @@ async def test_get_waivers_defaults_the_week(client, db) -> None:
 
     assert response.status_code == 200
     assert response.json()["data"]["week"] == 14
+
+
+# ---------------------------------------------------------------------------
+# /api/teams/{team_id}/league (add-league-standings group 3)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_league_standings_shape(client, db) -> None:
+    await seed(db)
+
+    response = await client.get(f"/api/teams/{USER_TEAM}/league")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert_envelope(body)
+    data = body["data"]
+    assert set(data) == {"league", "rows"}
+    assert data["league"]["id"] == LEAGUE_ID
+    assert response.headers["Cache-Control"] == CACHE_CONTROL
+
+    names = [r["team"]["name"] for r in data["rows"]]
+    assert "Gridiron Gurus" in names
+    assert [r["position"] for r in data["rows"]] == list(range(1, len(data["rows"]) + 1))
+
+    mine = [r for r in data["rows"] if r["team"]["is_user_team"]]
+    assert len(mine) == 1
+
+
+@pytest.mark.asyncio
+async def test_get_league_standings_unknown_team_returns_typed_404(client, db) -> None:
+    await seed(db)
+
+    response = await client.get("/api/teams/yahoo:nope/league")
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "team_not_found"

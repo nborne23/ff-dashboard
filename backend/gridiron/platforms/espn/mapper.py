@@ -193,6 +193,11 @@ def map_team(raw: dict, league_id: int | str) -> schemas.Team:
         is_live=False,
         spark_last_6=[],
         accent_color="",
+        # Carried on the schema only so the caller can persist them; the client is
+        # served a local `logo_url` instead, because ESPN's uploaded-logo host 401s
+        # an unauthenticated request.
+        logo_source_url=raw.get("logo") or None,
+        logo_type=raw.get("logoType") or None,
     )
 
 

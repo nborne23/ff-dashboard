@@ -233,6 +233,19 @@ def _headshot_url(platform: str, platform_id: str) -> str:
     return f"/api/headshots/{platform}/{platform_id.rsplit('.', 1)[-1]}.png"
 
 
+def _team_logo_url(platform: str, platform_id: str, logo_source_url: str | None) -> str | None:
+    """Local logo route for a team, or None when it has no logo.
+
+    Derived by convention like `_headshot_url`, never persisted, so the route can move
+    without a migration. Returns None rather than a URL when the team has no logo, so
+    the client can skip the request entirely instead of fetching a crest it could have
+    rendered locally.
+    """
+    if not logo_source_url:
+        return None
+    return f"/api/team-logos/{platform}/{platform_id}"
+
+
 def _player_schema(row: Player) -> schemas.Player:
     return schemas.Player(
         id=row.id,
@@ -405,6 +418,7 @@ async def _team_schema(
         is_live=await _team_is_live(session, row.id, week, live_nfl_teams),
         spark_last_6=spark_last_6,
         accent_color=ACCENT_COLOR,
+        logo_url=_team_logo_url(row.platform, row.platform_id, row.logo_source_url),
     )
 
 
@@ -739,6 +753,77 @@ async def get_waivers(
 
     return schemas.WaiversData(
         team_id=team_id, league_id=league_id, week=week, candidates=candidates
+    )
+
+
+def _standings_sort_key(row: Team) -> tuple:
+    """Design D7's ordering. Every element earns its place — read D7 before changing one.
+
+    `division_id` first so two divisions never interleave their seeds into what looks
+    like a scrambled table rather than an obvious bug.
+
+    Then the platform's playoff seed, which the user asked to trust so the page matches
+    ESPN's own site. It cannot be the ONLY key: ESPN reports seed 0 for every team in
+    some leagues, and before week 1 every team is 0-0-0 with 0.0 points. `seed == 0`
+    sorts after real seeds rather than ahead of them, so an unseeded league falls
+    through to record instead of pretending to be ranked first.
+
+    Wins and points-for are the standard tiebreak, and `id` is the floor: without it a
+    total tie renders in whatever order the query returned, which can differ between
+    two loads of the same page and which no test would catch by accident. This codebase
+    already documents that exact failure on SLOT_ORDER.
+    """
+    seed = row.rank_current or 0
+    return (0, seed == 0, seed, -row.record_w, -row.points_for, row.id)
+
+
+async def get_league_standings(session: AsyncSession, team_id: str) -> LeagueStandingsData | None:
+    """Every team in this team's league, ordered as standings. `None` for an unknown
+    team id (the API layer 404s)."""
+    team_row = await session.get(Team, team_id)
+    if team_row is None:
+        return None
+    league_row = await session.get(League, team_row.league_id)
+    if league_row is None:
+        return None
+
+    rows = (
+        (await session.execute(select(Team).where(Team.league_id == team_row.league_id)))
+        .scalars()
+        .all()
+    )
+    ordered = sorted(rows, key=_standings_sort_key)
+
+    return LeagueStandingsData(
+        league=_league_schema(league_row),
+        rows=[
+            LeagueStandingsRow(
+                team=schemas.Team(
+                    id=r.id,
+                    league_id=r.league_id,
+                    name=r.name,
+                    manager_name=r.manager_name,
+                    record=schemas.Record(w=r.record_w, l=r.record_l, t=r.record_t),
+                    rank=schemas.Rank(current=r.rank_current, total=r.rank_total),
+                    points_for=r.points_for,
+                    points_against=r.points_against,
+                    is_user_team=r.is_user_team,
+                    # Standings is a league-wide table, not a live scoreboard: the
+                    # week-scoped fields `_team_schema` computes would cost a handful
+                    # of queries per team for values this page never renders.
+                    current_score=0.0,
+                    current_opp_score=0.0,
+                    current_opponent_name="",
+                    is_live=False,
+                    spark_last_6=[],
+                    accent_color=ACCENT_COLOR,
+                    logo_url=_team_logo_url(r.platform, r.platform_id, r.logo_source_url),
+                ),
+                division_id=0,
+                position=i + 1,
+            )
+            for i, r in enumerate(ordered)
+        ],
     )
 
 
@@ -1216,6 +1301,8 @@ async def _upsert_team(session: AsyncSession, team: schemas.Team) -> None:
             points_for=team.points_for,
             points_against=team.points_against,
             is_user_team=team.is_user_team,
+            logo_source_url=team.logo_source_url,
+            logo_type=team.logo_type,
         )
     )
 

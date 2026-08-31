@@ -15,25 +15,25 @@
 
 ## 2. Logo pipeline (lane A)
 
-- [ ] 2.1 Add `scripts/probe-espn-team-logos.py`, a read-only sibling of `probe-espn-player-pool.py`, reproducing the P1–P3 requests. It is the reproducer the design cites when ESPN changes something.
-- [ ] 2.2 In `platforms/espn/mapper.py`, read `logo` and `logoType` in `map_team` onto the new fields. Absent/empty logo is `None`, not `""` — "no logo" and "empty string" must not both mean the same thing to D5's comparison.
-- [ ] 2.3 Add `backend/gridiron/services/team_logos.py`: `resolve_logos_dir`, `logo_path`, `read_crest` (a generic crest, NOT `headshots.read_silhouette` — a player silhouette for a team is wrong), and `fetch_and_cache(session, platform, team_id)`.
-- [ ] 2.4 In 2.3, decrypt ESPN cookies and send them (design D3). Return the crest rather than raising when no ESPN connection exists, so a fresh install renders crests instead of erroring per team.
-- [ ] 2.5 Implement the D6 content-type allowlist: accept `image/svg+xml` **only** when the source host is `g.espncdn.com`; accept raster types otherwise; anything else falls back to the crest. This is an XSS control — an SVG on our own origin can carry same-origin script.
-- [ ] 2.6 Implement D4: a 404 from the source may be recorded, a **401 must not be** — expired cookies are recoverable, and caching that failure would blank every logo until the cache was cleared by hand.
-- [ ] 2.7 Implement D5: compare the team's stored `logo_source_url` against what the cached bytes were fetched for; refetch on mismatch. A leaguemate changing their logo changes the UUID in the URL.
-- [ ] 2.8 Add `backend/gridiron/api/team_logos.py` — `GET /api/team-logos/{platform}/{team_id}`, **no extension** (D2). Serve the stored `content_type`, set a long `Cache-Control`, and set `X-Content-Type-Options: nosniff`. Register in `main.py`.
-- [ ] 2.9 Derive `Team.logo_url` in `fantasy_service._team_schema` by convention (`/api/team-logos/{platform}/{platform_id}`), the way `_headshot_url` already does — do not store the local URL.
-- [ ] 2.10 Persist `logo_source_url` / `logo_type` in `_upsert_team`.
-- [ ] 2.11 Tests: the allowlist rejects an SVG from a non-ESPN host; a 401 is not cached and a later success succeeds; a changed `source_url` refetches; a team with no logo serves the crest; the stored content type is what the route returns.
+- [x] 2.1 Add `scripts/probe-espn-team-logos.py`, a read-only sibling of `probe-espn-player-pool.py`, reproducing the P1–P3 requests. It is the reproducer the design cites when ESPN changes something.
+- [x] 2.2 In `platforms/espn/mapper.py`, read `logo` and `logoType` in `map_team` onto the new fields. Absent/empty logo is `None`, not `""` — "no logo" and "empty string" must not both mean the same thing to D5's comparison.
+- [x] 2.3 Add `backend/gridiron/services/team_logos.py`: `resolve_logos_dir`, `logo_path`, `read_crest` (a generic crest, NOT `headshots.read_silhouette` — a player silhouette for a team is wrong), and `fetch_and_cache(session, platform, team_id)`.
+- [x] 2.4 In 2.3, decrypt ESPN cookies and send them (design D3). Return the crest rather than raising when no ESPN connection exists, so a fresh install renders crests instead of erroring per team.
+- [x] 2.5 Implement the D6 content-type allowlist: accept `image/svg+xml` **only** when the source host is `g.espncdn.com`; accept raster types otherwise; anything else falls back to the crest. This is an XSS control — an SVG on our own origin can carry same-origin script.
+- [x] 2.6 Implement D4: a 404 from the source may be recorded, a **401 must not be** — expired cookies are recoverable, and caching that failure would blank every logo until the cache was cleared by hand.
+- [x] 2.7 Implement D5: compare the team's stored `logo_source_url` against what the cached bytes were fetched for; refetch on mismatch. A leaguemate changing their logo changes the UUID in the URL.
+- [x] 2.8 Add `backend/gridiron/api/team_logos.py` — `GET /api/team-logos/{platform}/{team_id}`, **no extension** (D2). Serve the stored `content_type`, set a long `Cache-Control`, and set `X-Content-Type-Options: nosniff`. Register in `main.py`.
+- [x] 2.9 Derive `Team.logo_url` in `fantasy_service._team_schema` by convention (`/api/team-logos/{platform}/{platform_id}`), the way `_headshot_url` already does — do not store the local URL.
+- [x] 2.10 Persist `logo_source_url` / `logo_type` in `_upsert_team`.
+- [x] 2.11 Tests: the allowlist rejects an SVG from a non-ESPN host; a 401 is not cached and a later success succeeds; a changed `source_url` refetches; a team with no logo serves the crest; the stored content type is what the route returns.
 
 ## 3. Standings endpoint (lane B)
 
-- [ ] 3.1 Add `fantasy_service.get_league_standings(session, team_id)` — resolve the team's league, load every team in it, return league metadata plus ordered rows. `None` for an unknown team (the API 404s).
-- [ ] 3.2 Implement the D7 sort key exactly: `(division_id, seed_is_zero, seed, -wins, -points_for, team_id)`. Every element earns its place — read D7 before changing any of them.
-- [ ] 3.3 **Test the sort with fabricated records, not live data.** Every real team is `0-0-0` with `points_for = 0.0` until week 1 is played, so live data cannot demonstrate the tiebreak. Cover: a league with real seeds (ESPN order wins), a league with all-zero seeds (falls back to record), and a total tie (stable by team id — assert the same order twice).
-- [ ] 3.4 Register `GET /api/teams/{team_id}/league` in `api/teams.py` beside the other `/{team_id}/…` routes; 404 typed as `team_not_found`.
-- [ ] 3.5 API tests: shape, envelope, Cache-Control, the user's own row flagged, unknown team 404.
+- [x] 3.1 Add `fantasy_service.get_league_standings(session, team_id)` — resolve the team's league, load every team in it, return league metadata plus ordered rows. `None` for an unknown team (the API 404s).
+- [x] 3.2 Implement the D7 sort key exactly: `(division_id, seed_is_zero, seed, -wins, -points_for, team_id)`. Every element earns its place — read D7 before changing any of them.
+- [x] 3.3 **Test the sort with fabricated records, not live data.** Every real team is `0-0-0` with `points_for = 0.0` until week 1 is played, so live data cannot demonstrate the tiebreak. Cover: a league with real seeds (ESPN order wins), a league with all-zero seeds (falls back to record), and a total tie (stable by team id — assert the same order twice).
+- [x] 3.4 Register `GET /api/teams/{team_id}/league` in `api/teams.py` beside the other `/{team_id}/…` routes; 404 typed as `team_not_found`.
+- [x] 3.5 API tests: shape, envelope, Cache-Control, the user's own row flagged, unknown team 404.
 
 ## 4. Shared logo component (gates group 6)
 

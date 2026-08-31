@@ -1704,3 +1704,163 @@ async def test_get_waivers_query_count_is_bounded(session_factory) -> None:
 
     selects = [s for s in statements if s.lstrip().upper().startswith("SELECT")]
     assert len(selects) <= 4, f"expected a bounded query count, got {len(selects)}: {selects}"
+
+
+# ---------------------------------------------------------------------------
+# get_league_standings (add-league-standings group 3)
+# ---------------------------------------------------------------------------
+
+STANDINGS_LEAGUE = "espn:3333333"
+
+
+async def _seed_standings_league(session_factory, teams: list[tuple]) -> None:
+    """`teams` is a list of (suffix, name, seed, wins, points_for)."""
+    async with session_factory() as session:
+        session.add(
+            League(
+                id=STANDINGS_LEAGUE,
+                platform="espn",
+                platform_id="3333333",
+                name="Standings League",
+                season=2024,
+                team_count=len(teams),
+                scoring_type="ppr",
+                current_week=5,
+            )
+        )
+        for suffix, name, seed, wins, pf in teams:
+            session.add(
+                Team(
+                    id=f"espn:l-3333333-t-{suffix}",
+                    league_id=STANDINGS_LEAGUE,
+                    platform="espn",
+                    platform_id=f"l-3333333-t-{suffix}",
+                    name=name,
+                    manager_name="Mgr",
+                    record_w=wins,
+                    record_l=5 - wins,
+                    record_t=0,
+                    rank_current=seed,
+                    rank_total=len(teams),
+                    points_for=pf,
+                    points_against=100.0,
+                    is_user_team=suffix == "1",
+                )
+            )
+        await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_standings_follow_the_platform_seed_when_it_is_populated(session_factory) -> None:
+    """The user asked to match ESPN's own ordering, so a real seed wins even when it
+    disagrees with record — which it can, since ESPN applies tiebreaks this app does
+    not model."""
+    await _seed_standings_league(
+        session_factory,
+        [
+            ("1", "Seeded Third", 3, 5, 900.0),  # best record, worst seed
+            ("2", "Seeded First", 1, 1, 100.0),  # worst record, best seed
+            ("3", "Seeded Second", 2, 3, 500.0),
+        ],
+    )
+
+    async with session_factory() as session:
+        data = await fantasy_service.get_league_standings(session, "espn:l-3333333-t-1")
+
+    assert [r.team.name for r in data.rows] == ["Seeded First", "Seeded Second", "Seeded Third"]
+    assert [r.position for r in data.rows] == [1, 2, 3]
+
+
+@pytest.mark.asyncio
+async def test_standings_fall_back_to_record_when_every_seed_is_zero(session_factory) -> None:
+    """ESPN reports seed 0 for every team in some leagues — GAS Lab is one live
+    example. Seed alone would leave ten identical keys."""
+    await _seed_standings_league(
+        session_factory,
+        [
+            ("1", "Worst", 0, 1, 100.0),
+            ("2", "Best", 0, 4, 800.0),
+            ("3", "Middle", 0, 2, 400.0),
+        ],
+    )
+
+    async with session_factory() as session:
+        data = await fantasy_service.get_league_standings(session, "espn:l-3333333-t-1")
+
+    assert [r.team.name for r in data.rows] == ["Best", "Middle", "Worst"]
+
+
+@pytest.mark.asyncio
+async def test_a_zero_seed_sorts_after_a_real_one(session_factory) -> None:
+    """A missing seed must not read as rank 0 and jump to the top."""
+    await _seed_standings_league(
+        session_factory,
+        [
+            ("1", "Unseeded", 0, 5, 900.0),
+            ("2", "Seeded", 4, 0, 10.0),
+        ],
+    )
+
+    async with session_factory() as session:
+        data = await fantasy_service.get_league_standings(session, "espn:l-3333333-t-1")
+
+    assert [r.team.name for r in data.rows] == ["Seeded", "Unseeded"]
+
+
+@pytest.mark.asyncio
+async def test_a_total_tie_is_stable_across_calls(session_factory) -> None:
+    """The regression D7's id floor exists for.
+
+    Before week 1 every real team is 0-0-0 with 0.0 points and, in some leagues, seed
+    0 — so every sort key is identical and the rendered order is whatever the query
+    returned. Without the id tiebreak that can differ between two loads of the same
+    page, and no test would notice by accident.
+    """
+    await _seed_standings_league(
+        session_factory,
+        [("3", "Gamma", 0, 0, 0.0), ("1", "Alpha", 0, 0, 0.0), ("2", "Beta", 0, 0, 0.0)],
+    )
+
+    async with session_factory() as session:
+        first = await fantasy_service.get_league_standings(session, "espn:l-3333333-t-1")
+        second = await fantasy_service.get_league_standings(session, "espn:l-3333333-t-1")
+
+    order = [r.team.name for r in first.rows]
+    assert order == [r.team.name for r in second.rows]
+    # And it is the id order, not an accident of insertion order.
+    assert order == ["Alpha", "Beta", "Gamma"]
+
+
+@pytest.mark.asyncio
+async def test_standings_carry_logo_urls_and_flag_the_user(session_factory) -> None:
+    await _seed_standings_league(session_factory, [("1", "Mine", 1, 3, 500.0)])
+    async with session_factory() as session:
+        team = await session.get(Team, "espn:l-3333333-t-1")
+        team.logo_source_url = "https://g.espncdn.com/lm-static/ffl/images/default_logos/6.svg"
+        await session.commit()
+
+    async with session_factory() as session:
+        data = await fantasy_service.get_league_standings(session, "espn:l-3333333-t-1")
+
+    row = data.rows[0]
+    assert row.team.is_user_team is True
+    # A LOCAL url — never ESPN's, which 401s an unauthenticated browser.
+    assert row.team.logo_url == "/api/team-logos/espn/l-3333333-t-1"
+
+
+@pytest.mark.asyncio
+async def test_a_team_without_a_logo_has_a_null_logo_url(session_factory) -> None:
+    """Null rather than a crest URL, so the client can skip the request entirely
+    instead of fetching a placeholder it could render locally."""
+    await _seed_standings_league(session_factory, [("1", "Mine", 1, 3, 500.0)])
+
+    async with session_factory() as session:
+        data = await fantasy_service.get_league_standings(session, "espn:l-3333333-t-1")
+
+    assert data.rows[0].team.logo_url is None
+
+
+@pytest.mark.asyncio
+async def test_standings_unknown_team_returns_none(session_factory) -> None:
+    async with session_factory() as session:
+        assert await fantasy_service.get_league_standings(session, "espn:nope") is None

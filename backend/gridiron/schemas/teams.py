@@ -35,3 +35,7 @@ class Team(BaseModel):
     # an unauthenticated client, so a browser given that URL renders a broken image.
     # Derived by convention like `headshot_url`, never persisted.
     logo_url: str | None = None
+    # What the platform reported, carried from the mapper to the upsert. Not served to
+    # the client: `logo_url` is the local route it should actually request.
+    logo_source_url: str | None = None
+    logo_type: str | None = None
