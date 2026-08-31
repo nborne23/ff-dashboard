@@ -5,6 +5,8 @@
 import { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
+import { TeamLogo } from "../shared/TeamLogo";
+
 import { useTeams } from "../../api/teams";
 import { DRAFT_ASSISTANT } from "../../features";
 import { useFreshness } from "../../hooks/useFreshness";
@@ -121,7 +123,6 @@ export function Sidebar() {
         </button>
         {teamsExpanded &&
           teams.map((t) => {
-            const platform = t.id.split(":")[0];
             const teamPath = teamRoutePath(t.id, "roster");
             // Highlight the team while ANY of its three views is on screen, not just
             // its roster — the section is shown by the TeamContextBar's tabs.
@@ -133,10 +134,10 @@ export function Sidebar() {
                 className={"sub-item" + (isActive ? " active" : "")}
                 onClick={() => navigate(teamPath)}
               >
-                <span
-                  className="platform-dot"
-                  style={{ background: platform === "yahoo" ? "var(--yahoo)" : "var(--espn)" }}
-                />
+                {/* The logo replaces the platform dot: it identifies the team more
+                    specifically than its platform does, and the platform is still
+                    visible on the Dashboard card's pill. */}
+                <TeamLogo team={t} size={18} />
                 <span
                   style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                 >
@@ -174,6 +175,15 @@ export function Sidebar() {
             <IconPlus size={18} />
           </span>
           <span className="label">Waivers</span>
+        </NavLink>
+        <NavLink
+          to={selectedTeamId ? teamRoutePath(selectedTeamId, "league") : "/"}
+          className={navItemClassName}
+        >
+          <span className="icon">
+            <IconTeams size={18} />
+          </span>
+          <span className="label">League</span>
         </NavLink>
         {DRAFT_ASSISTANT && (
           <NavLink to="/draft" className={navItemClassName}>

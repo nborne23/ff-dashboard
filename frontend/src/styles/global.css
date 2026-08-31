@@ -917,6 +917,15 @@ html, body {
   padding: 24px 0;
 }
 .h2h-side { text-align: center; min-width: 0; }
+/* The name now leads with a logo, so it becomes a centered flex row rather than a
+   centered text block. */
+.h2h-side .name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+}
 .h2h-side .name { font-size: 14px; font-weight: 600; margin-bottom: 4px; letter-spacing: -0.01em; }
 .h2h-side.me .name { color: var(--move); }
 .h2h-side.opp .name { color: var(--stand); }

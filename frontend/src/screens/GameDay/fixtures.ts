@@ -198,6 +198,10 @@ function build(spec: MatchupSpec): GameDayMatchup {
     league_id: spec.leagueId,
     league_name: spec.leagueName,
     platform: spec.platform,
+    // Null on both sides: the panel must render its fallback crest rather than
+    // requesting an image, which is what a team with no logo does in real data too.
+    team_logo_url: null,
+    opp_logo_url: null,
     record: spec.record,
     rank: spec.rank,
     // Panel-level score is already oriented onto the user's side; the slots keep the

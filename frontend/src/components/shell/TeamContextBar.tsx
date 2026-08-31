@@ -7,6 +7,7 @@
 // the team on screen (with a switcher), and offers its sibling views as tabs. Switching
 // teams preserves the section, so comparing two teams' matchups is one click, not three.
 
+import { TeamLogo } from "../shared/TeamLogo";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -92,12 +93,7 @@ export function TeamContextBar({ teamId, section }: TeamContextBarProps) {
                     navigate(teamRoutePath(t.id, section));
                   }}
                 >
-                  <span
-                    className="platform-dot"
-                    style={{
-                      background: t.id.startsWith("yahoo") ? "var(--yahoo)" : "var(--espn)",
-                    }}
-                  />
+                  <TeamLogo team={t} size={18} />
                   <span className="team-switcher-name">{t.name}</span>
                 </button>
               </li>

@@ -56,13 +56,17 @@ describe("TeamCard", () => {
     expect(screen.getByText("78.4").style.color).toBe("var(--text)");
   });
 
-  it("renders opponent, record, rank, platform pill, and live dot", () => {
+  it("renders opponent, record, rank, team logo, and live dot", () => {
     const { container } = renderCard(makeTeam());
 
     expect(screen.getByText("vs The Touchdown Club")).toBeTruthy();
     expect(screen.getByText("8–3")).toBeTruthy();
     expect(screen.getByText("2nd / 12")).toBeTruthy();
-    expect(screen.getByText("YAHOO").className).toBe("pill yahoo");
+    // The logo replaced the platform pill in this row: at ~127px the two could not
+    // coexist with the team name, and the logo identifies the team rather than
+    // repeating a platform the sidebar already conveys.
+    expect(container.querySelector(".team-logo")).toBeTruthy();
+    expect(screen.queryByText("YAHOO")).toBeNull();
     expect(container.querySelector(".live-dot")).toBeTruthy();
   });
 

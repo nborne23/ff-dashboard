@@ -15,6 +15,7 @@ import type {
   Player,
   RosterSlot,
   SeasonWeek,
+  LeagueStandingsData,
   Team,
   WaiverCandidate,
 } from "../types/api";
@@ -136,5 +137,15 @@ export function useWaivers(id: string, week: number, position?: string) {
     // page means the control narrows a visible list instead of reloading the page out
     // from under the user's cursor.
     placeholderData: keepPreviousData,
+  });
+}
+
+/** Every team in this team's league, ordered as standings. */
+export function useLeagueStandings(id: string) {
+  return useQuery({
+    queryKey: ["league", id],
+    queryFn: () => apiClient.get<Envelope<LeagueStandingsData>>(`/api/teams/${id}/league`),
+    staleTime: STALE_TIME_MS,
+    enabled: Boolean(id),
   });
 }

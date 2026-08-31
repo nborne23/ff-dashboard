@@ -537,6 +537,8 @@ async def test_game_day_envelope_shape_and_week_defaulting(client, db) -> None:
         "league_id",
         "league_name",
         "platform",
+        "team_logo_url",
+        "opp_logo_url",
         "record",
         "rank",
         "score",

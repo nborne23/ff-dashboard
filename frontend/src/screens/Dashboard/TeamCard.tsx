@@ -4,12 +4,12 @@
 // (per design.md D12); it's derived from the `{platform}:{platform_id}`
 // stable id (specs/fantasy-data-model/spec.md, "Stable internal id").
 
+import { TeamLogo } from "../../components/shared/TeamLogo";
 import { useNavigate } from "react-router-dom";
 
 import { Sparkline } from "../../components/primitives";
 import { useChangedValuePulse } from "../../hooks/useChangedValuePulse";
 import type { Platform, Team } from "../../types/api";
-import { platformFromId } from "../../types/api";
 import { ordinal } from "./ordinal";
 
 export function PlatformPill({ platform }: { platform: Platform | null }) {
@@ -26,7 +26,6 @@ export function TeamCard({ team }: TeamCardProps) {
   const navigate = useNavigate();
   const scorePulse = useChangedValuePulse(team.current_score);
   const winning = team.current_score >= team.current_opp_score;
-  const platform = platformFromId(team.id);
   const record = `${team.record.w}–${team.record.l}`;
   const rank = `${ordinal(team.rank.current)} / ${team.rank.total}`;
 
@@ -42,8 +41,14 @@ export function TeamCard({ team }: TeamCardProps) {
     >
       <div className="left">
         <div className="top-row">
+          {/* The logo takes the platform pill's place rather than sitting beside it.
+              This row is ~127px wide; logo + name + pill cannot all fit, and the name
+              was truncating to "Pea ..." with all three. The logo is the more
+              informative of the two badges — it identifies the team, where the pill
+              only repeats a platform that is already implied by the sidebar and is
+              currently the same for every connected league. */}
+          <TeamLogo team={team} size={22} />
           <span className="team-name">{team.name}</span>
-          <PlatformPill platform={platform} />
           {team.is_live && <span className="live-dot" />}
         </div>
         <div className="score">

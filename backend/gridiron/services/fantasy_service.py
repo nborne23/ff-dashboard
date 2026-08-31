@@ -156,6 +156,11 @@ class GameDayMatchup(BaseModel):
     # Derived from the team id's `{platform}:` prefix — `Team` carries no `platform`
     # field (design D5).
     platform: str
+    # Local logo routes for both sides. GameDayMatchup is a flattened projection, not
+    # a pair of `Team` objects, so the logos have to be carried explicitly — the panel
+    # has no Team to read `logo_url` off.
+    team_logo_url: str | None
+    opp_logo_url: str | None
     record: schemas.Record
     rank: schemas.Rank
     score: float
@@ -1122,6 +1127,12 @@ async def game_day(session: AsyncSession, week: int) -> GameDayData:
                 # `Team` carries no platform field (design D5) — it lives in the id's
                 # `{platform}:{platform_id}` prefix, the same split Sidebar.tsx does.
                 platform=_split_id(team.id)[0],
+                team_logo_url=_team_logo_url(team.platform, team.platform_id, team.logo_source_url),
+                opp_logo_url=(
+                    _team_logo_url(opp.platform, opp.platform_id, opp.logo_source_url)
+                    if opp is not None
+                    else None
+                ),
                 record=schemas.Record(w=team.record_w, l=team.record_l, t=team.record_t),
                 rank=schemas.Rank(current=team.rank_current, total=team.rank_total),
                 # Scores come from the *week's* matchup row, so a past-week request

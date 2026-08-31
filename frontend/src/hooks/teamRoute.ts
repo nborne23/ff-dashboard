@@ -5,7 +5,7 @@
 // each re-deriving "is this the h2h route?" with its own `pathname.endsWith` check.
 
 /** The views a team has. `"roster"` is the bare `/team/:teamId` route. */
-export type TeamSection = "roster" | "h2h" | "season" | "waivers";
+export type TeamSection = "roster" | "h2h" | "season" | "waivers" | "league";
 
 export interface TeamRouteMatch {
   teamId: string;
@@ -18,6 +18,7 @@ export const TEAM_SECTIONS: { id: TeamSection; label: string }[] = [
   { id: "h2h", label: "Matchup" },
   { id: "season", label: "Season" },
   { id: "waivers", label: "Waivers" },
+  { id: "league", label: "League" },
 ];
 
 /**
@@ -45,7 +46,8 @@ export function parseTeamRoute(pathname: string): TeamRouteMatch | null {
 
   const tail = segments[2];
   if (tail === undefined) return { teamId, section: "roster" };
-  if (tail === "h2h" || tail === "season" || tail === "waivers") return { teamId, section: tail };
+  if (tail === "h2h" || tail === "season" || tail === "waivers" || tail === "league")
+    return { teamId, section: tail };
   return null;
 }
 

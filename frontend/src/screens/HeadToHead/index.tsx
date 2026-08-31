@@ -6,6 +6,7 @@
 // side and useTeam(oppId, week) for the opponent's, once the matchup (and
 // therefore oppId) is known.
 
+import { TeamLogo } from "../../components/shared/TeamLogo";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 
@@ -135,7 +136,10 @@ export default function HeadToHead() {
       <div className="card" style={{ padding: "32px 24px", marginBottom: 24 }}>
         <div className="h2h-top">
           <div className="h2h-side me">
-            <div className="name">{myTeam.name.toUpperCase()}</div>
+            <div className="name">
+              <TeamLogo team={myTeam} size={20} />
+              {myTeam.name.toUpperCase()}
+            </div>
             <div className="score-big">{oriented.myScore.toFixed(1)}</div>
             <div className="record">
               {myTeam.record.w}–{myTeam.record.l} · {ordinal(myTeam.rank.current)} place
@@ -149,7 +153,10 @@ export default function HeadToHead() {
             gamesLeft={remaining.mine}
           />
           <div className="h2h-side opp">
-            <div className="name">{oppTeam.name.toUpperCase()}</div>
+            <div className="name">
+              <TeamLogo team={oppTeam} size={20} />
+              {oppTeam.name.toUpperCase()}
+            </div>
             <div className="score-big">{oriented.oppScore.toFixed(1)}</div>
             <div className="record">
               {oppTeam.record.w}–{oppTeam.record.l} · {ordinal(oppTeam.rank.current)} place

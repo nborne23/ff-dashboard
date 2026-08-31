@@ -183,6 +183,10 @@ export interface GameDayMatchup {
   league_name: string;
   /** Derived from the team id's `{platform}:` prefix — `Team` has no platform field. */
   platform: Platform;
+  /** Local logo routes for both sides. This is a flattened projection rather than a
+   *  pair of `Team` objects, so logos are carried explicitly. */
+  team_logo_url: string | null;
+  opp_logo_url: string | null;
   record: { w: number; l: number; t: number };
   rank: { current: number; total: number };
   score: number;

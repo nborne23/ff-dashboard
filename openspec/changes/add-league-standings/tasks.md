@@ -37,31 +37,31 @@
 
 ## 4. Shared logo component (gates group 6)
 
-- [ ] 4.1 `frontend/src/components/shared/TeamLogo.tsx` — props `{ team, size }`. Renders `<img src={team.logo_url}>` with an `onError` fallback to an initials/crest element, mirroring how `RosterTable`'s `Headshot` already handles a missing image.
-- [ ] 4.2 Render `null` `logo_url` as the fallback without issuing a request.
-- [ ] 4.3 Component tests: renders the image, falls back on error, falls back on null without a network call.
+- [x] 4.1 `frontend/src/components/shared/TeamLogo.tsx` — props `{ team, size }`. Renders `<img src={team.logo_url}>` with an `onError` fallback to an initials/crest element, mirroring how `RosterTable`'s `Headshot` already handles a missing image.
+- [x] 4.2 Render `null` `logo_url` as the fallback without issuing a request.
+- [x] 4.3 Component tests: renders the image, falls back on error, falls back on null without a network call.
 
 ## 5. League screen (lane C; builds against 1.6's fixture)
 
-- [ ] 5.1 Add `useLeagueStandings(teamId)` to `frontend/src/api/teams.ts`, matching the file's existing hook shape.
-- [ ] 5.2 `screens/League/StandingsTable.tsx` — rank, `TeamLogo` + team name + manager, W-L-T, PF, PA. Reuse the `.roster` table classes and `roster-col-*` widths rather than inventing a parallel set; put the columns that matter least (PA) on a class the mobile rules hide.
-- [ ] 5.3 Highlight the user's own row distinctly.
-- [ ] 5.4 `screens/League/index.tsx` — header, table, and `EmptyState` / `ErrorCard` via `usePlatformsDisconnected`, matching Season and Waivers.
-- [ ] 5.5 `screens/League/LeagueSkeleton.tsx` matching loaded geometry.
-- [ ] 5.6 Add `"league"` to `TeamSection` and `TEAM_SECTIONS` in `hooks/teamRoute.ts`, the route to `routes.tsx`, and a sidebar entry.
-- [ ] 5.7 Component tests: ordered render, own-row highlight, a team with no logo, empty/error states.
+- [x] 5.1 Add `useLeagueStandings(teamId)` to `frontend/src/api/teams.ts`, matching the file's existing hook shape.
+- [x] 5.2 `screens/League/StandingsTable.tsx` — rank, `TeamLogo` + team name + manager, W-L-T, PF, PA. Reuse the `.roster` table classes and `roster-col-*` widths rather than inventing a parallel set; put the columns that matter least (PA) on a class the mobile rules hide.
+- [x] 5.3 Highlight the user's own row distinctly.
+- [x] 5.4 `screens/League/index.tsx` — header, table, and `EmptyState` / `ErrorCard` via `usePlatformsDisconnected`, matching Season and Waivers.
+- [x] 5.5 `screens/League/LeagueSkeleton.tsx` matching loaded geometry.
+- [x] 5.6 Add `"league"` to `TeamSection` and `TEAM_SECTIONS` in `hooks/teamRoute.ts`, the route to `routes.tsx`, and a sidebar entry.
+- [x] 5.7 Component tests: ordered render, own-row highlight, a team with no logo, empty/error states.
 
 ## 6. Logos across the existing surfaces (after group 4)
 
-- [ ] 6.1 Dashboard team cards.
-- [ ] 6.2 Sidebar "My Teams" list and the `TeamContextBar` switcher — these render at ~18px; if custom uploads are unreadable at that size, fall back to the crest below a threshold rather than changing the pipeline (design "Risks").
-- [ ] 6.3 Game Day panels and Head-to-Head, beside both team names.
-- [ ] 6.4 Confirm no existing screen test breaks on the added element; update snapshots/queries that assume a text-only team name.
+- [x] 6.1 Dashboard team cards.
+- [x] 6.2 Sidebar "My Teams" list and the `TeamContextBar` switcher — these render at ~18px; if custom uploads are unreadable at that size, fall back to the crest below a threshold rather than changing the pipeline (design "Risks").
+- [x] 6.3 Game Day panels and Head-to-Head, beside both team names.
+- [x] 6.4 Confirm no existing screen test breaks on the added element; update snapshots/queries that assume a text-only team name.
 
 ## 7. Verification
 
-- [ ] 7.1 `make lint && make test` clean. **Typecheck with `npm run build` (`tsc -b`), not `tsc --noEmit -p tsconfig.json`** — the root tsconfig is `"files": []` with project references, so `-p` on it checks nothing and reports success. Six stale fixtures were only caught once `tsc -b` was run.
-- [ ] 7.2 Fetch a VECTOR logo and a CUSTOM_UPLOAD logo through the local route against the real account; confirm both return 200 with the right content type, and that the custom upload — which 401s to an unauthenticated client — succeeds through the proxy. That contrast is the whole reason this pipeline exists.
-- [ ] 7.3 Confirm the D6 allowlist against real data: every stored `content_type` is either an allowed raster type or `image/svg+xml` from `g.espncdn.com`.
-- [ ] 7.4 Open `/team/:id/league` at 375px and confirm no horizontal overflow, matching the Waivers acceptance.
-- [ ] 7.5 Acceptance: the standings order matches what ESPN's site shows for a league where `playoffSeed` is populated (THE LEAGUE), and the all-zero-seed league (GAS Lab) renders in a stable order across two reloads.
+- [x] 7.1 `make lint && make test` clean. **Typecheck with `npm run build` (`tsc -b`), not `tsc --noEmit -p tsconfig.json`** — the root tsconfig is `"files": []` with project references, so `-p` on it checks nothing and reports success. Six stale fixtures were only caught once `tsc -b` was run.
+- [x] 7.2 Fetch a VECTOR logo and a CUSTOM_UPLOAD logo through the local route against the real account; confirm both return 200 with the right content type, and that the custom upload — which 401s to an unauthenticated client — succeeds through the proxy. That contrast is the whole reason this pipeline exists.
+- [x] 7.3 Confirm the D6 allowlist against real data: every stored `content_type` is either an allowed raster type or `image/svg+xml` from `g.espncdn.com`.
+- [x] 7.4 Open `/team/:id/league` at 375px and confirm no horizontal overflow, matching the Waivers acceptance.
+- [x] 7.5 Acceptance: the standings order matches what ESPN's site shows for a league where `playoffSeed` is populated (THE LEAGUE), and the all-zero-seed league (GAS Lab) renders in a stable order across two reloads.

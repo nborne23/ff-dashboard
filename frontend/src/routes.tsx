@@ -5,6 +5,7 @@ import { DRAFT_ASSISTANT } from "./features";
 import Dashboard from "./screens/Dashboard";
 import Draft from "./screens/Draft";
 import GameDay from "./screens/GameDay";
+import LeagueScreen from "./screens/League";
 import HeadToHead from "./screens/HeadToHead";
 import MyTeam from "./screens/MyTeam";
 import Season from "./screens/Season";
@@ -22,6 +23,7 @@ export const router = createBrowserRouter([
       { path: "team/:teamId/h2h", element: <HeadToHead /> },
       { path: "team/:teamId/season", element: <Season /> },
       { path: "team/:teamId/waivers", element: <Waivers /> },
+      { path: "team/:teamId/league", element: <LeagueScreen /> },
       ...(DRAFT_ASSISTANT ? [{ path: "draft", element: <Draft /> }] : []),
       { path: "settings", element: <Settings /> },
     ],

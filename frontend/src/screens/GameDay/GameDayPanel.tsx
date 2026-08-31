@@ -4,6 +4,7 @@
 // Everything below the meta row is a function of the envelope entry alone; the panel
 // issues no request of its own.
 
+import { TeamLogo } from "../../components/shared/TeamLogo";
 import { useRef, type PointerEvent as ReactPointerEvent } from "react";
 
 import type { GameDayMatchup } from "../../types/api";
@@ -150,7 +151,13 @@ export function GameDayPanel({
             drops to --text-secondary, so "who is winning" reads as a brightness
             difference from across the room before any number is read (design D1). */}
         <div className="gd-score-side" data-side="mine" data-trailing={!tied && margin < 0}>
-          <div className="gd-score-label">{matchup.team_name.toUpperCase()}</div>
+          <div className="gd-score-label">
+            <TeamLogo
+              team={{ name: matchup.team_name, logo_url: matchup.team_logo_url }}
+              size={14}
+            />
+            {matchup.team_name.toUpperCase()}
+          </div>
           <div className="gd-score-value">{matchup.score.toFixed(1)}</div>
           <div className="gd-score-sub">
             {matchup.record.w}–{matchup.record.l} · {matchup.rank.current} of {matchup.rank.total}
@@ -162,7 +169,13 @@ export function GameDayPanel({
         </div>
 
         <div className="gd-score-side" data-side="theirs" data-trailing={!tied && margin > 0}>
-          <div className="gd-score-label">{matchup.opp_team_name.toUpperCase()}</div>
+          <div className="gd-score-label">
+            <TeamLogo
+              team={{ name: matchup.opp_team_name, logo_url: matchup.opp_logo_url }}
+              size={14}
+            />
+            {matchup.opp_team_name.toUpperCase()}
+          </div>
           <div className="gd-score-value">{matchup.opp_score.toFixed(1)}</div>
           <div className="gd-score-sub">&nbsp;</div>
         </div>
