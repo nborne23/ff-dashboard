@@ -196,6 +196,25 @@ class SeasonData(BaseModel):
     highlights: Highlights
 
 
+class LeagueStandingsRow(BaseModel):
+    """One team's line in the standings.
+
+    `position` is this app's rendered rank, which is NOT always the platform's
+    `rank.current`: ESPN reports a playoff seed of 0 for every team in some leagues,
+    so the displayed position has to come from the applied ordering rather than from
+    a field that may be uniformly zero.
+    """
+
+    team: schemas.Team
+    division_id: int
+    position: int
+
+
+class LeagueStandingsData(BaseModel):
+    league: schemas.League
+    rows: list[LeagueStandingsRow]
+
+
 @dataclass
 class PlatformOutcome:
     ok: bool

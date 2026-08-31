@@ -97,6 +97,10 @@ export interface Team {
   is_live: boolean;
   spark_last_6: number[];
   accent_color: string;
+  /** A LOCAL url pointing at this app's own logo route, or null when the team has no
+   *  logo. Never the upstream URL: ESPN's uploaded-logo host returns 401 to an
+   *  unauthenticated client, so pointing an <img> at it renders a broken image. */
+  logo_url: string | null;
 }
 
 export type Position = "QB" | "RB" | "WR" | "TE" | "K" | "DST";
@@ -224,6 +228,19 @@ export interface LiveNflGame {
   period: number | null;
   /** ISO timestamp. */
   kickoff_at: string;
+}
+
+export interface LeagueStandingsRow {
+  team: Team;
+  division_id: number;
+  /** The rendered rank, from the applied ordering — not `team.rank.current`, which is
+   *  the platform's playoff seed and is 0 for every team in some leagues. */
+  position: number;
+}
+
+export interface LeagueStandingsData {
+  league: League;
+  rows: LeagueStandingsRow[];
 }
 
 export type PoolStatus = "FREEAGENT" | "WAIVERS" | "ONTEAM";

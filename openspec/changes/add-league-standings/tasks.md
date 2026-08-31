@@ -6,12 +6,12 @@
 
 ## 1. Contract (gate — do first)
 
-- [ ] 1.1 Add `backend/gridiron/models/team_logos.py` — `TeamLogo`, `__tablename__ = "team_logos"`, composite PK `(platform, team_id)`, columns `source_url` (String(1024), nullable), `content_type` (String(64), nullable), `fetched_at` (DateTime, nullable), `created_at`. Model on `models/headshots.py`. Export from `models/__init__.py`.
-- [ ] 1.2 Add `logo_source_url` (String(1024), nullable) and `logo_type` (String(32), nullable) to the `Team` model — the values `map_team` reads off the payload, and what design D5 compares for invalidation.
-- [ ] 1.3 One Alembic revision for 1.1 + 1.2. Read the generated file; autogenerate does not reliably get composite PKs right.
-- [ ] 1.4 Add `logo_url: str | None` to `schemas.Team`, and `LeagueStandingsRow` / `LeagueStandingsData` to `fantasy_service.py` per the `fantasy-data-model` delta. A row carries the team, its division id, and its standings position.
-- [ ] 1.5 Mirror all of it in `frontend/src/types/api.ts`.
-- [ ] 1.6 Write `frontend/src/screens/League/fixtures.ts` — a typed fixture with at least: one team with a VECTOR logo, one with a CUSTOM_UPLOAD, one with **no** logo at all, the user's own team, and — critically — **two teams with identical records and zero seeds**, so the D7 tiebreak is visible in component tests.
+- [x] 1.1 Add `backend/gridiron/models/team_logos.py` — `TeamLogo`, `__tablename__ = "team_logos"`, composite PK `(platform, team_id)`, columns `source_url` (String(1024), nullable), `content_type` (String(64), nullable), `fetched_at` (DateTime, nullable), `created_at`. Model on `models/headshots.py`. Export from `models/__init__.py`.
+- [x] 1.2 Add `logo_source_url` (String(1024), nullable) and `logo_type` (String(32), nullable) to the `Team` model — the values `map_team` reads off the payload, and what design D5 compares for invalidation.
+- [x] 1.3 One Alembic revision for 1.1 + 1.2. Read the generated file; autogenerate does not reliably get composite PKs right.
+- [x] 1.4 Add `logo_url: str | None` to `schemas.Team`, and `LeagueStandingsRow` / `LeagueStandingsData` to `fantasy_service.py` per the `fantasy-data-model` delta. A row carries the team, its division id, and its standings position.
+- [x] 1.5 Mirror all of it in `frontend/src/types/api.ts`.
+- [x] 1.6 Write `frontend/src/screens/League/fixtures.ts` — a typed fixture with at least: one team with a VECTOR logo, one with a CUSTOM_UPLOAD, one with **no** logo at all, the user's own team, and — critically — **two teams with identical records and zero seeds**, so the D7 tiebreak is visible in component tests.
 
 ## 2. Logo pipeline (lane A)
 
@@ -60,7 +60,7 @@
 
 ## 7. Verification
 
-- [ ] 7.1 `make lint && make test` clean.
+- [ ] 7.1 `make lint && make test` clean. **Typecheck with `npm run build` (`tsc -b`), not `tsc --noEmit -p tsconfig.json`** — the root tsconfig is `"files": []` with project references, so `-p` on it checks nothing and reports success. Six stale fixtures were only caught once `tsc -b` was run.
 - [ ] 7.2 Fetch a VECTOR logo and a CUSTOM_UPLOAD logo through the local route against the real account; confirm both return 200 with the right content type, and that the custom upload — which 401s to an unauthenticated client — succeeds through the proxy. That contrast is the whole reason this pipeline exists.
 - [ ] 7.3 Confirm the D6 allowlist against real data: every stored `content_type` is either an allowed raster type or `image/svg+xml` from `g.espncdn.com`.
 - [ ] 7.4 Open `/team/:id/league` at 375px and confirm no horizontal overflow, matching the Waivers acceptance.

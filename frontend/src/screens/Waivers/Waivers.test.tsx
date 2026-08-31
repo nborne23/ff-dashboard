@@ -39,6 +39,7 @@ const team: Team = {
   current_opponent_name: "Bing Bong",
   spark_last_6: [],
   accent_color: "#FF2D55",
+  logo_url: null,
   is_live: false,
 };
 

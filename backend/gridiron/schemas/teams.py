@@ -30,3 +30,8 @@ class Team(BaseModel):
     is_live: bool
     spark_last_6: list[float]
     accent_color: str
+    # A LOCAL url pointing at this app's own logo route, or None when the team has no
+    # logo. Deliberately not the upstream URL: ESPN's uploaded-logo host returns 401 to
+    # an unauthenticated client, so a browser given that URL renders a broken image.
+    # Derived by convention like `headshot_url`, never persisted.
+    logo_url: str | None = None

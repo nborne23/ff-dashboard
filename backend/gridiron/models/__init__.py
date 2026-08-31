@@ -21,6 +21,7 @@ from backend.gridiron.models.players import Player
 from backend.gridiron.models.refresh_runs import RefreshRun
 from backend.gridiron.models.roster_slots import RosterSlot
 from backend.gridiron.models.season_weeks import SeasonWeek
+from backend.gridiron.models.team_logos import TeamLogo
 from backend.gridiron.models.teams import Team
 
 __all__ = [
@@ -45,4 +46,5 @@ __all__ = [
     "RosterSlot",
     "SeasonWeek",
     "Team",
+    "TeamLogo",
 ]

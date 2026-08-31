@@ -23,6 +23,7 @@ function makeTeam(overrides: Partial<Team> = {}): Team {
     is_live: true,
     spark_last_6: [78, 92, 64, 88, 94, 87],
     accent_color: "#FF2D55",
+  logo_url: null,
     ...overrides,
   };
 }

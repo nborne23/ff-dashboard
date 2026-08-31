@@ -35,6 +35,13 @@ class Team(Base):
 
     is_user_team: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
+    # Straight off the platform payload. Nullable rather than defaulted to "" so
+    # "this team has no logo" stays distinguishable from "the URL is blank" — the
+    # cache-invalidation comparison keys on this value and would otherwise treat
+    # both as the same state.
+    logo_source_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    logo_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )
