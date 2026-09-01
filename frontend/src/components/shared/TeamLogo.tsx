@@ -25,9 +25,16 @@ function initialsFor(name: string): string {
 export interface TeamLogoProps {
   team: Pick<Team, "name" | "logo_url">;
   size?: number;
+  /** Optional platform accent drawn as a ring around the logo.
+   *
+   *  This is how the Dashboard card keeps the information its platform pill used to
+   *  carry. That pill cost 46px in a 127px row, which left too little for the team
+   *  name — a ring costs no horizontal space at all. Uses `box-shadow` rather than
+   *  `border` so it does not shrink the image's content box or shift the row. */
+  ringColor?: string;
 }
 
-export function TeamLogo({ team, size = 24 }: TeamLogoProps) {
+export function TeamLogo({ team, size = 24, ringColor }: TeamLogoProps) {
   const [failed, setFailed] = useState(false);
 
   const box = {
@@ -35,6 +42,7 @@ export function TeamLogo({ team, size = 24 }: TeamLogoProps) {
     height: size,
     borderRadius: size <= 20 ? 4 : 6,
     flex: "0 0 auto",
+    ...(ringColor ? { boxShadow: `0 0 0 1.5px ${ringColor}` } : {}),
   } as const;
 
   if (!team.logo_url || failed) {

@@ -39,6 +39,32 @@ describe("TeamLogo", () => {
     expect(el.style.height).toBe("18px");
   });
 
+  it("draws no ring when none is requested", () => {
+    render(<TeamLogo team={{ name: "Garbage", logo_url: null }} />);
+
+    expect(screen.getByTestId("team-logo-fallback").style.boxShadow).toBe("");
+  });
+
+  it("draws the ring on the image path", () => {
+    render(
+      <TeamLogo
+        team={{ name: "Bing Bong", logo_url: "/api/team-logos/espn/x" }}
+        ringColor="var(--espn)"
+      />,
+    );
+
+    const img = screen.getByRole("presentation", { hidden: true }) as HTMLImageElement;
+    expect(img.style.boxShadow).toContain("var(--espn)");
+  });
+
+  it("draws the ring on the fallback path too", () => {
+    // The fallback is the common case for teams with no logo, so a ring that only
+    // appeared on <img> would silently drop the platform cue for exactly those rows.
+    render(<TeamLogo team={{ name: "No Logo", logo_url: null }} ringColor="var(--yahoo)" />);
+
+    expect(screen.getByTestId("team-logo-fallback").style.boxShadow).toContain("var(--yahoo)");
+  });
+
   it("takes initials from a single-word name", () => {
     render(<TeamLogo team={{ name: "Garbage", logo_url: null }} />);
 

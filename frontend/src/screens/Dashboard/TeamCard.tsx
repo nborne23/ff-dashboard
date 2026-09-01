@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 
 import { Sparkline } from "../../components/primitives";
 import { useChangedValuePulse } from "../../hooks/useChangedValuePulse";
+import { platformFromId } from "../../types/api";
 import type { Platform, Team } from "../../types/api";
 import { ordinal } from "./ordinal";
 
@@ -26,6 +27,7 @@ export function TeamCard({ team }: TeamCardProps) {
   const navigate = useNavigate();
   const scorePulse = useChangedValuePulse(team.current_score);
   const winning = team.current_score >= team.current_opp_score;
+  const platform = platformFromId(team.id);
   const record = `${team.record.w}–${team.record.l}`;
   const rank = `${ordinal(team.rank.current)} / ${team.rank.total}`;
 
@@ -45,9 +47,16 @@ export function TeamCard({ team }: TeamCardProps) {
               This row is ~127px wide; logo + name + pill cannot all fit, and the name
               was truncating to "Pea ..." with all three. The logo is the more
               informative of the two badges — it identifies the team, where the pill
-              only repeats a platform that is already implied by the sidebar and is
-              currently the same for every connected league. */}
-          <TeamLogo team={team} size={22} />
+              only repeats a platform the logo can carry as a ring instead.
+              Measured: the pill is 46px + an 8px gap in a 127px row, so with it
+              present even a 12px logo leaves 57px for the name while the SHORTEST
+              of the four names needs 67px — nothing fits. Shrinking the logo cannot
+              solve it; the pill has to go, and the ring preserves what it said. */}
+          <TeamLogo
+            team={team}
+            size={22}
+            ringColor={platform === "yahoo" ? "var(--yahoo)" : "var(--espn)"}
+          />
           <span className="team-name">{team.name}</span>
           {team.is_live && <span className="live-dot" />}
         </div>

@@ -70,6 +70,22 @@ describe("TeamCard", () => {
     expect(container.querySelector(".live-dot")).toBeTruthy();
   });
 
+  it("rings the logo in the team's platform color", () => {
+    // The ring carries what the platform pill used to say. Yahoo cannot be checked by
+    // looking at the app — no Yahoo league is connected — so it is pinned here.
+    const { container: yahoo } = renderCard(makeTeam({ id: "yahoo:nfl.l.1.t.4" }));
+    expect((yahoo.querySelector(".team-logo") as HTMLElement).style.boxShadow).toContain(
+      "var(--yahoo)",
+    );
+
+    cleanup();
+
+    const { container: espn } = renderCard(makeTeam({ id: "espn:l-9-t-2" }));
+    expect((espn.querySelector(".team-logo") as HTMLElement).style.boxShadow).toContain(
+      "var(--espn)",
+    );
+  });
+
   it("navigates to /team/:id on click", () => {
     renderCard(makeTeam({ id: "espn:l-9-t-2" }));
 
