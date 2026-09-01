@@ -42,21 +42,12 @@ export function TeamCard({ team }: TeamCardProps) {
       }}
     >
       <div className="left">
+        {/* The name owns this row outright. Both badges that used to share it — the
+            platform pill and then the logo — were taking width from a column that is
+            only ~95px wide on desktop, where the team names need 83–149px. The logo
+            moved to the right column instead (see below); the pill's information now
+            rides on that logo as a ring. */}
         <div className="top-row">
-          {/* The logo takes the platform pill's place rather than sitting beside it.
-              This row is ~127px wide; logo + name + pill cannot all fit, and the name
-              was truncating to "Pea ..." with all three. The logo is the more
-              informative of the two badges — it identifies the team, where the pill
-              only repeats a platform the logo can carry as a ring instead.
-              Measured: the pill is 46px + an 8px gap in a 127px row, so with it
-              present even a 12px logo leaves 57px for the name while the SHORTEST
-              of the four names needs 67px — nothing fits. Shrinking the logo cannot
-              solve it; the pill has to go, and the ring preserves what it said. */}
-          <TeamLogo
-            team={team}
-            size={24}
-            ringColor={platform === "yahoo" ? "var(--yahoo)" : "var(--espn)"}
-          />
           <span className="team-name">{team.name}</span>
           {team.is_live && <span className="live-dot" />}
         </div>
@@ -80,7 +71,18 @@ export function TeamCard({ team }: TeamCardProps) {
           <span>{rank}</span>
         </div>
       </div>
+      {/* Logo here rather than in a leading avatar column. A column on the left looks
+          like the obvious layout but is strictly worse: the card's content box is
+          fixed, so a 40px column plus its gap comes straight out of the name's width
+          (95px -> 75px on desktop). This column is 140px and mostly whitespace above
+          the sparkline, so the logo is free here — and at 40px it is the largest and
+          most legible avatar in the app. */}
       <div className="spark">
+        <TeamLogo
+          team={team}
+          size={40}
+          ringColor={platform === "yahoo" ? "var(--yahoo)" : "var(--espn)"}
+        />
         <Sparkline
           data={team.spark_last_6}
           width={140}

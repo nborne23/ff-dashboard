@@ -70,6 +70,17 @@ describe("TeamCard", () => {
     expect(container.querySelector(".live-dot")).toBeTruthy();
   });
 
+  it("keeps the logo out of the name row", () => {
+    // The name row is ~95px on desktop and the team names need 83-149px, so anything
+    // sharing that row comes straight out of the name. The logo lives in the right
+    // column with the sparkline instead. A leading avatar column would NOT fix this —
+    // it takes from the same fixed content box (95px -> 75px).
+    const { container } = renderCard(makeTeam());
+
+    expect(container.querySelector(".top-row .team-logo")).toBeNull();
+    expect(container.querySelector(".spark .team-logo")).toBeTruthy();
+  });
+
   it("rings the logo in the team's platform color", () => {
     // The ring carries what the platform pill used to say. Yahoo cannot be checked by
     // looking at the app — no Yahoo league is connected — so it is pinned here.

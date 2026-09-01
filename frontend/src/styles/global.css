@@ -889,7 +889,16 @@ html, body {
   animation: pulse 1.6s ease-in-out infinite;
   display: inline-block;
 }
-.team-card .spark { display: grid; place-items: center; }
+.team-card .spark {
+  /* Two rows: the avatar sits above the sparkline, both centred. `1fr` on the
+     sparkline row lets it keep the vertical space it had; the avatar takes only
+     what it needs, so the card's min-height is unchanged. */
+  display: grid;
+  grid-template-rows: auto 1fr;
+  justify-items: center;
+  align-items: center;
+  gap: 8px;
+}
 
 /* Insights right rail */
 .rail { display: flex; flex-direction: column; gap: 12px; }
