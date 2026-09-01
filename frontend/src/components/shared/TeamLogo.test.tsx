@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { TeamLogo } from "./TeamLogo";
+import { LOGO_MIN_SIZE, TeamLogo } from "./TeamLogo";
 
 describe("TeamLogo", () => {
   afterEach(cleanup);
@@ -31,12 +31,23 @@ describe("TeamLogo", () => {
     expect(document.querySelector("img")).toBeNull();
   });
 
-  it("honors the requested size", () => {
-    render(<TeamLogo team={{ name: "Garbage", logo_url: null }} size={18} />);
+  it("honors a requested size at or above the floor", () => {
+    render(<TeamLogo team={{ name: "Garbage", logo_url: null }} size={32} />);
 
     const el = screen.getByTestId("team-logo-fallback");
-    expect(el.style.width).toBe("18px");
-    expect(el.style.height).toBe("18px");
+    expect(el.style.width).toBe("32px");
+    expect(el.style.height).toBe("32px");
+  });
+
+  it("clamps a size below the legibility floor", () => {
+    // 43% of these avatars are photographs — a 14px one is a coloured smudge, not an
+    // identity. The floor is enforced here rather than trusted at each call site,
+    // because the tempting fix for a tight row is exactly to pass a smaller number.
+    render(<TeamLogo team={{ name: "Garbage", logo_url: null }} size={14} />);
+
+    const el = screen.getByTestId("team-logo-fallback");
+    expect(el.style.width).toBe(`${LOGO_MIN_SIZE}px`);
+    expect(LOGO_MIN_SIZE).toBe(24);
   });
 
   it("draws no ring when none is requested", () => {

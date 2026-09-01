@@ -137,7 +137,7 @@ export default function HeadToHead() {
         <div className="h2h-top">
           <div className="h2h-side me">
             <div className="name">
-              <TeamLogo team={myTeam} size={20} />
+              <TeamLogo team={myTeam} size={28} />
               {myTeam.name.toUpperCase()}
             </div>
             <div className="score-big">{oriented.myScore.toFixed(1)}</div>
@@ -154,7 +154,7 @@ export default function HeadToHead() {
           />
           <div className="h2h-side opp">
             <div className="name">
-              <TeamLogo team={oppTeam} size={20} />
+              <TeamLogo team={oppTeam} size={28} />
               {oppTeam.name.toUpperCase()}
             </div>
             <div className="score-big">{oriented.oppScore.toFixed(1)}</div>

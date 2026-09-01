@@ -93,7 +93,7 @@ export function TeamContextBar({ teamId, section }: TeamContextBarProps) {
                     navigate(teamRoutePath(t.id, section));
                   }}
                 >
-                  <TeamLogo team={t} size={18} />
+                  <TeamLogo team={t} size={24} />
                   <span className="team-switcher-name">{t.name}</span>
                 </button>
               </li>

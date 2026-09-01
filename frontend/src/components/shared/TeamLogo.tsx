@@ -12,6 +12,21 @@ import { useState } from "react";
 
 import type { Team } from "../../types/api";
 
+/**
+ * Smallest size a team avatar may render at.
+ *
+ * Not a style preference — a legibility floor grounded in the real data. 43% of the
+ * avatars in these leagues are `CUSTOM_UPLOAD`: photographs a leaguemate uploaded,
+ * including group shots and a 315KB PNG. Rendered at 14–18px those are coloured
+ * smudges, indistinguishable from one another, so an avatar below this size is not
+ * an identity cue — it is noise occupying the space where the team name should be.
+ *
+ * ESPN's own `VECTOR` crests survive smaller, but splitting the floor by type would
+ * give a team two identities (a photo in standings, initials in the sidebar) and
+ * defeat the point of an avatar, which is recognition at a glance.
+ */
+export const LOGO_MIN_SIZE = 24;
+
 function initialsFor(name: string): string {
   return name
     .split(" ")
@@ -24,6 +39,7 @@ function initialsFor(name: string): string {
 
 export interface TeamLogoProps {
   team: Pick<Team, "name" | "logo_url">;
+  /** Rendered size in px. Values below `LOGO_MIN_SIZE` are clamped up to it. */
   size?: number;
   /** Optional platform accent drawn as a ring around the logo.
    *
@@ -34,13 +50,17 @@ export interface TeamLogoProps {
   ringColor?: string;
 }
 
-export function TeamLogo({ team, size = 24, ringColor }: TeamLogoProps) {
+export function TeamLogo({ team, size = LOGO_MIN_SIZE, ringColor }: TeamLogoProps) {
   const [failed, setFailed] = useState(false);
 
+  // Clamped rather than trusted: the floor is the whole point, and a call site that
+  // passes 14 to fit a tight row would silently reintroduce the illegible case.
+  const px = Math.max(size, LOGO_MIN_SIZE);
+
   const box = {
-    width: size,
-    height: size,
-    borderRadius: size <= 20 ? 4 : 6,
+    width: px,
+    height: px,
+    borderRadius: 6,
     flex: "0 0 auto",
     ...(ringColor ? { boxShadow: `0 0 0 1.5px ${ringColor}` } : {}),
   } as const;
@@ -56,7 +76,7 @@ export function TeamLogo({ team, size = 24, ringColor }: TeamLogoProps) {
           justifyContent: "center",
           background: "var(--card-2, #2A2A2E)",
           color: "var(--text-secondary)",
-          fontSize: Math.max(9, Math.round(size * 0.4)),
+          fontSize: Math.max(9, Math.round(px * 0.4)),
           fontWeight: 700,
           letterSpacing: "0.02em",
         }}

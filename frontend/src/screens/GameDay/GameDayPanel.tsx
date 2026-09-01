@@ -124,7 +124,19 @@ export function GameDayPanel({
         // reorder drag, and binding both to one gesture makes each unreliable.
         onDoubleClick={onSpotlight}
       >
-        <span className={`pill ${matchup.platform}`}>{matchup.platform.toUpperCase()}</span>
+        {/* One legible mark in the header rather than two illegible ones beside the
+            scores. This screen is a wall display and its own design doc sets a 15px
+            floor on anything that matters; a 14px photograph cleared neither that bar
+            nor the 24px avatar floor. The opponent is identified by name in the score
+            row, which is where the eye goes anyway. */}
+        {/* Ring, not a pill — the same trade the Dashboard card makes. Measured: the
+            pill costs 46px in a 281px header and the team name was truncating at 49px
+            when it needs 78. The ring carries the platform at zero width. */}
+        <TeamLogo
+          team={{ name: matchup.team_name, logo_url: matchup.team_logo_url }}
+          size={24}
+          ringColor={matchup.platform === "yahoo" ? "var(--yahoo)" : "var(--espn)"}
+        />
         <span className="gd-team-name">{matchup.team_name}</span>
         <span className="gd-league-name">{matchup.league_name}</span>
         {live > 0 && (
@@ -151,13 +163,7 @@ export function GameDayPanel({
             drops to --text-secondary, so "who is winning" reads as a brightness
             difference from across the room before any number is read (design D1). */}
         <div className="gd-score-side" data-side="mine" data-trailing={!tied && margin < 0}>
-          <div className="gd-score-label">
-            <TeamLogo
-              team={{ name: matchup.team_name, logo_url: matchup.team_logo_url }}
-              size={14}
-            />
-            {matchup.team_name.toUpperCase()}
-          </div>
+          <div className="gd-score-label">{matchup.team_name.toUpperCase()}</div>
           <div className="gd-score-value">{matchup.score.toFixed(1)}</div>
           <div className="gd-score-sub">
             {matchup.record.w}–{matchup.record.l} · {matchup.rank.current} of {matchup.rank.total}
@@ -169,13 +175,7 @@ export function GameDayPanel({
         </div>
 
         <div className="gd-score-side" data-side="theirs" data-trailing={!tied && margin > 0}>
-          <div className="gd-score-label">
-            <TeamLogo
-              team={{ name: matchup.opp_team_name, logo_url: matchup.opp_logo_url }}
-              size={14}
-            />
-            {matchup.opp_team_name.toUpperCase()}
-          </div>
+          <div className="gd-score-label">{matchup.opp_team_name.toUpperCase()}</div>
           <div className="gd-score-value">{matchup.opp_score.toFixed(1)}</div>
           <div className="gd-score-sub">&nbsp;</div>
         </div>

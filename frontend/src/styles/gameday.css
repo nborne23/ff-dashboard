@@ -243,18 +243,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   margin-bottom: 4px;
-  /* The label now leads with a logo, so it is a flex row rather than plain text.
-     `min-width: 0` on the row keeps the ellipsis working on the name beside it —
-     without it a flex item refuses to shrink below its content and the label
-     overflows the panel instead of truncating. */
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-}
-.gd-score-side[data-side="theirs"] .gd-score-label {
-  /* The opponent's column is right-aligned, so its logo belongs on the outer edge. */
-  flex-direction: row-reverse;
 }
 .gd-score-side[data-side="mine"] .gd-score-label {
   color: var(--move);

@@ -54,7 +54,7 @@ export function TeamCard({ team }: TeamCardProps) {
               solve it; the pill has to go, and the ring preserves what it said. */}
           <TeamLogo
             team={team}
-            size={22}
+            size={24}
             ringColor={platform === "yahoo" ? "var(--yahoo)" : "var(--espn)"}
           />
           <span className="team-name">{team.name}</span>

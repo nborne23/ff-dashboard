@@ -137,7 +137,7 @@ export function Sidebar() {
                 {/* The logo replaces the platform dot: it identifies the team more
                     specifically than its platform does, and the platform is still
                     visible on the Dashboard card's pill. */}
-                <TeamLogo team={t} size={18} />
+                <TeamLogo team={t} size={24} />
                 <span
                   style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                 >
