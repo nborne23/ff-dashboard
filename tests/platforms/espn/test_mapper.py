@@ -2,6 +2,7 @@
 
 import copy
 import json
+import logging
 from pathlib import Path
 
 import pytest
@@ -395,3 +396,98 @@ def test_map_player_pool_survives_an_unknown_eligible_slot(player_pool_raw: dict
 
     assert "Tommy DeVito" not in {e.player.name for e in entries}
     assert skipped == 2  # the IDP entry plus this one
+
+
+# --------------------------------------------------------------------------------------
+# Injury status (add-player-health)
+# --------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        # `NORMAL` is ESPN's healthy sentinel and is MORE common than `ACTIVE` in real
+        # payloads (312 vs 219 across this install's cache). It was unmapped, so every
+        # healthy player persisted a NULL status indistinguishable from "unknown".
+        ("NORMAL", "ACTIVE"),
+        ("ACTIVE", "ACTIVE"),
+        ("QUESTIONABLE", "Q"),
+        ("DOUBTFUL", "D"),
+        ("OUT", "O"),
+        ("INJURY_RESERVE", "IR"),
+        ("PHYSICALLY_UNABLE_TO_PERFORM", "PUP"),
+        ("DAY_TO_DAY", "DTD"),
+        ("SUSPENSION", "SUSP"),
+        ("NON_FOOTBALL_INJURY", "NFI"),
+        ("NON_FOOTBALL_ILLNESS", "NFI"),
+    ],
+)
+def test_map_injury_status(raw: str, expected: str) -> None:
+    assert mapper.map_injury_status(raw) == expected
+
+
+def test_unrecognized_injury_status_is_none_not_active(caplog) -> None:
+    """Guessing `ACTIVE` here would assert a player is healthy on the strength of a
+    string we failed to parse — the one wrong answer worth avoiding."""
+    with caplog.at_level(logging.WARNING):
+        assert mapper.map_injury_status("SOME_NEW_ESPN_CODE") is None
+    assert "SOME_NEW_ESPN_CODE" in caplog.text
+
+
+def test_missing_injury_status_is_none() -> None:
+    assert mapper.map_injury_status(None) is None
+    assert mapper.map_injury_status("") is None
+
+
+def test_roster_injury_status_comes_from_the_teams_index(roster_matchup_raw: dict) -> None:
+    """The shape a LIVE `mRoster` response actually has.
+
+    `tests/fixtures/espn/roster_matchup.json` puts `injuryStatus` on the player object and
+    carries no `teams[]` at all. A real payload does the opposite: the player object has no
+    such key (its keys are defaultPositionId/eligibleSlots/firstName/fullName/id/lastName/
+    proTeamId/stats/universeId), and the designation hangs off `teams[].roster.entries[]`.
+    Both shapes have to work, so this rebuilds the fixture into the live one.
+    """
+    raw = copy.deepcopy(roster_matchup_raw)
+    entries_by_id: dict[int, dict] = {}
+    for matchup in raw["schedule"]:
+        for side_key in ("home", "away"):
+            side = matchup.get(side_key)
+            if side is None:
+                continue
+            for entry in side["rosterForCurrentScoringPeriod"]["entries"]:
+                entry["playerPoolEntry"]["player"].pop("injuryStatus", None)
+                entries_by_id[entry["playerId"]] = entry
+
+    target = next(iter(entries_by_id))
+    raw["teams"] = [
+        {
+            "id": 1,
+            "roster": {
+                "entries": [
+                    {"playerId": pid, "injuryStatus": "OUT" if pid == target else "NORMAL"}
+                    for pid in entries_by_id
+                ]
+            },
+        }
+    ]
+
+    slots = mapper.map_roster(raw, week=14)
+    by_id = {s.player.id: s.player.injury_status for s in slots}
+
+    assert by_id[f"espn:p-{target}"] == "O"
+    # And the rest are healthy — NOT None, which is what the old code produced for every
+    # rostered player because `NORMAL` was unmapped AND lived somewhere it never looked.
+    assert set(by_id.values()) == {"O", "ACTIVE"}
+
+
+def test_injury_status_by_player_id_ignores_entries_with_no_designation() -> None:
+    raw = {
+        "teams": [
+            {"roster": {"entries": [{"playerId": 1, "injuryStatus": "QUESTIONABLE"}]}},
+            {"roster": {"entries": [{"playerId": 2}]}},
+            {"roster": None},
+            {},
+        ]
+    }
+    assert mapper.injury_status_by_player_id(raw) == {1: "QUESTIONABLE"}

@@ -14,6 +14,7 @@
 
 import { useState } from "react";
 
+import { PlayerHealth } from "../../components/shared/PlayerHealth";
 import type { WaiverCandidate } from "../../types/api";
 
 /** An absent value renders as an em dash, never as a number.
@@ -90,6 +91,13 @@ function WaiverRow({ candidate, rank }: { candidate: WaiverCandidate; rank: numb
             <div className="player-info-row">
               <span className="player-name">{player.name}</span>
               <span className="pill pos">{player.position}</span>
+              {/* The most expensive place to miss a designation: an IR stash looks like
+                  a bargain on projection alone. */}
+              <PlayerHealth
+                playerId={player.id}
+                playerName={player.name}
+                status={player.injury_status}
+              />
             </div>
             <div className="player-meta">{player.nfl_team}</div>
           </div>

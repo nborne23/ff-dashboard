@@ -147,3 +147,41 @@ describe("RosterTable", () => {
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
   });
 });
+
+describe("RosterTable injury badges", () => {
+  afterEach(cleanup);
+
+  it("badges a questionable starter WITHOUT losing its kickoff time", () => {
+    // The regression this guards: the Status column is an `is_live ? … : isOut ? … :
+    // status_text` chain. Extending that chain to Q/D/IR would have replaced the
+    // kickoff time on exactly the rows a start/sit decision turns on.
+    render(
+      <RosterTable
+        starters={[
+          makeSlot({
+            player: makePlayer({ id: "p9", name: "Tyrone Tracy Jr.", injury_status: "Q" }),
+            status_text: "Sun 1:00",
+            actual_points: 0,
+          }),
+        ]}
+        bench={[]}
+      />,
+    );
+
+    expect(screen.getByTestId("injury-badge").textContent).toBe("Q");
+    expect(screen.getByText("Sun 1:00")).toBeTruthy();
+  });
+
+  it("renders no badge for a healthy or unknown player", () => {
+    render(
+      <RosterTable
+        starters={[
+          makeSlot({ player: makePlayer({ id: "a", injury_status: "ACTIVE" }) }),
+          makeSlot({ player: makePlayer({ id: "b", injury_status: null }) }),
+        ]}
+        bench={[]}
+      />,
+    );
+    expect(screen.queryByTestId("injury-badge")).toBeNull();
+  });
+});

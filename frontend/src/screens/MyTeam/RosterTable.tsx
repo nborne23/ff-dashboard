@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 
+import { PlayerHealth } from "../../components/shared/PlayerHealth";
 import type { RosterSlot } from "../../types/api";
 
 function initialsFor(name: string): string {
@@ -62,6 +63,14 @@ function RosterRow({ slot, isBench }: { slot: RosterSlot; isBench?: boolean }) {
             <div className="player-info-row">
               <span className="player-name">{slot.player.name}</span>
               <PositionPill pos={slot.player.position} />
+              {/* Beside the position pill, NOT in the Status column: that column is an
+                  `is_live ? … : isOut ? … : status_text` chain, so putting Q/D/IR there
+                  would replace kickoff time on exactly the rows being decided about. */}
+              <PlayerHealth
+                playerId={slot.player.id}
+                playerName={slot.player.name}
+                status={slot.player.injury_status}
+              />
             </div>
             <div className="player-meta">{slot.player.nfl_team}</div>
           </div>

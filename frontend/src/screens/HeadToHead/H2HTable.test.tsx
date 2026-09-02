@@ -91,3 +91,29 @@ describe("H2HTable diff-chip orientation", () => {
     expect(chip?.textContent).toBe("TIE");
   });
 });
+
+describe("H2HTable injury badges", () => {
+  afterEach(cleanup);
+
+  it("badges both sides independently", () => {
+    // The matchup path persists player-id FKs (`matchup_slots.home_player_id`) and the
+    // read joins `players`, so these carry the same `injury_status` the roster does.
+    render(
+      <H2HTable
+        slots={[
+          makeSlot({
+            home_player: makePlayer({ id: "home", name: "Home Guy", injury_status: "Q" }),
+            away_player: makePlayer({ id: "away", name: "Away Guy", injury_status: null }),
+          }),
+        ]}
+        iAmHome
+        myTeamName="Mine"
+        oppTeamName="Theirs"
+      />,
+    );
+
+    const badges = screen.getAllByTestId("injury-badge");
+    expect(badges).toHaveLength(1);
+    expect(badges[0].textContent).toBe("Q");
+  });
+});

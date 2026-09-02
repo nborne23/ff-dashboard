@@ -123,3 +123,35 @@ describe("MirroredRoster orientation", () => {
     expect(labels).toEqual(["QB", "RB1", "K"]);
   });
 });
+
+describe("MirroredRoster injury badges", () => {
+  afterEach(cleanup);
+
+  it("badges the injured side and leaves the healthy one alone", () => {
+    render(
+      <MirroredRoster
+        slots={[
+          makeSlot({
+            home_player: { ...makePlayer("Home Guy", "KC"), injury_status: "IR" },
+            away_player: makePlayer("Away Guy", "BUF"),
+          }),
+        ]}
+        iAmHome
+      />,
+    );
+
+    const { mine, theirs } = sides();
+    expect(within(mine).getByTestId("injury-badge").textContent).toBe("IR");
+    expect(within(theirs).queryByTestId("injury-badge")).toBeNull();
+  });
+
+  it("renders the badge as a static span — Game Day opens no dialogs", () => {
+    render(
+      <MirroredRoster
+        slots={[makeSlot({ home_player: { ...makePlayer("Home Guy", "KC"), injury_status: "O" } })]}
+        iAmHome
+      />,
+    );
+    expect(screen.getByTestId("injury-badge").tagName).toBe("SPAN");
+  });
+});

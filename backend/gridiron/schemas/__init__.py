@@ -43,6 +43,7 @@ from backend.gridiron.schemas.events import (
 from backend.gridiron.schemas.leagues import League, ScoringType
 from backend.gridiron.schemas.live_nfl_games import LiveNflGame
 from backend.gridiron.schemas.matchups import Matchup, MatchupSlot
+from backend.gridiron.schemas.player_injuries import PlayerInjuryData, PlayerInjuryReport
 from backend.gridiron.schemas.player_pool import (
     PlayerPoolEntry,
     PoolStatus,
@@ -79,6 +80,8 @@ __all__ = [
     "Platform",
     "PlatformStatus",
     "Player",
+    "PlayerInjuryData",
+    "PlayerInjuryReport",
     "PlayerPoolEntry",
     "PoolData",
     "PoolStatus",

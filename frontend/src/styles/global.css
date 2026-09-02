@@ -1504,3 +1504,52 @@ html, body {
   border-radius: 4px;
 }
 .content::-webkit-scrollbar-thumb:hover { background: rgba(142,142,147,0.4); }
+
+/* add-player-health -- injury designation pills. Each is a LETTER CODE plus a color,
+   never color alone: these are the rows a start/sit decision turns on.
+   Severity reads through the palette -- amber for "might play" (Q/DTD), orange for
+   "probably not" (D), red for "no" (O), and a flat grey for the roster-status
+   designations (IR/PUP/NFI/SUSP), which are a different KIND of fact from a gameday
+   injury report and shouldn't compete with it for attention. */
+/* The foreground colors are LIGHTENED variants of --espn/--move/--yahoo rather than the
+   tokens themselves. Measured against the composited card background (rgb(28,28,30)),
+   the raw tokens land at 3.95-4.05:1 — under the 4.5:1 AA floor for 11px text. The
+   lightened forms measure 5.4-6.3:1 while reading as the same hue. */
+.pill.inj { letter-spacing: 0.02em; }
+.pill.inj-q    { background: rgba(255,214,10,0.18);  color: var(--live); }        /* 5.25:1 */
+.pill.inj-dtd  { background: rgba(255,214,10,0.18);  color: var(--live); }        /* 5.25:1 */
+.pill.inj-d    { background: rgba(255,159,10,0.20);  color: var(--live); }        /* 5.57:1 */
+.pill.inj-o    { background: rgba(255,69,58,0.18);   color: rgb(255,123,112); }   /* 5.47:1 */
+.pill.inj-ir   { background: rgba(255,45,85,0.16);   color: rgb(255,110,140); }   /* 5.45:1 */
+.pill.inj-pup  { background: rgba(255,45,85,0.16);   color: rgb(255,110,140); }
+.pill.inj-nfi  { background: rgba(255,45,85,0.16);   color: rgb(255,110,140); }
+.pill.inj-susp { background: rgba(191,90,242,0.16);  color: rgb(214,148,255); }   /* 6.33:1 */
+
+/* The clickable variant. A <button> for keyboard/AT reachability, stripped back to the
+   pill's own look rather than the .btn chrome. */
+.pill.inj-button {
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+  /* 24px min target -- below the 44px ideal, but this sits inline in a dense table row;
+     the whole-row affordances elsewhere carry the coarse-pointer case. */
+  min-height: 24px;
+}
+.pill.inj-button:hover { filter: brightness(1.15); }
+.pill.inj-button:focus-visible { outline: 2px solid var(--stand); outline-offset: 2px; }
+
+/* Game Day's inline (non-interactive) form: the panel is a glanceable wall display, so
+   the badge rides the name at a smaller size and opens nothing. */
+.gd-side .pill.inj { font-size: 10px; padding: 1px 5px; flex: 0 0 auto; align-self: center; }
+
+/* PlayerHealthPanel facts grid. */
+.injury-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 16px;
+  margin: 0 0 16px;
+}
+.injury-fact { display: contents; }
+.injury-facts dt { font-size: 12px; color: var(--text-secondary); }
+.injury-facts dd { margin: 0; font-size: 14px; color: var(--text); font-weight: 600; }
+.injury-provenance { font-size: 11px; margin-top: 16px; }

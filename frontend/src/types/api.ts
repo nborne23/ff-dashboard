@@ -104,7 +104,12 @@ export interface Team {
 }
 
 export type Position = "QB" | "RB" | "WR" | "TE" | "K" | "DST";
-export type InjuryStatus = "ACTIVE" | "Q" | "D" | "O" | "IR" | "PUP";
+/** Mirrors `backend/gridiron/schemas/players.py`'s `InjuryStatus` — the two are
+ *  hand-duplicated, so widening one means widening the other.
+ *
+ *  `null` means "we don't know", NOT "healthy": both mappers now return null for a
+ *  platform code they can't parse rather than asserting ACTIVE. */
+export type InjuryStatus = "ACTIVE" | "Q" | "D" | "O" | "IR" | "PUP" | "DTD" | "SUSP" | "NFI";
 
 export interface Player {
   id: string;
@@ -291,4 +296,31 @@ export interface WaiversData {
 export function platformFromId(id: string): Platform | null {
   const prefix = id.split(":")[0];
   return prefix === "yahoo" || prefix === "espn" ? prefix : null;
+}
+
+/** `GET /api/players/{id}/injury` — the detail behind the badge.
+ *
+ *  Every field is optional because ESPN files a practice-report entry (status + date)
+ *  days before the detail and comments land. */
+export interface PlayerInjuryReport {
+  status: string | null;
+  injury_type: string | null;
+  location: string | null;
+  detail: string | null;
+  side: string | null;
+  /** ESPN publishes an un-timezoned `YYYY-MM-DD` estimate, kept verbatim. */
+  return_date: string | null;
+  short_comment: string | null;
+  long_comment: string | null;
+  reported_at: string | null;
+  fetched_at: string;
+}
+
+export interface PlayerInjuryData {
+  player_id: string;
+  injury_status: InjuryStatus | null;
+  /** null is the ordinary "nothing on file" answer, not an error. */
+  report: PlayerInjuryReport | null;
+  /** false for D/ST rows and Yahoo-sourced players — no ESPN athlete to look up. */
+  detail_supported: boolean;
 }

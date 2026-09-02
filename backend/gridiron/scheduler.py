@@ -8,6 +8,9 @@ Phase 8 adaptive-cadence jobs:
 - `refresh_nfl_state` — ESPN public-scoreboard poll feeding the live_state classifier
   and the SSE differ (task 8.2): 30s normally, backing off to hourly off-season
   (task 11.7).
+- `refresh_player_pool` — free-agent/waiver pool + season projections, fixed 6h cadence.
+- `refresh_injuries` — ESPN injury-report detail for non-healthy players, fixed 30 min
+  (add-player-health).
 - `backup_db` — nightly SQLite backup + prune (task 11.4).
 
 Every job run — scheduled or manually triggered via `POST /api/admin/refresh` — goes
@@ -29,7 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.gridiron.db import async_session_factory, resolve_db_path
 from backend.gridiron.errors import GridironError
 from backend.gridiron.models import RefreshRun
-from backend.gridiron.platforms import nfl_scoreboard
+from backend.gridiron.platforms import espn_injuries, nfl_scoreboard
 from backend.gridiron.schemas.events import LiveStateChangedEvent
 from backend.gridiron.services import backup as backup_service
 from backend.gridiron.services import (
@@ -64,6 +67,13 @@ NFL_STATE_INTERVAL_SECONDS = 30
 # pool unrefreshed for another full interval. The margin makes expiry always precede
 # the next tick.
 PLAYER_POOL_INTERVAL_SECONDS = 6 * 60 * 60 + 5 * 60
+
+# `refresh_injuries` cadence — fixed, and deliberately NOT bound to the live tier.
+# Injury reports are filed on practice-report and gameday-inactive schedules (a handful of
+# times a week), not on a snap-by-snap one, so tying this to the 10s live tier would issue
+# ~130 requests against a free public endpoint every ten seconds to re-read prose that
+# changes on Wednesdays.
+INJURIES_INTERVAL_SECONDS = 30 * 60
 
 
 class UnknownJobError(GridironError):
@@ -175,6 +185,13 @@ async def _refresh_player_pool(session: AsyncSession) -> str | None:
     return await fantasy_service.refresh_player_pool(session)
 
 
+async def _refresh_injuries(session: AsyncSession) -> str | None:
+    """ESPN injury-report detail for players the fantasy API already flags as non-healthy
+    (add-player-health D2/D3). The only writer of `player_injuries` — `GET /api/players/
+    {id}/injury` serves whatever this leaves behind and never fetches (design.md D7)."""
+    return await espn_injuries.fetch_and_upsert(session)
+
+
 async def _backup_db(session: AsyncSession) -> str | None:
     """Nightly SQLite backup + prune (task 11.4). Doesn't touch `session` — the backup
     runs against the on-disk file directly via `sqlite3`'s own online-backup API — but
@@ -191,6 +208,7 @@ JOBS: dict[str, Callable[[AsyncSession], Awaitable[str | None]]] = {
     "refresh_fantasy": _refresh_fantasy,
     "refresh_nfl_state": _refresh_nfl_state,
     "refresh_player_pool": _refresh_player_pool,
+    "refresh_injuries": _refresh_injuries,
     "backup_db": _backup_db,
 }
 
@@ -278,6 +296,15 @@ def start_scheduler() -> AsyncIOScheduler:
         IntervalTrigger(seconds=PLAYER_POOL_INTERVAL_SECONDS),
         args=["refresh_player_pool"],
         id="refresh_player_pool",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        _scheduled,
+        # Fixed cadence for the same reason as `refresh_player_pool`: the data behind it
+        # moves on a weekly practice-report rhythm, not a live one.
+        IntervalTrigger(seconds=INJURIES_INTERVAL_SECONDS),
+        args=["refresh_injuries"],
+        id="refresh_injuries",
         replace_existing=True,
     )
     scheduler.add_job(
