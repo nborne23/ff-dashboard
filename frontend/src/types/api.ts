@@ -136,6 +136,13 @@ export interface RosterSlot {
   is_live: boolean;
   game_state: GameState | null;
   status_text: string;
+  /** An independent weekly projection (Rotowire, via Sleeper's public feed) in this
+   *  league's scoring format. Shown NEXT TO `proj_points`, never blended with it —
+   *  the two disagreeing is the signal.
+   *
+   *  null when the player didn't match the feed, the projection job hasn't run, or the
+   *  league scores `custom`. */
+  ext_proj_points: number | null;
 }
 
 export interface Matchup {
@@ -283,6 +290,9 @@ export interface WaiverCandidate extends PlayerPoolEntry {
    *  eligible slot. null — never 0 — when either side has no projection or no
    *  eligible starter exists. Render as an em dash. */
   delta_vs_worst_starter: number | null;
+  /** Independent SEASON projection (Rotowire, via Sleeper). Shown beside
+   *  `season_proj_points`; deliberately not an input to `delta_vs_worst_starter`. */
+  ext_season_proj_points: number | null;
 }
 
 export interface WaiversData {

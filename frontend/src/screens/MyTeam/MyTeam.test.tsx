@@ -33,7 +33,7 @@ function makeTeam(overrides: Partial<Team> = {}): Team {
     is_live: true,
     spark_last_6: [78, 92, 64, 88, 94, 87],
     accent_color: "#FF2D55",
-  logo_url: null,
+    logo_url: null,
     ...overrides,
   };
 }
@@ -73,6 +73,7 @@ function makeStarter(overrides: Partial<RosterSlot> = {}): RosterSlot {
     is_live: true,
     game_state: "in",
     status_text: "LIVE Q3 7:42",
+    ext_proj_points: null,
     ...overrides,
   };
 }

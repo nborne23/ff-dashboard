@@ -11,6 +11,7 @@ Phase 8 adaptive-cadence jobs:
 - `refresh_player_pool` — free-agent/waiver pool + season projections, fixed 6h cadence.
 - `refresh_injuries` — ESPN injury-report detail for non-healthy players, fixed 30 min
   (add-player-health).
+- `refresh_projections` — third-party point projections, fixed 3 h (add-sleeper-projections).
 - `backup_db` — nightly SQLite backup + prune (task 11.4).
 
 Every job run — scheduled or manually triggered via `POST /api/admin/refresh` — goes
@@ -32,7 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.gridiron.db import async_session_factory, resolve_db_path
 from backend.gridiron.errors import GridironError
 from backend.gridiron.models import RefreshRun
-from backend.gridiron.platforms import espn_injuries, nfl_scoreboard
+from backend.gridiron.platforms import espn_injuries, nfl_scoreboard, sleeper
 from backend.gridiron.schemas.events import LiveStateChangedEvent
 from backend.gridiron.services import backup as backup_service
 from backend.gridiron.services import (
@@ -74,6 +75,12 @@ PLAYER_POOL_INTERVAL_SECONDS = 6 * 60 * 60 + 5 * 60
 # ~130 requests against a free public endpoint every ten seconds to re-read prose that
 # changes on Wednesdays.
 INJURIES_INTERVAL_SECONDS = 30 * 60
+
+# `refresh_projections` cadence. Two upstream calls per run regardless of roster size —
+# the projection feed is served whole — so this is cheap. Three hours rather than
+# thirty minutes because Rotowire revises on news, not on snaps; the injury sweep is
+# what carries the fast-moving half of that story.
+PROJECTIONS_INTERVAL_SECONDS = 3 * 60 * 60
 
 
 class UnknownJobError(GridironError):
@@ -192,6 +199,13 @@ async def _refresh_injuries(session: AsyncSession) -> str | None:
     return await espn_injuries.fetch_and_upsert(session)
 
 
+async def _refresh_projections(session: AsyncSession) -> str | None:
+    """Independent point projections (Rotowire, via Sleeper's public feed) for every
+    player we know about, weekly and season-long. Shown ALONGSIDE the platform's own
+    number rather than replacing it — see `models/player_projections.py`."""
+    return await sleeper.fetch_and_upsert(session)
+
+
 async def _backup_db(session: AsyncSession) -> str | None:
     """Nightly SQLite backup + prune (task 11.4). Doesn't touch `session` — the backup
     runs against the on-disk file directly via `sqlite3`'s own online-backup API — but
@@ -209,6 +223,7 @@ JOBS: dict[str, Callable[[AsyncSession], Awaitable[str | None]]] = {
     "refresh_nfl_state": _refresh_nfl_state,
     "refresh_player_pool": _refresh_player_pool,
     "refresh_injuries": _refresh_injuries,
+    "refresh_projections": _refresh_projections,
     "backup_db": _backup_db,
 }
 
@@ -305,6 +320,13 @@ def start_scheduler() -> AsyncIOScheduler:
         IntervalTrigger(seconds=INJURIES_INTERVAL_SECONDS),
         args=["refresh_injuries"],
         id="refresh_injuries",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        _scheduled,
+        IntervalTrigger(seconds=PROJECTIONS_INTERVAL_SECONDS),
+        args=["refresh_projections"],
+        id="refresh_projections",
         replace_existing=True,
     )
     scheduler.add_job(

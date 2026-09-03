@@ -15,6 +15,7 @@
 import { useState } from "react";
 
 import { PlayerHealth } from "../../components/shared/PlayerHealth";
+import { ProjectionCompare } from "../../components/shared/ProjectionCompare";
 import type { WaiverCandidate } from "../../types/api";
 
 /** An absent value renders as an em dash, never as a number.
@@ -110,6 +111,16 @@ function WaiverRow({ candidate, rank }: { candidate: WaiverCandidate; rank: numb
         </span>
       </td>
       <td className="num muted roster-col-proj">{formatPoints(candidate.season_proj_points)}</td>
+      <td className="num roster-col-proj-ext">
+        {candidate.season_proj_points === null ? (
+          <span className="proj-ext muted">—</span>
+        ) : (
+          <ProjectionCompare
+            own={candidate.season_proj_points}
+            ext={candidate.ext_season_proj_points}
+          />
+        )}
+      </td>
       <td className="num roster-col-actual">
         <DeltaCell delta={candidate.delta_vs_worst_starter} />
       </td>
@@ -139,7 +150,12 @@ export function WaiverTable({ candidates }: WaiverTableProps) {
             <th className="roster-col-player">Player</th>
             <th className="roster-col-opp">Team</th>
             <th className="roster-col-status">Own</th>
-            <th className="roster-col-proj">Proj</th>
+            <th className="roster-col-proj" title="Your league platform's season projection">
+              Proj
+            </th>
+            <th className="roster-col-proj-ext" title="Rotowire's independent season projection">
+              RW
+            </th>
             <th className="roster-col-actual">Upgrade</th>
           </tr>
         </thead>

@@ -705,6 +705,9 @@ html, body {
 .roster-col-status { width: 140px; }
 .roster-col-proj,
 .roster-col-actual { width: 88px; text-align: right; }
+/* The independent projection. Narrower than `proj` because it carries a bare number
+   with no header word to fit — "RW" is two characters. */
+.roster-col-proj-ext { width: 66px; text-align: right; }
 .roster-col-delta { width: 80px; text-align: right; }
 
 .player-cell {
@@ -1249,6 +1252,7 @@ html, body {
   /* table-layout:fixed still banks a hidden cell's declared width against the
      column budget unless the width itself is zeroed, not just display:none. */
   .roster-col-opp,
+  .roster-col-proj-ext,
   .roster-col-delta { display: none; width: 0; }
   /* Percent, not px: table-layout:fixed derives column widths from these at
      whatever width the phone actually has, and they're pinned to sum to
@@ -1553,3 +1557,13 @@ html, body {
 .injury-facts dt { font-size: 12px; color: var(--text-secondary); }
 .injury-facts dd { margin: 0; font-size: 14px; color: var(--text); font-weight: 600; }
 .injury-provenance { font-size: 11px; margin-top: 16px; }
+
+/* add-sleeper-projections -- the second, independent projection.
+   Quiet by default: where two sources agree there is nothing to decide. Only a real
+   divergence earns colour, and it borrows `.delta`'s existing pos/neg vocabulary so a
+   number reading "higher than the platform" looks the same here as everywhere else. */
+.proj-ext { font-variant-numeric: tabular-nums; color: var(--text-tertiary); font-size: 13px; }
+.proj-ext.muted { color: var(--text-secondary); }
+.proj-ext-diverges { font-weight: 600; }
+.proj-ext-diverges.pos { color: var(--stand); }
+.proj-ext-diverges.neg { color: var(--move); }

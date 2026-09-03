@@ -51,6 +51,7 @@ def test_jobs_registry_includes_the_phase_8_jobs() -> None:
         "refresh_nfl_state",
         "refresh_player_pool",
         "refresh_injuries",
+        "refresh_projections",
         "backup_db",
     }
 
@@ -352,6 +353,8 @@ async def test_start_scheduler_registers_every_job_then_shuts_down() -> None:
             "refresh_nfl_state",
             "refresh_player_pool",
             "refresh_injuries",
+            "refresh_projections",
+            "refresh_projections",
             "backup_db",
         }
     finally:

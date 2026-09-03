@@ -30,6 +30,7 @@ function makeSlot(overrides: Partial<RosterSlot> = {}): RosterSlot {
     is_live: false,
     game_state: "post",
     status_text: "FINAL",
+    ext_proj_points: null,
     ...overrides,
   };
 }

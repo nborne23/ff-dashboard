@@ -135,7 +135,7 @@ export function GameDayPanel({
         <TeamLogo
           team={{ name: matchup.team_name, logo_url: matchup.team_logo_url }}
           size={24}
-          ringColor={matchup.platform === "yahoo" ? "var(--yahoo)" : "var(--espn)"}
+          ringColor="var(--text)"
         />
         <span className="gd-team-name">{matchup.team_name}</span>
         <span className="gd-league-name">{matchup.league_name}</span>

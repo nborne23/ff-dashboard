@@ -9,7 +9,6 @@ import { useNavigate } from "react-router-dom";
 
 import { Sparkline } from "../../components/primitives";
 import { useChangedValuePulse } from "../../hooks/useChangedValuePulse";
-import { platformFromId } from "../../types/api";
 import type { Platform, Team } from "../../types/api";
 import { ordinal } from "./ordinal";
 
@@ -27,7 +26,6 @@ export function TeamCard({ team }: TeamCardProps) {
   const navigate = useNavigate();
   const scorePulse = useChangedValuePulse(team.current_score);
   const winning = team.current_score >= team.current_opp_score;
-  const platform = platformFromId(team.id);
   const record = `${team.record.w}–${team.record.l}`;
   const rank = `${ordinal(team.rank.current)} / ${team.rank.total}`;
 
@@ -45,8 +43,12 @@ export function TeamCard({ team }: TeamCardProps) {
         {/* The name owns this row outright. Both badges that used to share it — the
             platform pill and then the logo — were taking width from a column that is
             only ~95px wide on desktop, where the team names need 83–149px. The logo
-            moved to the right column instead (see below); the pill's information now
-            rides on that logo as a ring. */}
+            moved to the right column instead (see below).
+
+            The ring on that logo used to encode the platform (red ESPN / purple
+            Yahoo) and is now a neutral white outline: it separates the avatar from
+            the card, which is what it was actually earning its keep doing. Platform
+            is still readable from `PlatformPill`, exported here and used elsewhere. */}
         <div className="top-row">
           <span className="team-name">{team.name}</span>
           {team.is_live && <span className="live-dot" />}
@@ -81,7 +83,7 @@ export function TeamCard({ team }: TeamCardProps) {
         <TeamLogo
           team={team}
           size={40}
-          ringColor={platform === "yahoo" ? "var(--yahoo)" : "var(--espn)"}
+          ringColor="var(--text)"
         />
         <Sparkline
           data={team.spark_last_6}

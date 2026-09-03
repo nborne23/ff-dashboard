@@ -25,6 +25,7 @@ from backend.gridiron.models import (
     MatchupSlot,
     Player,
     PlayerPoolEntry,
+    PlayerProjection,
     RosterSlot,
     SeasonWeek,
     Team,
@@ -1703,7 +1704,11 @@ async def test_get_waivers_query_count_is_bounded(session_factory) -> None:
             event.remove(sync_engine, "before_cursor_execute", _count)
 
     selects = [s for s in statements if s.lstrip().upper().startswith("SELECT")]
-    assert len(selects) <= 4, f"expected a bounded query count, got {len(selects)}: {selects}"
+    # The ceiling is 6, not 4: add-sleeper-projections added two CONSTANT queries — one
+    # `League` load for season/scoring_type, and one bulk `player_projections` select
+    # using `IN (...)` over the shortlist. What this test actually protects is that the
+    # count does not scale with the number of candidates, which both additions respect.
+    assert len(selects) <= 6, f"expected a bounded query count, got {len(selects)}: {selects}"
 
 
 # ---------------------------------------------------------------------------
@@ -1864,3 +1869,38 @@ async def test_a_team_without_a_logo_has_a_null_logo_url(session_factory) -> Non
 async def test_standings_unknown_team_returns_none(session_factory) -> None:
     async with session_factory() as session:
         assert await fantasy_service.get_league_standings(session, "espn:nope") is None
+
+
+# --------------------------------------------------------------------------------------
+# Third-party projections on the read path (add-sleeper-projections)
+# --------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "scoring_type,expected",
+    [
+        ("ppr", 20.0),
+        ("half_ppr", 18.0),
+        ("standard", 16.0),
+        # A `custom` league gets None, never the PPR number: a confident wrong answer is
+        # worse than an empty column, and `stats_json` keeps what a real computation needs.
+        ("custom", None),
+        (None, None),
+    ],
+)
+def test_resolve_points_picks_the_league_s_own_scoring_format(scoring_type, expected) -> None:
+    row = PlayerProjection(
+        player_id="espn:p-1",
+        season=2026,
+        week=1,
+        source="rotowire",
+        pts_ppr=20.0,
+        pts_half_ppr=18.0,
+        pts_std=16.0,
+        fetched_at=datetime(2026, 9, 3),
+    )
+    assert fantasy_service._resolve_points(row, scoring_type) == expected
+
+
+def test_resolve_points_of_a_missing_row_is_none() -> None:
+    assert fantasy_service._resolve_points(None, "ppr") is None

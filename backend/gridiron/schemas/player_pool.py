@@ -61,6 +61,12 @@ class WaiverCandidate(PlayerPoolEntry):
     # actually rostered, not against a positional average.
     delta_vs_worst_starter: float | None
 
+    # The independent SEASON projection for this candidate, shown next to
+    # `season_proj_points`. It deliberately does NOT feed `delta_vs_worst_starter`:
+    # that comparison is the screen's reason to exist and swapping its inputs is a
+    # judgement call, not a side effect of adding a data source.
+    ext_season_proj_points: float | None = None
+
 
 class WaiversData(BaseModel):
     """Payload of `GET /api/teams/{team_id}/waivers`."""
