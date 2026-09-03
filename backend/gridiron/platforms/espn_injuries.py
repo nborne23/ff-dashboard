@@ -59,28 +59,33 @@ class EspnInjuriesClient:
         return response.json()
 
 
-def espn_athlete_id(player_id: str) -> str | None:
-    """`"espn:p-4428209"` -> `"4428209"`; `None` when there is no ESPN athlete to ask about.
+def espn_athlete_id(player_id: str, bridged_id: str | None = None) -> str | None:
+    """The ESPN athlete id to query, or `None` when there is nothing to ask about.
 
-    Two id classes are rejected rather than tried-and-404'd:
+    `bridged_id` is `players.espn_athlete_id` — the Sleeper-supplied cross-reference that
+    gives a YAHOO-sourced player an ESPN athlete id. Without it a Yahoo roster could see
+    injury designations but never the detail behind them.
 
-    - Non-ESPN platforms (`"yahoo:p-..."`). No cross-platform athlete-id map exists, so a
-      Yahoo player's detail is simply unavailable — the badge still renders from the
-      fantasy status.
-    - D/ST rows, whose ESPN ids are synthetic and NEGATIVE (`"espn:p--16007"`). A team
-      defense is not an athlete and has no injury report.
+    One id class is still rejected rather than tried-and-404'd: D/ST rows, whose ESPN ids
+    are synthetic and NEGATIVE (`"espn:p--16007"`). A team defense is not an athlete and
+    has no injury report — and the bridge does not rescue it, because Sleeper keys
+    defenses by team abbreviation rather than by athlete.
     """
     platform, _, rest = player_id.partition(":")
-    if platform != "espn":
+    if platform == "espn":
+        athlete_id = rest.removeprefix("p-")
+        if athlete_id.isdigit():
+            return athlete_id
+        # A negative (D/ST) id is never bridgeable; fall through to None rather than
+        # letting a stale bridged value resurrect it.
         return None
-    athlete_id = rest.removeprefix("p-")
-    if not athlete_id.isdigit():
-        return None
-    return athlete_id
+    if bridged_id and bridged_id.isdigit():
+        return bridged_id
+    return None
 
 
-def detail_supported(player_id: str) -> bool:
-    return espn_athlete_id(player_id) is not None
+def detail_supported(player_id: str, bridged_id: str | None = None) -> bool:
+    return espn_athlete_id(player_id, bridged_id) is not None
 
 
 def _parse_reported_at(raw_date: str | None) -> datetime | None:
@@ -154,7 +159,7 @@ async def _players_to_sweep(session: AsyncSession) -> list[Player]:
         .scalars()
         .all()
     )
-    return [row for row in rows if detail_supported(row.id)]
+    return [row for row in rows if detail_supported(row.id, row.espn_athlete_id)]
 
 
 async def fetch_and_upsert(
@@ -188,7 +193,7 @@ async def fetch_and_upsert(
     failures: list[str] = []
     try:
         for player in players:
-            athlete_id = espn_athlete_id(player.id)
+            athlete_id = espn_athlete_id(player.id, player.espn_athlete_id)
             assert athlete_id is not None  # `_players_to_sweep` filtered on exactly this
             try:
                 payload = await client.get_injuries(season, athlete_id)

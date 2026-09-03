@@ -334,3 +334,39 @@ export interface PlayerInjuryData {
   /** false for D/ST rows and Yahoo-sourced players — no ESPN athlete to look up. */
   detail_supported: boolean;
 }
+
+/** Which projection the lineup advice was computed from. Never a blend. */
+export type ProjectionSource = "platform" | "rotowire";
+
+/** `unstartable` — the current starter can't play (O/IR/PUP/SUSP/NFI). A different
+ *  recommendation from `higher_projection`, which is a judgement the user may decline. */
+export type MoveReason = "unstartable" | "higher_projection";
+
+export interface LineupMove {
+  slot: Slot;
+  out_player: Player;
+  in_player: Player;
+  out_points: number;
+  in_points: number;
+  delta: number;
+  reason: MoveReason;
+  /** The other projection source independently agrees with this swap. */
+  consensus: boolean;
+}
+
+export interface LineupAdvice {
+  team_id: string;
+  week: number;
+  source: ProjectionSource;
+  current_points: number;
+  optimal_points: number;
+  /** Always equals the sum of `moves` — immaterial swaps are reverted, not hidden. */
+  gain: number;
+  moves: LineupMove[];
+  sources_agree: boolean;
+  comparison_available: boolean;
+  /** False when the source could evaluate nothing — an unsynced roster, or a projections
+   *  job that has never run. Distinct from "already optimal". */
+  advice_available: boolean;
+  unevaluated: Player[];
+}

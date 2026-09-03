@@ -7,7 +7,7 @@
 import { useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { useTeam } from "../../api/teams";
+import { useLineupAdvice, useTeam } from "../../api/teams";
 import { Skeleton } from "../../components/primitives";
 import { EmptyState } from "../../components/shared/EmptyState";
 import { ErrorCard } from "../../components/shared/ErrorCard";
@@ -17,6 +17,7 @@ import { PlatformPill } from "../Dashboard/TeamCard";
 import { useUiStore } from "../../stores/ui";
 import { platformFromId } from "../../types/api";
 import { RecordCard } from "./RecordCard";
+import { LineupAdviceCard } from "./LineupAdviceCard";
 import { RosterTable } from "./RosterTable";
 import { ScoreCard } from "./ScoreCard";
 import { WeeklyChartCard } from "./WeeklyChartCard";
@@ -61,6 +62,9 @@ export default function MyTeam() {
   const week = useUiStore((s) => s.week);
   const setWeek = useUiStore((s) => s.setWeek);
   const teamQuery = useTeam(teamId, week);
+  // Its own query: the advice is a different shape from the roster and must not block
+  // the roster rendering when the projections job has not run.
+  const lineupQuery = useLineupAdvice(teamId, week);
   const queryClient = useQueryClient();
   const platformsDisconnected = usePlatformsDisconnected(teamQuery.data?.meta);
 
@@ -122,6 +126,19 @@ export default function MyTeam() {
           <RosterTable starters={data.starters} bench={data.bench} />
         </div>
         <div className="rail">
+          {/* Above the score: the only card here that asks the user to DO something.
+              A failed request renders an error rather than nothing — a card that silently
+              vanishes is indistinguishable from one with nothing to say. */}
+          {lineupQuery.isError ? (
+            <ErrorCard
+              error={lineupQuery.error}
+              fallbackMessage="Couldn't load start/sit advice."
+              onRetry={() => void lineupQuery.refetch()}
+              testId="lineup-error"
+            />
+          ) : (
+            lineupQuery.data && <LineupAdviceCard advice={lineupQuery.data.data} />
+          )}
           <ScoreCard starters={data.starters} week={week} />
           <WeeklyChartCard starters={data.starters} />
           <RecordCard recordHistory={data.record_history} team={data.team} />

@@ -108,6 +108,33 @@ class SleeperClient:
 # --------------------------------------------------------------------------------------
 
 
+def bridge_espn_athlete_ids(dump: dict, players: list[Player]) -> int:
+    """Fill in `players.espn_athlete_id` for players whose own id isn't an ESPN one.
+
+    The reason this lives in the Sleeper module: its dump is the only place in this
+    codebase carrying `espn_id` and `yahoo_id` on the same record, which is exactly the
+    hop a Yahoo-sourced player needs to reach ESPN's public injury API.
+
+    Returns the number of rows changed. ESPN players are skipped — their athlete id is
+    already inside their own `id` — and so are defenses, which Sleeper keys by team
+    abbreviation rather than by athlete.
+    """
+    by_yahoo_id = {
+        str(p["yahoo_id"]): str(p["espn_id"])
+        for p in dump.values()
+        if p.get("yahoo_id") and p.get("espn_id")
+    }
+    changed = 0
+    for player in players:
+        if player.platform == "espn" or player.position == "DST":
+            continue
+        espn_id = by_yahoo_id.get(player.platform_id.removeprefix("p-"))
+        if espn_id and player.espn_athlete_id != espn_id:
+            player.espn_athlete_id = espn_id
+            changed += 1
+    return changed
+
+
 class PlayerIndex:
     """The three lookup tables the matcher consults, in tier order."""
 
@@ -227,7 +254,8 @@ async def fetch_and_upsert(
     try:
         season, week = await _season_and_week(session)
         dump = await client.get_players(session)
-        players = (await session.execute(select(Player))).scalars().all()
+        players = list((await session.execute(select(Player))).scalars().all())
+        bridged = bridge_espn_athlete_ids(dump, players)
 
         total = 0
         tiers: dict[str, int] = {}
@@ -261,12 +289,13 @@ async def fetch_and_upsert(
 
     matched = sum(tiers.values())
     logger.info(
-        "refresh_projections season=%d week=%d players=%d matched=%d rows=%d tiers=%s",
+        "refresh_projections season=%d week=%d players=%d matched=%d rows=%d bridged=%d tiers=%s",
         season,
         week,
         len(players),
         matched,
         total,
+        bridged,
         tiers,
     )
     if players and matched == 0:

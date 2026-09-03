@@ -60,7 +60,7 @@ async def get_player_injury(
         player_id=player_id,
         injury_status=player.injury_status,
         report=_to_report(row) if row is not None else None,
-        detail_supported=espn_injuries.detail_supported(player_id),
+        detail_supported=espn_injuries.detail_supported(player_id, player.espn_athlete_id),
     )
     meta = await fantasy_service.build_meta(session, next_refresh_at=scheduler.next_run_time())
     response.headers["Cache-Control"] = CACHE_CONTROL

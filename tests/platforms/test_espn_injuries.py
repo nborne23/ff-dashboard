@@ -222,3 +222,51 @@ async def test_season_comes_from_the_persisted_leagues(db):
     async with db() as session:
         await espn_injuries.fetch_and_upsert(session, client)
     assert client.calls == [(2031, "4428209")]
+
+
+# --------------------------------------------------------------------------------------
+# The Sleeper cross-platform bridge (add-lineup-optimizer)
+# --------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "player_id,bridged,expected",
+    [
+        # An ESPN player carries their athlete id inside their own id; the bridge is
+        # irrelevant and must not override it.
+        ("espn:p-4428209", None, "4428209"),
+        ("espn:p-4428209", "999", "4428209"),
+        # A Yahoo player is unreachable WITHOUT the bridge and reachable with it. This is
+        # the whole point of `players.espn_athlete_id`.
+        ("yahoo:p-30123", None, None),
+        ("yahoo:p-30123", "4428209", "4428209"),
+        # A D/ST id is synthetic and negative. Sleeper keys defenses by team abbreviation,
+        # not by athlete, so a bridged value must never resurrect one.
+        ("espn:p--16007", None, None),
+        ("espn:p--16007", "12345", None),
+        # Garbage in the column is ignored rather than sent upstream.
+        ("yahoo:p-30123", "not-a-number", None),
+    ],
+)
+def test_espn_athlete_id_with_the_bridge(player_id, bridged, expected):
+    assert espn_injuries.espn_athlete_id(player_id, bridged) == expected
+    assert espn_injuries.detail_supported(player_id, bridged) is (expected is not None)
+
+
+async def test_a_bridged_yahoo_player_is_swept(db):
+    """Before the bridge these players were skipped outright, so a Yahoo roster showed
+    injury badges with no detail behind any of them."""
+    await seed(db, [("yahoo:p-30123", "Q")])
+    async with db() as session:
+        player = await session.get(Player, "yahoo:p-30123")
+        player.espn_athlete_id = "4428209"
+        await session.commit()
+
+    client = FakeClient({"4428209": REPORT_PAYLOAD})
+    async with db() as session:
+        assert await espn_injuries.fetch_and_upsert(session, client) is None
+
+    assert client.calls == [(2026, "4428209")]
+    async with db() as session:
+        rows = (await session.execute(select(PlayerInjury))).scalars().all()
+    assert [r.player_id for r in rows] == ["yahoo:p-30123"]

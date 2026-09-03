@@ -1567,3 +1567,46 @@ html, body {
 .proj-ext-diverges { font-weight: 600; }
 .proj-ext-diverges.pos { color: var(--stand); }
 .proj-ext-diverges.neg { color: var(--move); }
+
+/* add-lineup-optimizer -- start/sit advice card.
+   Deliberately quiet: most weeks a lineup is already optimal, and a card that
+   manufactures urgency on those weeks stops being read on the weeks it matters. */
+.lineup-card { padding: 16px 18px; }
+.lineup-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.lineup-source { font-size: 11px; }
+.lineup-optimal { margin: 0; font-size: 15px; font-weight: 600; color: var(--exercise); }
+.lineup-empty { margin: 6px 0 0; font-size: 12px; line-height: 1.45; }
+
+.lineup-gain-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+.lineup-gain {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--stand);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.lineup-gain-row .muted { font-size: 12px; }
+
+.lineup-moves { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.lineup-move {
+  display: grid;
+  grid-template-columns: 46px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  background: var(--surface-2, rgba(120,120,128,0.12));
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+/* A starter who cannot play is a different kind of problem from one who projects
+   lower, so the row carries the distinction rather than only the copy. */
+.lineup-move[data-reason="unstartable"] { box-shadow: inset 2px 0 0 var(--espn); }
+.lineup-move-slot { font-size: 12px; font-weight: 700; color: var(--text-secondary); letter-spacing: 0.05em; }
+.lineup-move-swap { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.lineup-move-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.lineup-move-line .player-name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lineup-move-pts { font-size: 11px; font-variant-numeric: tabular-nums; flex: none; }
+.lineup-move-verb { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; width: 34px; flex: none; }
+.lineup-move-verb.sit { color: var(--text-tertiary); }
+.lineup-move-verb.start { color: var(--exercise); }
+.lineup-move-gain { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.lineup-consensus { font-size: 9px; color: var(--text-tertiary); white-space: nowrap; }

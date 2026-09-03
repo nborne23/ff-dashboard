@@ -1027,3 +1027,45 @@ async def test_get_league_standings_unknown_team_returns_typed_404(client, db) -
 
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "team_not_found"
+
+
+async def test_lineup_endpoint_returns_an_envelope(client, db):
+    await seed(db)
+    response = await client.get(f"/api/teams/{USER_TEAM}/lineup?week=14")
+    assert response.status_code == 200
+    assert response.headers["Cache-Control"] == CACHE_CONTROL
+
+    data = response.json()["data"]
+    assert data["team_id"] == USER_TEAM
+    # Defaults to the independent source — it is the reason this endpoint can say
+    # anything the league host's own app doesn't already.
+    assert data["source"] == "rotowire"
+    assert set(data) >= {
+        "moves",
+        "gain",
+        "sources_agree",
+        "comparison_available",
+        "advice_available",
+        "unevaluated",
+    }
+
+
+async def test_lineup_endpoint_accepts_the_platform_source(client, db):
+    await seed(db)
+    data = (await client.get(f"/api/teams/{USER_TEAM}/lineup?week=14&source=platform")).json()[
+        "data"
+    ]
+    assert data["source"] == "platform"
+
+
+async def test_lineup_endpoint_rejects_an_unknown_source(client, db):
+    await seed(db)
+    response = await client.get(f"/api/teams/{USER_TEAM}/lineup?week=14&source=espn")
+    assert response.status_code == 422
+
+
+async def test_lineup_endpoint_404s_an_unknown_team(client, db):
+    await seed(db)
+    response = await client.get("/api/teams/espn:l-9-t-9/lineup?week=14")
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "team_not_found"

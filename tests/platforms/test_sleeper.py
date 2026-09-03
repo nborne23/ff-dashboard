@@ -217,3 +217,45 @@ async def test_total_match_failure_is_reported_not_swallowed(db):
     async with db() as session:
         error = await sleeper.fetch_and_upsert(session, FakeClient())
     assert error is not None and "matched 0 of 1" in error
+
+
+# --------------------------------------------------------------------------------------
+# The ESPN athlete-id bridge
+# --------------------------------------------------------------------------------------
+
+BRIDGE_DUMP = {
+    "111": {"espn_id": 3139477, "yahoo_id": 30123},
+    "222": {"espn_id": None, "yahoo_id": 40404},  # no ESPN side — nothing to bridge
+    "333": {"espn_id": 4360248},  # no Yahoo side
+}
+
+
+def test_bridge_fills_espn_athlete_id_for_yahoo_players():
+    player = make_player("yahoo:p-30123", "Patrick Mahomes", "QB", "KC")
+    assert sleeper.bridge_espn_athlete_ids(BRIDGE_DUMP, [player]) == 1
+    assert player.espn_athlete_id == "3139477"
+
+
+def test_bridge_skips_espn_players_who_already_carry_the_id():
+    player = make_player("espn:p-3139477", "Patrick Mahomes", "QB", "KC")
+    assert sleeper.bridge_espn_athlete_ids(BRIDGE_DUMP, [player]) == 0
+    assert player.espn_athlete_id is None
+
+
+def test_bridge_skips_defenses():
+    """Sleeper keys a defense by team abbreviation, and ESPN has no athlete for one."""
+    player = make_player("yahoo:p-100", "Seahawks D/ST", "DST", "SEA")
+    assert sleeper.bridge_espn_athlete_ids(BRIDGE_DUMP, [player]) == 0
+    assert player.espn_athlete_id is None
+
+
+def test_bridge_is_idempotent():
+    player = make_player("yahoo:p-30123", "Patrick Mahomes", "QB", "KC")
+    sleeper.bridge_espn_athlete_ids(BRIDGE_DUMP, [player])
+    assert sleeper.bridge_espn_athlete_ids(BRIDGE_DUMP, [player]) == 0
+
+
+def test_bridge_leaves_a_player_with_no_espn_side_alone():
+    player = make_player("yahoo:p-40404", "Someone Else", "WR", "BUF")
+    assert sleeper.bridge_espn_athlete_ids(BRIDGE_DUMP, [player]) == 0
+    assert player.espn_athlete_id is None

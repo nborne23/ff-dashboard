@@ -32,6 +32,17 @@ class Player(Base):
     bye_week: Mapped[int | None] = mapped_column(Integer, nullable=True)
     injury_status: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
+    # ESPN's athlete id, for players whose own platform id isn't one.
+    #
+    # An ESPN-sourced player already carries it inside `id` (`espn:p-4428209`), so this
+    # column exists for YAHOO players: ESPN's public injury API is keyed by athlete id and
+    # there is no other way to reach it from a Yahoo roster. Populated by the Sleeper
+    # refresh, whose player dump carries `espn_id` and `yahoo_id` side by side.
+    #
+    # Stays null for D/ST rows on both platforms — a team defense is not an athlete and
+    # has no injury report to fetch.
+    espn_athlete_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )
