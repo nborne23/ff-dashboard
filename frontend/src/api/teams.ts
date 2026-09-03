@@ -8,6 +8,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import type {
   Envelope,
+  LineupAdvice,
   GameDayData,
   League,
   Matchup,
@@ -147,5 +148,15 @@ export function useLeagueStandings(id: string) {
     queryFn: () => apiClient.get<Envelope<LeagueStandingsData>>(`/api/teams/${id}/league`),
     staleTime: STALE_TIME_MS,
     enabled: Boolean(id),
+  });
+}
+
+export function useLineupAdvice(teamId: string, week: number) {
+  return useQuery({
+    queryKey: ["lineup", teamId, week],
+    queryFn: () =>
+      apiClient.get<Envelope<LineupAdvice>>(`/api/teams/${teamId}/lineup?week=${week}`),
+    staleTime: STALE_TIME_MS,
+    enabled: Boolean(teamId),
   });
 }

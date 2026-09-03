@@ -81,19 +81,20 @@ describe("TeamCard", () => {
     expect(container.querySelector(".spark .team-logo")).toBeTruthy();
   });
 
-  it("rings the logo in the team's platform color", () => {
-    // The ring carries what the platform pill used to say. Yahoo cannot be checked by
-    // looking at the app — no Yahoo league is connected — so it is pinned here.
+  it("rings the logo in neutral white, the same on every platform", () => {
+    // The ring used to encode the platform (red ESPN / purple Yahoo). It no longer
+    // does: both platforms are pinned here so a reintroduced per-platform colour
+    // fails loudly rather than quietly returning a cue the design dropped.
     const { container: yahoo } = renderCard(makeTeam({ id: "yahoo:nfl.l.1.t.4" }));
     expect((yahoo.querySelector(".team-logo") as HTMLElement).style.boxShadow).toContain(
-      "var(--yahoo)",
+      "var(--text)",
     );
 
     cleanup();
 
     const { container: espn } = renderCard(makeTeam({ id: "espn:l-9-t-2" }));
     expect((espn.querySelector(".team-logo") as HTMLElement).style.boxShadow).toContain(
-      "var(--espn)",
+      "var(--text)",
     );
   });
 

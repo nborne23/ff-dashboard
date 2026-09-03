@@ -37,6 +37,7 @@ from backend.gridiron.models import (
     MatchupSlot,
     Player,
     PlayerPoolEntry,
+    PlayerProjection,
     RefreshRun,
     RosterSlot,
     SeasonWeek,
@@ -265,7 +266,61 @@ def _player_schema(row: Player) -> schemas.Player:
     )
 
 
-def _roster_slot_schema(row: RosterSlot, player: Player) -> schemas.RosterSlot:
+# --------------------------------------------------------------------------------------
+# Third-party projections (add-sleeper-projections)
+# --------------------------------------------------------------------------------------
+
+# `League.scoring_type` -> the `player_projections` column holding that format's points.
+# `custom` is absent on purpose: serving it the PPR number would be a confident wrong
+# answer, and `player_projections.stats_json` keeps everything needed to compute the real
+# one whenever that gets built.
+# `player_projections.week` sentinel for season-long totals — mirrors
+# `platforms/sleeper.SEASON_SCOPE`, restated here so the read path doesn't import a
+# platform module just for a constant.
+SEASON_PROJECTION_WEEK = 0
+
+_SCORING_COLUMN = {
+    "ppr": "pts_ppr",
+    "half_ppr": "pts_half_ppr",
+    "standard": "pts_std",
+}
+
+
+def _resolve_points(row: PlayerProjection | None, scoring_type: str | None) -> float | None:
+    """The projection for `scoring_type`, or None when we can't answer honestly."""
+    if row is None:
+        return None
+    column = _SCORING_COLUMN.get(scoring_type or "")
+    if column is None:
+        return None
+    return getattr(row, column)
+
+
+async def _projections_by_player(
+    session: AsyncSession, player_ids: list[str], season: int, week: int
+) -> dict[str, PlayerProjection]:
+    """One query for the whole roster/candidate list, not one per player."""
+    if not player_ids:
+        return {}
+    rows = (
+        (
+            await session.execute(
+                select(PlayerProjection).where(
+                    PlayerProjection.player_id.in_(player_ids),
+                    PlayerProjection.season == season,
+                    PlayerProjection.week == week,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return {row.player_id: row for row in rows}
+
+
+def _roster_slot_schema(
+    row: RosterSlot, player: Player, ext_proj_points: float | None = None
+) -> schemas.RosterSlot:
     return schemas.RosterSlot(
         team_id=row.team_id,
         week=row.week,
@@ -276,6 +331,7 @@ def _roster_slot_schema(row: RosterSlot, player: Player) -> schemas.RosterSlot:
         is_live=row.is_live,
         game_state=row.game_state,
         status_text=row.status_text,
+        ext_proj_points=ext_proj_points,
     )
 
 
@@ -603,8 +659,18 @@ async def get_team(session: AsyncSession, team_id: str, week: int) -> TeamDetail
             .where(RosterSlot.team_id == team_id, RosterSlot.week == week)
         )
     ).all()
+    ext = await _projections_by_player(
+        session,
+        [player.id for _rs, player in slot_rows],
+        season=league_row.season if league_row else 0,
+        week=week,
+    )
+    scoring_type = league_row.scoring_type if league_row else None
     slots = sorted(
-        (_roster_slot_schema(rs, player) for rs, player in slot_rows),
+        (
+            _roster_slot_schema(rs, player, _resolve_points(ext.get(player.id), scoring_type))
+            for rs, player in slot_rows
+        ),
         key=lambda s: _SLOT_RANK.get(s.slot, len(SLOT_ORDER)),
     )
     starters = [s for s in slots if s.slot not in STARTER_EXCLUDED_SLOTS]
@@ -741,6 +807,18 @@ async def get_waivers(
         )
     )
 
+    shortlist = scored[:limit]
+    # SEASON scope (`week=0`) to match `season_proj_points`, which is what this screen
+    # compares. A weekly number here would be a 21.57-vs-364.86 category error.
+    league_row = await session.get(League, league_id)
+    ext = await _projections_by_player(
+        session,
+        [player.id for _d, _p, _e, player, _s in shortlist],
+        season=league_row.season if league_row else 0,
+        week=SEASON_PROJECTION_WEEK,
+    )
+    scoring_type = league_row.scoring_type if league_row else None
+
     candidates = [
         schemas.WaiverCandidate(
             league_id=league_id,
@@ -752,8 +830,9 @@ async def get_waivers(
             season_proj_points=entry.season_proj_points,
             eligible_slots=eligible,
             delta_vs_worst_starter=delta,
+            ext_season_proj_points=_resolve_points(ext.get(player.id), scoring_type),
         )
-        for delta, _proj, entry, player, eligible in scored[:limit]
+        for delta, _proj, entry, player, eligible in shortlist
     ]
 
     return schemas.WaiversData(

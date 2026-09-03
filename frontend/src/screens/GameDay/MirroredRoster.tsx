@@ -9,8 +9,9 @@
 // Orientation is `orientSlot()` from Head-to-Head, unchanged. Game Day must not
 // re-derive the home/away ternary — one source of truth for "which side is mine".
 
+import { InjuryBadge } from "../../components/shared/InjuryBadge";
 import { useChangedValuePulse } from "../../hooks/useChangedValuePulse";
-import type { GameState, MatchupSlot } from "../../types/api";
+import type { GameState, InjuryStatus, MatchupSlot } from "../../types/api";
 import { orientSlot } from "../HeadToHead/orientation";
 import { TIE_EPSILON } from "./useLeadFlip";
 
@@ -33,6 +34,7 @@ interface SideProps {
   state: GameState | null;
   isLive: boolean;
   side: "mine" | "theirs";
+  injuryStatus: InjuryStatus | null;
 }
 
 /**
@@ -41,11 +43,15 @@ interface SideProps {
  * brightness 0.0 reads as "was shut out". Without the distinction every pre-kickoff
  * panel would look like a blowout.
  */
-function Side({ name, nflTeam, points, state, isLive, side }: SideProps) {
+function Side({ name, nflTeam, points, state, isLive, side, injuryStatus }: SideProps) {
   return (
     <div className="gd-side" data-side={side} data-state={state ?? "unknown"}>
       {isLive && <span className="gd-live-dot" aria-hidden="true" />}
       <span className="gd-player-name">{name}</span>
+      {/* Static, not clickable: Game Day is a glanceable wall display and opening a
+          modal over a live scoreboard is the wrong affordance for it. The full detail
+          lives one screen away on MyTeam. */}
+      <InjuryBadge status={injuryStatus} />
       <span className="gd-nfl-team">{nflTeam}</span>
       <span className="gd-pts">{points.toFixed(1)}</span>
     </div>
@@ -80,6 +86,7 @@ function MirroredRow({ slot, iAmHome }: RowProps) {
         state={myState}
         isLive={myIsLive}
         side="mine"
+        injuryStatus={myPlayer.injury_status}
       />
       <div className="gd-center">
         <span className="gd-slot-label">{slot.slot}</span>
@@ -99,6 +106,7 @@ function MirroredRow({ slot, iAmHome }: RowProps) {
         state={oppState}
         isLive={oppIsLive}
         side="theirs"
+        injuryStatus={oppPlayer.injury_status}
       />
     </div>
   );

@@ -41,12 +41,13 @@ export interface TeamLogoProps {
   team: Pick<Team, "name" | "logo_url">;
   /** Rendered size in px. Values below `LOGO_MIN_SIZE` are clamped up to it. */
   size?: number;
-  /** Optional platform accent drawn as a ring around the logo.
+  /** Optional accent drawn as a ring around the logo.
    *
-   *  This is how the Dashboard card keeps the information its platform pill used to
-   *  carry. That pill cost 46px in a 127px row, which left too little for the team
-   *  name — a ring costs no horizontal space at all. Uses `box-shadow` rather than
-   *  `border` so it does not shrink the image's content box or shift the row. */
+   *  Originally a platform cue (red ESPN / purple Yahoo), now passed a neutral
+   *  `var(--text)` by both call sites: its real job is separating the avatar from the
+   *  card behind it, and 43% of these avatars are user-uploaded photographs whose own
+   *  colours the accent was competing with. Uses `box-shadow` rather than `border` so
+   *  it does not shrink the image's content box or shift the row. */
   ringColor?: string;
 }
 

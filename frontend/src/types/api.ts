@@ -104,7 +104,12 @@ export interface Team {
 }
 
 export type Position = "QB" | "RB" | "WR" | "TE" | "K" | "DST";
-export type InjuryStatus = "ACTIVE" | "Q" | "D" | "O" | "IR" | "PUP";
+/** Mirrors `backend/gridiron/schemas/players.py`'s `InjuryStatus` — the two are
+ *  hand-duplicated, so widening one means widening the other.
+ *
+ *  `null` means "we don't know", NOT "healthy": both mappers now return null for a
+ *  platform code they can't parse rather than asserting ACTIVE. */
+export type InjuryStatus = "ACTIVE" | "Q" | "D" | "O" | "IR" | "PUP" | "DTD" | "SUSP" | "NFI";
 
 export interface Player {
   id: string;
@@ -131,6 +136,13 @@ export interface RosterSlot {
   is_live: boolean;
   game_state: GameState | null;
   status_text: string;
+  /** An independent weekly projection (Rotowire, via Sleeper's public feed) in this
+   *  league's scoring format. Shown NEXT TO `proj_points`, never blended with it —
+   *  the two disagreeing is the signal.
+   *
+   *  null when the player didn't match the feed, the projection job hasn't run, or the
+   *  league scores `custom`. */
+  ext_proj_points: number | null;
 }
 
 export interface Matchup {
@@ -278,6 +290,9 @@ export interface WaiverCandidate extends PlayerPoolEntry {
    *  eligible slot. null — never 0 — when either side has no projection or no
    *  eligible starter exists. Render as an em dash. */
   delta_vs_worst_starter: number | null;
+  /** Independent SEASON projection (Rotowire, via Sleeper). Shown beside
+   *  `season_proj_points`; deliberately not an input to `delta_vs_worst_starter`. */
+  ext_season_proj_points: number | null;
 }
 
 export interface WaiversData {
@@ -291,4 +306,67 @@ export interface WaiversData {
 export function platformFromId(id: string): Platform | null {
   const prefix = id.split(":")[0];
   return prefix === "yahoo" || prefix === "espn" ? prefix : null;
+}
+
+/** `GET /api/players/{id}/injury` — the detail behind the badge.
+ *
+ *  Every field is optional because ESPN files a practice-report entry (status + date)
+ *  days before the detail and comments land. */
+export interface PlayerInjuryReport {
+  status: string | null;
+  injury_type: string | null;
+  location: string | null;
+  detail: string | null;
+  side: string | null;
+  /** ESPN publishes an un-timezoned `YYYY-MM-DD` estimate, kept verbatim. */
+  return_date: string | null;
+  short_comment: string | null;
+  long_comment: string | null;
+  reported_at: string | null;
+  fetched_at: string;
+}
+
+export interface PlayerInjuryData {
+  player_id: string;
+  injury_status: InjuryStatus | null;
+  /** null is the ordinary "nothing on file" answer, not an error. */
+  report: PlayerInjuryReport | null;
+  /** false for D/ST rows and Yahoo-sourced players — no ESPN athlete to look up. */
+  detail_supported: boolean;
+}
+
+/** Which projection the lineup advice was computed from. Never a blend. */
+export type ProjectionSource = "platform" | "rotowire";
+
+/** `unstartable` — the current starter can't play (O/IR/PUP/SUSP/NFI). A different
+ *  recommendation from `higher_projection`, which is a judgement the user may decline. */
+export type MoveReason = "unstartable" | "higher_projection";
+
+export interface LineupMove {
+  slot: Slot;
+  out_player: Player;
+  in_player: Player;
+  out_points: number;
+  in_points: number;
+  delta: number;
+  reason: MoveReason;
+  /** The other projection source independently agrees with this swap. */
+  consensus: boolean;
+}
+
+export interface LineupAdvice {
+  team_id: string;
+  week: number;
+  source: ProjectionSource;
+  current_points: number;
+  optimal_points: number;
+  /** Always equals the sum of `moves` — immaterial swaps are reverted, not hidden. */
+  gain: number;
+  moves: LineupMove[];
+  sources_agree: boolean;
+  comparison_available: boolean;
+  /** False when the source could evaluate nothing — an unsynced roster, or a projections
+   *  job that has never run. Distinct from "already optimal". */
+  advice_available: boolean;
+  unevaluated: Player[];
 }

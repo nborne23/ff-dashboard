@@ -11,8 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.gridiron import scheduler
 from backend.gridiron.db import get_session
-from backend.gridiron.schemas import Envelope, WaiversData
-from backend.gridiron.services import fantasy_service
+from backend.gridiron.schemas import Envelope, LineupAdvice, ProjectionSource, WaiversData
+from backend.gridiron.services import fantasy_service, lineup
 from backend.gridiron.services.fantasy_service import (
     H2HData,
     SeasonData,
@@ -150,3 +150,25 @@ async def get_league_standings(
     if standings is None:
         raise _not_found("team_not_found", f"unknown team id: {team_id}")
     return await _envelope(session, standings)
+
+
+@router.get("/{team_id}/lineup", response_model=Envelope[LineupAdvice])
+async def get_lineup(
+    team_id: str,
+    response: Response,
+    week: int | None = None,
+    source: ProjectionSource = "rotowire",
+    session: AsyncSession = Depends(get_session),
+) -> Envelope:
+    """Optimal legal lineup for `week` and the moves that reach it.
+
+    `source` defaults to `rotowire` — the independent projection is the reason this
+    endpoint can say anything the platform's own app doesn't already. Pass `platform` to
+    see what your league host's numbers would recommend instead.
+    """
+    resolved = await _resolve_week(session, week)
+    data = await lineup.get_lineup_advice(session, team_id, resolved, source)
+    if data is None:
+        raise _not_found("team_not_found", f"no team {team_id!r}")
+    response.headers["Cache-Control"] = CACHE_CONTROL
+    return await _envelope(session, data)

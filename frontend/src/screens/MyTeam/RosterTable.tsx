@@ -7,6 +7,8 @@
 
 import { useState } from "react";
 
+import { PlayerHealth } from "../../components/shared/PlayerHealth";
+import { ProjectionCompare } from "../../components/shared/ProjectionCompare";
 import type { RosterSlot } from "../../types/api";
 
 function initialsFor(name: string): string {
@@ -62,6 +64,14 @@ function RosterRow({ slot, isBench }: { slot: RosterSlot; isBench?: boolean }) {
             <div className="player-info-row">
               <span className="player-name">{slot.player.name}</span>
               <PositionPill pos={slot.player.position} />
+              {/* Beside the position pill, NOT in the Status column: that column is an
+                  `is_live ? … : isOut ? … : status_text` chain, so putting Q/D/IR there
+                  would replace kickoff time on exactly the rows being decided about. */}
+              <PlayerHealth
+                playerId={slot.player.id}
+                playerName={slot.player.name}
+                status={slot.player.injury_status}
+              />
             </div>
             <div className="player-meta">{slot.player.nfl_team}</div>
           </div>
@@ -100,6 +110,9 @@ function RosterRow({ slot, isBench }: { slot: RosterSlot; isBench?: boolean }) {
         )}
       </td>
       <td className="num muted roster-col-proj">{slot.proj_points.toFixed(1)}</td>
+      <td className="num roster-col-proj-ext">
+        <ProjectionCompare own={slot.proj_points} ext={slot.ext_proj_points} />
+      </td>
       <td className="num roster-col-actual">
         {slot.actual_points ? slot.actual_points.toFixed(1) : "—"}
       </td>
@@ -132,20 +145,25 @@ export function RosterTable({ starters, bench }: RosterTableProps) {
             <th className="roster-col-player">Player</th>
             <th className="roster-col-opp">Opp</th>
             <th className="roster-col-status">Status</th>
-            <th className="roster-col-proj">Proj</th>
+            <th className="roster-col-proj" title="Your league platform's projection">
+              Proj
+            </th>
+            <th className="roster-col-proj-ext" title="Rotowire's independent projection">
+              RW
+            </th>
             <th className="roster-col-actual">Actual</th>
             <th className="roster-col-delta">+/–</th>
           </tr>
         </thead>
         <tbody>
           <tr className="section-row">
-            <td colSpan={7}>Starters</td>
+            <td colSpan={8}>Starters</td>
           </tr>
           {starters.map((s) => (
             <RosterRow key={`${s.slot}-${s.player.id}`} slot={s} />
           ))}
           <tr className="section-row">
-            <td colSpan={7}>Bench</td>
+            <td colSpan={8}>Bench</td>
           </tr>
           {bench.map((s) => (
             <RosterRow key={`${s.slot}-${s.player.id}`} slot={s} isBench />

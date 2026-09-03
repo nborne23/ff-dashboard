@@ -3,6 +3,7 @@
 // (see ./orientation.ts) resolves which side is mine per row, so this
 // component is correct whether the route's teamId is the home or away team.
 
+import { PlayerHealth } from "../../components/shared/PlayerHealth";
 import type { MatchupSlot } from "../../types/api";
 import { orientSlot } from "./orientation";
 
@@ -44,7 +45,14 @@ export function H2HTable({ slots, iAmHome, myTeamName, oppTeamName }: H2HTablePr
                   <div className="me-cell">
                     <div className="headshot">{initialsFor(myPlayer.name)}</div>
                     <div className="player-info">
-                      <div className="player-name">{myPlayer.name}</div>
+                      <div className="player-info-row">
+                        <span className="player-name">{myPlayer.name}</span>
+                        <PlayerHealth
+                          playerId={myPlayer.id}
+                          playerName={myPlayer.name}
+                          status={myPlayer.injury_status}
+                        />
+                      </div>
                       <div className="player-meta">{myPts.toFixed(1)} pts</div>
                     </div>
                   </div>
@@ -59,7 +67,14 @@ export function H2HTable({ slots, iAmHome, myTeamName, oppTeamName }: H2HTablePr
                   <div className="opp-cell">
                     <div className="headshot">{initialsFor(oppPlayer.name)}</div>
                     <div className="player-info">
-                      <div className="player-name">{oppPlayer.name}</div>
+                      <div className="player-info-row">
+                        <span className="player-name">{oppPlayer.name}</span>
+                        <PlayerHealth
+                          playerId={oppPlayer.id}
+                          playerName={oppPlayer.name}
+                          status={oppPlayer.injury_status}
+                        />
+                      </div>
                       <div className="player-meta">{oppPts.toFixed(1)} pts</div>
                     </div>
                   </div>

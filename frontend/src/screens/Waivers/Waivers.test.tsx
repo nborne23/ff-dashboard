@@ -105,6 +105,17 @@ function rowFor(name: string): HTMLElement {
   return screen.getByText(name).closest("tr") as HTMLElement;
 }
 
+/** A row's cell under the column with this class.
+ *
+ * Was positional (`cells[cells.length - 2]`), which broke the moment a column was
+ * inserted before the last one — the assertions silently moved to the wrong column
+ * rather than failing for the right reason. */
+function cellIn(row: HTMLElement, columnClass: string): HTMLElement {
+  const cell = row.querySelector(`td.${columnClass}`);
+  if (!cell) throw new Error(`no .${columnClass} cell in row`);
+  return cell as HTMLElement;
+}
+
 describe("Waivers", () => {
   afterEach(() => {
     cleanup();
@@ -138,10 +149,8 @@ describe("Waivers", () => {
     await screen.findByText("Waivers");
 
     const row = rowFor("Malik Washington");
-    const cells = within(row).getAllByRole("cell");
-    // Projection and delta columns are the last two.
-    expect(cells[cells.length - 2].textContent).toBe("—");
-    expect(cells[cells.length - 1].textContent).toBe("—");
+    expect(cellIn(row, "roster-col-proj").textContent).toBe("—");
+    expect(cellIn(row, "roster-col-actual").textContent).toBe("—");
   });
 
   it("renders a null delta as an em dash even when the projection is present", async () => {
@@ -151,9 +160,8 @@ describe("Waivers", () => {
     await screen.findByText("Waivers");
 
     const row = rowFor("Blake Grupe");
-    const cells = within(row).getAllByRole("cell");
-    expect(cells[cells.length - 2].textContent).toBe("121.5");
-    expect(cells[cells.length - 1].textContent).toBe("—");
+    expect(cellIn(row, "roster-col-proj").textContent).toBe("121.5");
+    expect(cellIn(row, "roster-col-actual").textContent).toBe("—");
   });
 
   it("shows a negative delta as negative", async () => {

@@ -1,6 +1,7 @@
 """`yahoo/mapper.py` — pure raw-JSON -> normalized-entity mappers, tested against fixtures."""
 
 import json
+import logging
 from pathlib import Path
 
 import pytest
@@ -267,3 +268,40 @@ def test_translate_slot_counters_are_independent_per_slot_family() -> None:
     assert mapper._translate_slot("W/R/T", counters) == "FLEX1"
     assert mapper._translate_slot("RB", counters) == "RB2"
     assert mapper._translate_slot("W/R/T", counters) == "FLEX2"
+
+
+# --------------------------------------------------------------------------------------
+# Injury status (add-player-health)
+# --------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        # Yahoo omits `status` entirely for a healthy player, so absent legitimately
+        # means ACTIVE here — unlike an unrecognized code (below).
+        (None, "ACTIVE"),
+        ("", "ACTIVE"),
+        ("Q", "Q"),
+        ("D", "D"),
+        ("O", "O"),
+        ("IR", "IR"),
+        ("IR-R", "IR"),
+        ("IR-NFI", "NFI"),
+        ("PUP", "PUP"),
+        ("DTD", "DTD"),
+        ("SUSP", "SUSP"),
+        ("NA", "O"),
+    ],
+)
+def test_map_injury_status(raw, expected) -> None:
+    assert mapper._map_injury_status(raw) == expected
+
+
+def test_unrecognized_yahoo_status_is_none_not_active(caplog) -> None:
+    """This used to fall back to `"ACTIVE"`, turning any code outside `_INJURY_MAP` into
+    a claim the player was healthy. `None` means "we don't know", which the UI draws as
+    nothing rather than as a green light."""
+    with caplog.at_level(logging.WARNING):
+        assert mapper._map_injury_status("SOME-NEW-CODE") is None
+    assert "SOME-NEW-CODE" in caplog.text

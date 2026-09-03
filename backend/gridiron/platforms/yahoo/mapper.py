@@ -11,6 +11,7 @@ nesting deeper for `team`/`league`/`player`, which carry many optional sub-resou
 """
 
 import hashlib
+import logging
 
 from backend.gridiron import schemas
 from backend.gridiron.platforms.yahoo._yahoo_json import (
@@ -19,6 +20,8 @@ from backend.gridiron.platforms.yahoo._yahoo_json import (
     flatten,
     truthy,
 )
+
+logger = logging.getLogger("uvicorn.error")
 
 
 class MapperError(Exception):
@@ -50,7 +53,28 @@ _NUMBERED_RENAMES = {"W/R/T": "FLEX", "Q/W/R/T": "OP"}
 _POSITION_MAP = {"DEF": "DST"}
 _VALID_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DST"}
 
-_INJURY_MAP = {"Q": "Q", "D": "D", "O": "O", "IR": "IR", "PUP": "PUP"}
+# Yahoo's player `status` codes -> internal `InjuryStatus`. Yahoo OMITS the field entirely
+# for a healthy player, so a missing/empty value legitimately means `ACTIVE`; an
+# unrecognized one does not, and is mapped to `None` (see `_map_injury_status`).
+#
+# `IR-R` (return-designated) and `IR-NFI` are distinct Yahoo codes that both collapse to
+# the coarser designation we model; `NA` is Yahoo's "not active" (inactive for the game).
+_INJURY_MAP: dict[str, str] = {
+    "Q": "Q",
+    "D": "D",
+    "O": "O",
+    "IR": "IR",
+    "IR-R": "IR",
+    "IR-NFI": "NFI",
+    "NFI-A": "NFI",
+    "NFI-R": "NFI",
+    "PUP": "PUP",
+    "PUP-P": "PUP",
+    "PUP-R": "PUP",
+    "DTD": "DTD",
+    "SUSP": "SUSP",
+    "NA": "O",
+}
 
 # Yahoo's league-level `scoring_type` is a FORMAT axis ("head" head-to-head, "point"
 # head-to-head points, "roto" rotisserie) — not a PPR axis. PPR-ness actually lives in
@@ -81,10 +105,20 @@ def _map_position(raw_position: str) -> str:
     return position
 
 
-def _map_injury_status(raw_status: str | None) -> str:
+def _map_injury_status(raw_status: str | None) -> str | None:
+    """Missing -> `ACTIVE`; unrecognized -> `None`.
+
+    Those two cases used to share the `"ACTIVE"` answer, which meant any Yahoo code outside
+    `_INJURY_MAP` was reported to the UI as a healthy player. That is the one wrong answer
+    worth avoiding here, and it is the opposite of the rule the ESPN mapper already states
+    for its own unknown codes.
+    """
     if not raw_status:
         return "ACTIVE"
-    return _INJURY_MAP.get(raw_status.upper(), "ACTIVE")
+    status = _INJURY_MAP.get(raw_status.upper())
+    if status is None:
+        logger.warning("unmapped yahoo player status: %r", raw_status)
+    return status
 
 
 def _map_scoring_type(raw_scoring_type: str | None) -> str:

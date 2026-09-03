@@ -22,8 +22,12 @@ Scope of each `raw` argument:
   own team's internal id (no separate team_id parameter needed).
 """
 
+import logging
+
 from backend.gridiron import schemas
 from backend.gridiron.platforms.espn.slot_table import UnknownSlotError, espn_slot_name
+
+logger = logging.getLogger("uvicorn.error")
 
 # ESPN's `defaultPositionId` -> our internal `Position` literal.
 POSITION_MAP: dict[int, schemas.Position] = {
@@ -79,14 +83,40 @@ PRO_TEAM_MAP: dict[int, str] = {
 # ESPN's `injuryStatus` -> our internal `InjuryStatus` literal. Anything unrecognized
 # maps to `None` rather than raising — unlike slot codes, an unknown injury status
 # isn't a "we mis-mapped a player" failure, just missing metadata.
+#
+# `NORMAL` is ESPN's healthy sentinel and is the MOST COMMON value in practice, not a rare
+# one: a sweep of this install's cached payloads found 312 `NORMAL` against 219 `ACTIVE`.
+# It was missing from this map, so those players persisted `injury_status = NULL` and were
+# indistinguishable from players whose status we never learned.
 INJURY_STATUS_MAP: dict[str, schemas.InjuryStatus] = {
     "ACTIVE": "ACTIVE",
+    "NORMAL": "ACTIVE",
     "QUESTIONABLE": "Q",
     "DOUBTFUL": "D",
     "OUT": "O",
     "INJURY_RESERVE": "IR",
     "PHYSICALLY_UNABLE_TO_PERFORM": "PUP",
+    "DAY_TO_DAY": "DTD",
+    "SUSPENSION": "SUSP",
+    "NON_FOOTBALL_INJURY": "NFI",
+    "NON_FOOTBALL_ILLNESS": "NFI",
 }
+
+
+def map_injury_status(raw_status: str | None) -> schemas.InjuryStatus | None:
+    """`None` for both "ESPN sent nothing" and "ESPN sent something we don't know".
+
+    The two are distinguished in the log, not in the return value: an unrecognized code is
+    a gap in `INJURY_STATUS_MAP` that should be visible, and guessing `ACTIVE` for it would
+    assert a player is healthy on the strength of a string we failed to parse.
+    """
+    if not raw_status:
+        return None
+    status = INJURY_STATUS_MAP.get(raw_status)
+    if status is None:
+        logger.warning("unmapped espn injuryStatus: %r", raw_status)
+    return status
+
 
 # ESPN slot names (from slot_table.LINEUP_SLOT_MAP) that map straight through to the
 # internal `Slot` vocabulary without numbering.
@@ -201,12 +231,20 @@ def map_team(raw: dict, league_id: int | str) -> schemas.Team:
     )
 
 
-def _map_player(player: dict) -> schemas.Player:
+def _map_player(player: dict, raw_injury_status: str | None = None) -> schemas.Player:
+    """`raw_injury_status` is the ROSTER path's override.
+
+    In a `mRoster` response the designation is NOT on the player object — it hangs off the
+    enclosing roster ENTRY (`teams[].roster.entries[].injuryStatus`), and the entries under
+    `schedule[].{home,away}.rosterForCurrentScoringPeriod` that `_build_roster_slots` walks
+    don't carry it at all. The player-pool path is the opposite: there `injuryStatus` really
+    is on the player. Hence one mapper serving both, with the caller supplying the value
+    when it knows better."""
     player_id = player["id"]
     position = POSITION_MAP.get(player.get("defaultPositionId", -1))
     if position is None:
         raise UnknownSlotError(player.get("defaultPositionId", -1))
-    injury_status = INJURY_STATUS_MAP.get(player.get("injuryStatus", ""))
+    injury_status = map_injury_status(raw_injury_status or player.get("injuryStatus"))
     return schemas.Player(
         id=f"espn:p-{player_id}",
         name=player.get("fullName", ""),
@@ -313,14 +351,32 @@ def _internal_slot(lineup_slot_id: int, counters: dict[str, int]) -> schemas.Slo
     raise UnknownSlotError(lineup_slot_id)
 
 
-def _build_roster_slots(side: dict, team_id: str, week: int) -> list[schemas.RosterSlot]:
+def injury_status_by_player_id(raw: dict) -> dict[int, str]:
+    """`{playerId: rawInjuryStatus}` from `teams[].roster.entries[]`.
+
+    The only place a roster response states the designation. A live payload was checked
+    both ways: all 170 players reachable through `schedule[]` appear here, so this index
+    covers the roster path completely rather than partially."""
+    index: dict[int, str] = {}
+    for team in raw.get("teams", []):
+        for entry in (team.get("roster") or {}).get("entries", []):
+            status = entry.get("injuryStatus")
+            if status is not None:
+                index[entry["playerId"]] = status
+    return index
+
+
+def _build_roster_slots(
+    side: dict, team_id: str, week: int, injury_by_id: dict[int, str] | None = None
+) -> list[schemas.RosterSlot]:
     entries = side.get("rosterForCurrentScoringPeriod", {}).get("entries", [])
+    injury_by_id = injury_by_id or {}
     counters: dict[str, int] = {}
     slots: list[schemas.RosterSlot] = []
     for entry in entries:
         slot = _internal_slot(entry["lineupSlotId"], counters)
         player_raw = entry["playerPoolEntry"]["player"]
-        player = _map_player(player_raw)
+        player = _map_player(player_raw, injury_by_id.get(entry["playerId"]))
         slots.append(
             schemas.RosterSlot(
                 team_id=team_id,
@@ -341,6 +397,7 @@ def map_roster(raw: dict, week: int) -> list[schemas.RosterSlot]:
     """Map a `view=mRoster&view=mMatchupScore&view=mBoxscore` response to every rostered
     player across every team's `schedule[]` entry for `week` (see module docstring)."""
     league_id = raw["id"]
+    injury_by_id = injury_status_by_player_id(raw)
     slots: list[schemas.RosterSlot] = []
     for matchup in raw.get("schedule", []):
         for side_key in ("home", "away"):
@@ -348,7 +405,7 @@ def map_roster(raw: dict, week: int) -> list[schemas.RosterSlot]:
             if side is None:
                 continue
             team_id = f"espn:l-{league_id}-t-{side['teamId']}"
-            slots.extend(_build_roster_slots(side, team_id, week))
+            slots.extend(_build_roster_slots(side, team_id, week, injury_by_id))
     return slots
 
 
@@ -365,6 +422,7 @@ def map_matchup(
     internal slot label.
     """
     league_id = raw["id"]
+    injury_by_id = injury_status_by_player_id(raw)
     for entry in raw.get("schedule", []):
         home, away = entry.get("home"), entry.get("away")
         involves_user = (home and home.get("teamId") == user_team_id) or (
@@ -377,12 +435,12 @@ def map_matchup(
         away_team_id = f"espn:l-{league_id}-t-{away['teamId']}"
         home_slots = {
             s.slot: s
-            for s in _build_roster_slots(home, home_team_id, week)
+            for s in _build_roster_slots(home, home_team_id, week, injury_by_id)
             if s.slot not in _STARTER_SLOTS_EXCLUDED
         }
         away_slots = {
             s.slot: s
-            for s in _build_roster_slots(away, away_team_id, week)
+            for s in _build_roster_slots(away, away_team_id, week, injury_by_id)
             if s.slot not in _STARTER_SLOTS_EXCLUDED
         }
 
