@@ -67,6 +67,19 @@ class WaiverCandidate(PlayerPoolEntry):
     # judgement call, not a side effect of adding a data source.
     ext_season_proj_points: float | None = None
 
+    # This week only. A claim you make on Tuesday is a decision about THIS Sunday as
+    # much as about the rest of the year, and the two can point opposite ways: a
+    # bye-week starter is a season-long keep and a week-one hole.
+    #
+    # Both this and its delta come from the independent weekly projection, because the
+    # platform publishes no weekly number for a player who is not on a roster — so a
+    # platform-vs-independent comparison is not available on this axis, and mixing the
+    # two would compare different scales.
+    week_proj_points: float | None = None
+    # Weekly counterpart of `delta_vs_worst_starter`, measured against the weakest
+    # eligible starter's projection FOR THIS WEEK.
+    delta_vs_worst_starter_week: float | None = None
+
 
 class WaiversData(BaseModel):
     """Payload of `GET /api/teams/{team_id}/waivers`."""

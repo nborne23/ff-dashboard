@@ -1704,10 +1704,14 @@ async def test_get_waivers_query_count_is_bounded(session_factory) -> None:
             event.remove(sync_engine, "before_cursor_execute", _count)
 
     selects = [s for s in statements if s.lstrip().upper().startswith("SELECT")]
-    # The ceiling is 6, not 4: add-sleeper-projections added two CONSTANT queries — one
-    # `League` load for season/scoring_type, and one bulk `player_projections` select
-    # using `IN (...)` over the shortlist. What this test actually protects is that the
-    # count does not scale with the number of candidates, which both additions respect.
+    # The ceiling is 6: team, starters (slot + player_id + season proj in ONE outer
+    # join), league, starter weekly projections, candidates, candidate projections
+    # (weekly AND season in one `week IN (...)` select). Every one is constant.
+    #
+    # What this test actually protects is that the count does not scale with the number
+    # of candidates — adding the weekly axis was worth two more queries only because
+    # both are bulk `IN (...)` selects, and the starter roster was folded into a single
+    # read rather than fetched twice.
     assert len(selects) <= 6, f"expected a bounded query count, got {len(selects)}: {selects}"
 
 
@@ -1904,3 +1908,49 @@ def test_resolve_points_picks_the_league_s_own_scoring_format(scoring_type, expe
 
 def test_resolve_points_of_a_missing_row_is_none() -> None:
     assert fantasy_service._resolve_points(None, "ppr") is None
+
+
+async def test_waivers_carry_both_a_weekly_and_a_season_upgrade(session_factory) -> None:
+    """The two horizons disagree often enough to matter — a bye-week starter is a
+    season-long keep and a week-one hole — so a claim needs both numbers, not one."""
+    await _seed_waiver_league(session_factory)
+    async with session_factory() as session:
+        league = await session.get(League, WAIVER_LEAGUE)
+        # Weekly projections: the weakest eligible RB starter ("Weak RB") is poor THIS
+        # week, and the free-agent "Better RB" is strong.
+        for player_id, pts in [("espn:p-101", 4.0), ("espn:p-100", 12.0), ("espn:p-200", 15.0)]:
+            session.add(
+                PlayerProjection(
+                    player_id=player_id,
+                    season=league.season,
+                    week=5,
+                    source="rotowire",
+                    pts_ppr=pts,
+                    pts_half_ppr=pts,
+                    pts_std=pts,
+                    match_tier="espn_id",
+                    fetched_at=datetime(2026, 9, 3),
+                )
+            )
+        await session.commit()
+
+    async with session_factory() as session:
+        data = await fantasy_service.get_waivers(session, WAIVER_TEAM, week=5)
+
+    target = next(c for c in data.candidates if c.player.id == "espn:p-200")
+    assert target.week_proj_points == pytest.approx(15.0)
+    assert target.delta_vs_worst_starter_week == pytest.approx(11.0)
+    # The season axis is untouched by the weekly one.
+    assert target.delta_vs_worst_starter is not None
+
+
+async def test_a_candidate_with_no_weekly_projection_reports_null_not_zero(
+    session_factory,
+) -> None:
+    """Same rule the season delta already follows: "no comparison" is not "no upgrade"."""
+    await _seed_waiver_league(session_factory)
+    async with session_factory() as session:
+        data = await fantasy_service.get_waivers(session, WAIVER_TEAM, week=5)
+    for candidate in data.candidates:
+        assert candidate.week_proj_points is None
+        assert candidate.delta_vs_worst_starter_week is None

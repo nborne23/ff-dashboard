@@ -1430,12 +1430,19 @@ html, body {
 .draft-detail-overlay {
   position: fixed;
   inset: 0;
+  /* iOS Safari's `vh`/`inset:0` track the LARGE viewport, so a fixed sheet can sit
+     partly behind the collapsing URL bar. `dvh` follows the visible area instead;
+     `inset:0` above remains the fallback where dvh is unsupported. */
+  height: 100dvh;
   background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: flex-end;
   justify-content: center;
   z-index: 100;
   padding: 0;
+  /* Stops a scroll gesture that reaches the panel's end from chaining to the page
+     behind it — the other half of the body-scroll lock. */
+  overscroll-behavior: contain;
 }
 @media (min-width: 768px) {
   .draft-detail-overlay { align-items: center; padding: 24px; }
@@ -1443,8 +1450,9 @@ html, body {
 .draft-detail-panel {
   width: 100%;
   max-width: 560px;
-  max-height: 90vh;
+  max-height: 90dvh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   border-radius: 16px 16px 0 0;
   padding: 20px;
 }
@@ -1610,3 +1618,39 @@ html, body {
 .lineup-move-verb.start { color: var(--exercise); }
 .lineup-move-gain { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .lineup-consensus { font-size: 9px; color: var(--text-tertiary); white-space: nowrap; }
+
+/* Waivers: two horizons per cell. The weekly figure leads because a claim is acted on
+   this week; the season figure sits under it in the muted size used for secondary
+   values elsewhere. */
+.waiver-stack { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; line-height: 1.25; }
+.waiver-stack-season { font-size: 11px; color: var(--text-tertiary); }
+.waiver-stack-season .delta { font-size: 11px; font-weight: 500; }
+.roster thead .th-sub {
+  display: block;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+  text-transform: none;
+}
+
+/* The independent projection repeated inside the PROJ cell. Desktop keeps the dedicated
+   RW column and hides this; the phone hides that column and shows this instead, so the
+   number is reachable on both without spending a second column on a 375px screen. */
+.proj-ext-inline { display: none; }
+@media (max-width: 767px) {
+  .proj-ext-inline { display: block; line-height: 1.2; }
+  .proj-ext-inline .proj-ext { font-size: 11px; }
+}
+
+/* Which source a Start/Sit number came from. The card already says "by Rotowire" once;
+   this repeats it per number because the roster directly above shows the platform's
+   figure for the same player, and 13.6 vs 9.4 reads as a bug until the labels are
+   adjacent. */
+.lineup-move-src {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  flex: none;
+}

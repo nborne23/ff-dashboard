@@ -116,6 +116,16 @@ function cellIn(row: HTMLElement, columnClass: string): HTMLElement {
   return cell as HTMLElement;
 }
 
+/** The two horizons a Proj/Upgrade cell now stacks: `[this week, full season]`. */
+function stackedIn(row: HTMLElement, columnClass: string): [string, string] {
+  const cell = cellIn(row, columnClass);
+  const lines = [...cell.querySelectorAll(".waiver-stack > *")].map((el) =>
+    (el.textContent ?? "").trim(),
+  );
+  if (lines.length !== 2) throw new Error(`expected 2 stacked values, got ${lines.length}`);
+  return [lines[0], lines[1]];
+}
+
 describe("Waivers", () => {
   afterEach(() => {
     cleanup();
@@ -129,7 +139,10 @@ describe("Waivers", () => {
 
     expect(await screen.findByText("Waivers")).toBeTruthy();
 
-    const names = screen.getAllByRole("row").slice(1).map((r) => within(r).getAllByRole("cell")[1].textContent);
+    const names = screen
+      .getAllByRole("row")
+      .slice(1)
+      .map((r) => within(r).getAllByRole("cell")[1].textContent);
     expect(names[0]).toContain("Tyler Boyd");
     expect(names[names.length - 1]).toContain("Blake Grupe");
   });
@@ -149,8 +162,9 @@ describe("Waivers", () => {
     await screen.findByText("Waivers");
 
     const row = rowFor("Malik Washington");
-    expect(cellIn(row, "roster-col-proj").textContent).toBe("—");
-    expect(cellIn(row, "roster-col-actual").textContent).toBe("—");
+    // Both horizons: no projection means no number on either, and never a 0.
+    expect(stackedIn(row, "roster-col-proj")).toEqual(["—", "—"]);
+    expect(stackedIn(row, "roster-col-actual")).toEqual(["—", "—"]);
   });
 
   it("renders a null delta as an em dash even when the projection is present", async () => {
@@ -160,8 +174,10 @@ describe("Waivers", () => {
     await screen.findByText("Waivers");
 
     const row = rowFor("Blake Grupe");
-    expect(cellIn(row, "roster-col-proj").textContent).toBe("121.5");
-    expect(cellIn(row, "roster-col-actual").textContent).toBe("—");
+    // Season projection present, weekly one absent (no independent weekly number in
+    // this fixture) — and no eligible kicker to displace, so both deltas stay dashes.
+    expect(stackedIn(row, "roster-col-proj")).toEqual(["—", "121.5"]);
+    expect(stackedIn(row, "roster-col-actual")).toEqual(["—", "—"]);
   });
 
   it("shows a negative delta as negative", async () => {
@@ -216,5 +232,26 @@ describe("Waivers", () => {
     });
 
     expect(await screen.findByTestId("waivers-empty")).toBeTruthy();
+  });
+});
+
+describe("WaiverTable resilience", () => {
+  afterEach(cleanup);
+
+  it("renders a row whose newer projection fields are absent entirely", async () => {
+    // A browser holding a bundle newer than the backend it talks to receives no
+    // `week_proj_points` at all. `undefined.toFixed()` threw and took the whole screen
+    // to the error boundary — one missing number must cost one dash, not the page.
+    const stale = JSON.parse(JSON.stringify(WAIVERS_FIXTURE)) as WaiversResponseData;
+    for (const c of stale.candidates) {
+      delete (c as Partial<(typeof stale.candidates)[number]>).week_proj_points;
+      delete (c as Partial<(typeof stale.candidates)[number]>).delta_vs_worst_starter_week;
+      delete (c as Partial<(typeof stale.candidates)[number]>).ext_season_proj_points;
+    }
+
+    renderWaivers(stale);
+    await screen.findByText("Waivers");
+    expect(screen.getByText("Blake Grupe")).toBeTruthy();
+    expect(stackedIn(rowFor("Blake Grupe"), "roster-col-proj")).toEqual(["—", "121.5"]);
   });
 });

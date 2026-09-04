@@ -21,6 +21,7 @@ function MoveRow({ move }: { move: LineupMove }) {
           <span className="lineup-move-verb sit">SIT</span>
           <span className="player-name">{move.out_player.name}</span>
           <span className="muted lineup-move-pts">{move.out_points.toFixed(1)}</span>
+          <span className="lineup-move-src">RW</span>
           {move.reason === "unstartable" && (
             <span className="pill inj inj-o" title="Cannot play this week">
               OUT
@@ -31,6 +32,7 @@ function MoveRow({ move }: { move: LineupMove }) {
           <span className="lineup-move-verb start">START</span>
           <span className="player-name">{move.in_player.name}</span>
           <span className="muted lineup-move-pts">{move.in_points.toFixed(1)}</span>
+          <span className="lineup-move-src">RW</span>
         </div>
       </div>
       <div className="lineup-move-gain">

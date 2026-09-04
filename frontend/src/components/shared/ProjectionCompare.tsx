@@ -11,15 +11,17 @@
 export interface ProjectionCompareProps {
   /** The league platform's own projection — always present. */
   own: number;
-  /** The independent projection, or null when unmatched / job not yet run / custom scoring. */
-  ext: number | null;
+  /** The independent projection, or null when unmatched / job not yet run / custom
+   *  scoring. `undefined` is tolerated for the same reason `formatPoints` tolerates it:
+   *  a bundle newer than the backend it talks to must degrade to a dash, not throw. */
+  ext: number | null | undefined;
 }
 
 /** Below this the two sources are saying the same thing and the delta is noise. */
 export const DIVERGENCE_THRESHOLD = 1.5;
 
 export function ProjectionCompare({ own, ext }: ProjectionCompareProps) {
-  if (ext === null) {
+  if (ext === null || ext === undefined) {
     return <span className="proj-ext muted">—</span>;
   }
 

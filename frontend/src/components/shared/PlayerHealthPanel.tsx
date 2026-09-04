@@ -6,6 +6,7 @@
 // and this app is used on a phone and on a wall-mounted iMac as much as on a desktop.
 
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 import { usePlayerInjury } from "../../api/players";
 import type { InjuryStatus, PlayerInjuryReport } from "../../types/api";
@@ -80,11 +81,27 @@ export function PlayerHealthPanel({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  // Lock the page behind the dialog. Without this the body keeps scrolling under a
+  // bottom-anchored sheet, which on a phone reads as the panel sliding up the page
+  // rather than as a modal — the exact symptom reported from iOS.
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, []);
+
   const payload = data?.data;
   const report = payload?.report ?? null;
   const code = status && status !== "ACTIVE" ? status : null;
 
-  return (
+  // Rendered into <body> rather than in place. `position: fixed` is resolved against
+  // the nearest ancestor with a transform/filter/contain — and this panel is mounted
+  // from inside a table cell on four different screens, so any such ancestor added
+  // anywhere above it would silently drop the dialog back into document flow. A portal
+  // removes the whole class of failure instead of chasing each instance.
+  return createPortal(
     <div
       className="draft-detail-overlay"
       onClick={onClose}
@@ -154,6 +171,7 @@ export function PlayerHealthPanel({
           </p>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

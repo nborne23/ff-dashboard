@@ -293,6 +293,13 @@ export interface WaiverCandidate extends PlayerPoolEntry {
   /** Independent SEASON projection (Rotowire, via Sleeper). Shown beside
    *  `season_proj_points`; deliberately not an input to `delta_vs_worst_starter`. */
   ext_season_proj_points: number | null;
+  /** This week only. A claim is a decision about this Sunday as much as about the rest
+   *  of the year, and the two can disagree — a bye-week starter is a season-long keep
+   *  and a week-one hole. Independent source only: the platform publishes no weekly
+   *  number for an unrostered player. */
+  week_proj_points: number | null;
+  /** Weekly counterpart of `delta_vs_worst_starter`. */
+  delta_vs_worst_starter_week: number | null;
 }
 
 export interface WaiversData {

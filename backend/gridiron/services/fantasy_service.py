@@ -300,7 +300,19 @@ async def _projections_by_player(
     session: AsyncSession, player_ids: list[str], season: int, week: int
 ) -> dict[str, PlayerProjection]:
     """One query for the whole roster/candidate list, not one per player."""
-    if not player_ids:
+    scoped = await _projections_by_player_and_week(session, player_ids, season, [week])
+    return {pid: row for (pid, _w), row in scoped.items()}
+
+
+async def _projections_by_player_and_week(
+    session: AsyncSession, player_ids: list[str], season: int, weeks: list[int]
+) -> dict[tuple[str, int], PlayerProjection]:
+    """`{(player_id, week): projection}` for several scopes in a single query.
+
+    The waivers screen needs the weekly AND the season row for the same players; two
+    separate calls would double a query that is already the widest on that page.
+    """
+    if not player_ids or not weeks:
         return {}
     rows = (
         (
@@ -308,14 +320,14 @@ async def _projections_by_player(
                 select(PlayerProjection).where(
                     PlayerProjection.player_id.in_(player_ids),
                     PlayerProjection.season == season,
-                    PlayerProjection.week == week,
+                    PlayerProjection.week.in_(weeks),
                 )
             )
         )
         .scalars()
         .all()
     )
-    return {row.player_id: row for row in rows}
+    return {(row.player_id, row.week): row for row in rows}
 
 
 def _roster_slot_schema(
@@ -737,7 +749,7 @@ async def get_waivers(
     # (a sync that has not run) must leave the delta null, not drop the starter.
     starter_rows = (
         await session.execute(
-            select(RosterSlot.slot, PlayerPoolEntry.season_proj_points)
+            select(RosterSlot.slot, RosterSlot.player_id, PlayerPoolEntry.season_proj_points)
             .outerjoin(
                 PlayerPoolEntry,
                 (PlayerPoolEntry.player_id == RosterSlot.player_id)
@@ -752,9 +764,27 @@ async def get_waivers(
     ).all()
     # base slot -> the season projections of the user's starters occupying it
     starters_by_slot: dict[str, list[float]] = {}
-    for slot, proj in starter_rows:
+    for slot, _player_id, proj in starter_rows:
         if proj is not None:
             starters_by_slot.setdefault(_base_slot(slot), []).append(proj)
+
+    # The same map on the WEEKLY axis, built from the independent projection because
+    # the platform publishes no weekly number for an unrostered player — so both sides
+    # of the weekly comparison have to come from the same source to mean anything.
+    league_row = await session.get(League, league_id)
+    scoring_type = league_row.scoring_type if league_row else None
+    season_year = league_row.season if league_row else 0
+    week_projections = await _projections_by_player(
+        session,
+        [pid for _slot, pid, _proj in starter_rows],
+        season=season_year,
+        week=week,
+    )
+    starters_by_slot_week: dict[str, list[float]] = {}
+    for slot, player_id, _proj in starter_rows:
+        points = _resolve_points(week_projections.get(player_id), scoring_type)
+        if points is not None:
+            starters_by_slot_week.setdefault(_base_slot(slot), []).append(points)
 
     # 2 of 2: the candidates themselves. ONTEAM rows are ingested for the comparison
     # above and are never claimable, so they are excluded here.
@@ -778,14 +808,21 @@ async def get_waivers(
     #
     # Bounded by construction: one league's pool is ~1000 rows, loaded once, and only
     # `limit` of them are turned into schemas.
+    candidate_rows = (await session.execute(stmt)).all()
+    candidate_proj = await _projections_by_player_and_week(
+        session,
+        [player.id for _entry, player in candidate_rows],
+        season=season_year,
+        weeks=[week, SEASON_PROJECTION_WEEK],
+    )
+
     scored: list[tuple[float | None, float | None, PlayerPoolEntry, Player, list[str]]] = []
-    for entry, player in (await session.execute(stmt)).all():
+    week_by_player: dict[str, tuple[float | None, float | None]] = {}
+    for entry, player in candidate_rows:
         eligible = json.loads(entry.eligible_slots or "[]")
+        startable = _startable_eligibility(eligible)
         contested = [
-            proj
-            for slot, projs in starters_by_slot.items()
-            if slot in _startable_eligibility(eligible)
-            for proj in projs
+            proj for slot, projs in starters_by_slot.items() if slot in startable for proj in projs
         ]
 
         # Null, never 0.0: "no comparison available" and "exactly as good as the
@@ -793,6 +830,18 @@ async def get_waivers(
         delta = None
         if entry.season_proj_points is not None and contested:
             delta = entry.season_proj_points - min(contested)
+
+        week_points = _resolve_points(candidate_proj.get((player.id, week)), scoring_type)
+        contested_week = [
+            proj
+            for slot, projs in starters_by_slot_week.items()
+            if slot in startable
+            for proj in projs
+        ]
+        week_delta = None
+        if week_points is not None and contested_week:
+            week_delta = week_points - min(contested_week)
+        week_by_player[player.id] = (week_points, week_delta)
 
         scored.append((delta, entry.season_proj_points, entry, player, eligible))
 
@@ -808,16 +857,6 @@ async def get_waivers(
     )
 
     shortlist = scored[:limit]
-    # SEASON scope (`week=0`) to match `season_proj_points`, which is what this screen
-    # compares. A weekly number here would be a 21.57-vs-364.86 category error.
-    league_row = await session.get(League, league_id)
-    ext = await _projections_by_player(
-        session,
-        [player.id for _d, _p, _e, player, _s in shortlist],
-        season=league_row.season if league_row else 0,
-        week=SEASON_PROJECTION_WEEK,
-    )
-    scoring_type = league_row.scoring_type if league_row else None
 
     candidates = [
         schemas.WaiverCandidate(
@@ -830,7 +869,14 @@ async def get_waivers(
             season_proj_points=entry.season_proj_points,
             eligible_slots=eligible,
             delta_vs_worst_starter=delta,
-            ext_season_proj_points=_resolve_points(ext.get(player.id), scoring_type),
+            # SEASON scope (`week=0`) to match `season_proj_points`. A weekly number
+            # here would be a 21.57-vs-364.86 category error — the weekly axis is
+            # carried separately, below.
+            ext_season_proj_points=_resolve_points(
+                candidate_proj.get((player.id, SEASON_PROJECTION_WEEK)), scoring_type
+            ),
+            week_proj_points=week_by_player.get(player.id, (None, None))[0],
+            delta_vs_worst_starter_week=week_by_player.get(player.id, (None, None))[1],
         )
         for delta, _proj, entry, player, eligible in shortlist
     ]

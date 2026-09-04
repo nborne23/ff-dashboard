@@ -165,3 +165,55 @@ describe("PlayerHealth", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 });
+
+describe("PlayerHealthPanel placement", () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    document.body.style.overflow = "";
+  });
+
+  it("renders into <body>, not into the cell it was opened from", () => {
+    // The reported symptom on iOS: the dialog scrolled with the page instead of
+    // covering it. `position: fixed` resolves against the nearest transformed/filtered/
+    // contained ancestor, and this panel is mounted from inside a table cell on four
+    // screens — so a portal is the only placement that can't be broken from above.
+    stubFetch({
+      player_id: "espn:p-1",
+      injury_status: "Q",
+      detail_supported: true,
+      report: null,
+    });
+
+    const host = document.createElement("div");
+    host.id = "mount-host";
+    document.body.appendChild(host);
+    render(<PlayerHealth playerId="espn:p-1" playerName="Someone" status="Q" />, {
+      container: host,
+      wrapper,
+    });
+    fireEvent.click(screen.getByTestId("injury-badge"));
+
+    const overlay = screen.getByTestId("player-health-overlay");
+    expect(host.contains(overlay)).toBe(false);
+    expect(overlay.parentElement).toBe(document.body);
+    host.remove();
+  });
+
+  it("locks page scroll while open and restores it on close", () => {
+    stubFetch({
+      player_id: "espn:p-1",
+      injury_status: "Q",
+      detail_supported: true,
+      report: null,
+    });
+
+    render(<PlayerHealth playerId="espn:p-1" playerName="Someone" status="Q" />, { wrapper });
+    fireEvent.click(screen.getByTestId("injury-badge"));
+    expect(document.body.style.overflow).toBe("hidden");
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(document.body.style.overflow).not.toBe("hidden");
+  });
+});

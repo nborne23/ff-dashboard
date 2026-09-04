@@ -56,6 +56,8 @@ function candidate(
   /** Rotowire's independent season projection. Defaults to `null` — the "no second
    *  opinion on file" case, which is what every pre-existing fixture row means. */
   extSeasonProj: number | null = null,
+  weekProj: number | null = null,
+  weekDelta: number | null = null,
 ): WaiverCandidate {
   return {
     league_id: LEAGUE_ID,
@@ -68,6 +70,8 @@ function candidate(
     delta_vs_worst_starter: delta,
     eligible_slots: eligible,
     ext_season_proj_points: extSeasonProj,
+    week_proj_points: weekProj,
+    delta_vs_worst_starter_week: weekDelta,
   };
 }
 

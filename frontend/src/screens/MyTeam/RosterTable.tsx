@@ -109,7 +109,15 @@ function RosterRow({ slot, isBench }: { slot: RosterSlot; isBench?: boolean }) {
           </span>
         )}
       </td>
-      <td className="num muted roster-col-proj">{slot.proj_points.toFixed(1)}</td>
+      <td className="num muted roster-col-proj">
+        {slot.proj_points.toFixed(1)}
+        {/* Repeated here for phones, where the RW column is hidden for width. Without
+            it the Start/Sit card quotes Rotowire numbers that appear nowhere else on
+            the screen, and the two look like a contradiction rather than two sources. */}
+        <span className="proj-ext-inline">
+          <ProjectionCompare own={slot.proj_points} ext={slot.ext_proj_points} />
+        </span>
+      </td>
       <td className="num roster-col-proj-ext">
         <ProjectionCompare own={slot.proj_points} ext={slot.ext_proj_points} />
       </td>
