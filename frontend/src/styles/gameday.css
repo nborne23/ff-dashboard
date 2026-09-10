@@ -295,7 +295,14 @@
 /* ==== Stat strip ==== */
 .gd-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* Content-sized rather than three equal columns. Projected carries two full
+     values at two decimals ("134.42 vs 125.82") while Win prob carries three
+     characters, so an even split starves the widest column and lets its `vs`
+     figure run under its neighbour — `.gd-stat-value` is `nowrap`, so it
+     overflows rather than truncating. `space-between` keeps the strip spanning
+     the panel at every width the container query steps through. */
+  grid-template-columns: repeat(3, minmax(0, auto));
+  justify-content: space-between;
   gap: 8px;
   border-top: 0.5px solid var(--separator);
   padding-top: 10px;

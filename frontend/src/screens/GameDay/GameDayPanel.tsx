@@ -185,8 +185,8 @@ export function GameDayPanel({
         <div className="gd-stat">
           <div className="gd-stat-label">Projected</div>
           <div className="gd-stat-value">
-            {Math.round(matchup.proj)}
-            <span className="gd-stat-unit">vs {Math.round(matchup.opp_proj)}</span>
+            {matchup.proj.toFixed(2)}
+            <span className="gd-stat-unit">vs {matchup.opp_proj.toFixed(2)}</span>
           </div>
         </div>
         <div className="gd-stat">
