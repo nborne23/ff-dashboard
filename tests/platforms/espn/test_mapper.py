@@ -180,6 +180,51 @@ def test_map_matchup_for_user_team(roster_matchup_raw: dict) -> None:
     assert qb_slot.away_pts == 19.3
 
 
+def test_map_matchup_reads_the_live_total_while_the_matchup_is_in_progress(
+    roster_matchup_raw: dict,
+) -> None:
+    """Mid-game ESPN leaves `totalPoints` at 0.0 and carries the running score in
+    `totalPointsLive` — the bug that showed a Game Day panel live per-player numbers
+    under a team score frozen at 0.0."""
+    raw = copy.deepcopy(roster_matchup_raw)
+    entry = raw["schedule"][0]
+    entry["home"] |= {"totalPoints": 0.0, "totalPointsLive": 41.6}
+    entry["away"] |= {"totalPoints": 0.0, "totalPointsLive": 33.2}
+
+    matchup, _ = mapper.map_matchup(raw, week=10, user_team_id=2)
+
+    assert matchup.home_score == 41.6
+    assert matchup.away_score == 33.2
+
+
+def test_map_matchup_prefers_the_settled_total_over_a_stale_live_one(
+    roster_matchup_raw: dict,
+) -> None:
+    raw = copy.deepcopy(roster_matchup_raw)
+    raw["schedule"][0]["home"] |= {"totalPoints": 115.36, "totalPointsLive": 4.1}
+
+    matchup, _ = mapper.map_matchup(raw, week=10, user_team_id=2)
+
+    assert matchup.home_score == 115.36
+
+
+def test_map_matchup_projection_follows_the_live_figure(roster_matchup_raw: dict) -> None:
+    """`totalProjectedPointsLive` is ESPN's actual-plus-remaining number and the only
+    projection that moves during games; the starters' summed pre-game projections
+    (117.8 here) never do."""
+    raw = copy.deepcopy(roster_matchup_raw)
+    raw["schedule"][0]["home"] |= {
+        "totalProjectedPoints": 138.15,
+        "totalProjectedPointsLive": 137.78,
+    }
+
+    matchup, _ = mapper.map_matchup(raw, week=10, user_team_id=2)
+
+    assert matchup.home_proj == pytest.approx(137.78)
+    # Untouched side still falls back to the summed starter projections.
+    assert matchup.away_proj == pytest.approx(112.5)
+
+
 def test_map_matchup_works_from_either_side(roster_matchup_raw: dict) -> None:
     matchup, _ = mapper.map_matchup(roster_matchup_raw, week=10, user_team_id=5)
     assert matchup.home_team_id == "espn:l-1234567-t-2"

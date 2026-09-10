@@ -412,6 +412,43 @@ def map_roster(raw: dict, week: int) -> list[schemas.RosterSlot]:
 _STARTER_SLOTS_EXCLUDED = {"BN", "IR"}
 
 
+def _side_score(side: dict) -> float:
+    """This week's fantasy points for one side of a matchup.
+
+    ESPN keeps `totalPoints` at 0.0 for the whole of an in-progress matchup and parks
+    the running total in `totalPointsLive` — verified against a live week-1
+    payload, where a side reading `totalPoints: 0.0` carried `totalPointsLive: 4.1`
+    while its players' own `appliedTotal`s were already ticking. Reading only
+    `totalPoints` is why a Game Day panel showed live per-player numbers under a team
+    score frozen at 0.0.
+
+    `totalPoints` still wins whenever it is nonzero: once the matchup settles it is the
+    authoritative figure, and preferring it protects against a stale `totalPointsLive`
+    lingering on a finished week. Mid-game it is 0.0, so the live value comes through.
+    """
+    settled = side.get("totalPoints") or 0.0
+    if settled:
+        return settled
+    live = side.get("totalPointsLive")
+    return live if live is not None else settled
+
+
+def _side_proj(side: dict, slot_sum: float) -> float:
+    """This week's projected total for one side, blended with what has already scored.
+
+    `totalProjectedPointsLive` is ESPN's own actual-plus-remaining number and is the
+    only one of the three that moves during games (137.78 against a static 138.15 in
+    the same live capture). `totalProjectedPoints` is the pre-game figure, and
+    `slot_sum` — summing the starters' own projections, which is what this mapper used
+    to do unconditionally — is the last resort for a payload carrying neither.
+    """
+    for key in ("totalProjectedPointsLive", "totalProjectedPoints"):
+        value = side.get(key)
+        if value is not None:
+            return value
+    return slot_sum
+
+
 def map_matchup(
     raw: dict, week: int, user_team_id: int
 ) -> tuple[schemas.Matchup, list[schemas.MatchupSlot]]:
@@ -451,10 +488,10 @@ def map_matchup(
             week=week,
             home_team_id=home_team_id,
             away_team_id=away_team_id,
-            home_score=home.get("totalPoints", 0.0),
-            away_score=away.get("totalPoints", 0.0),
-            home_proj=sum(s.proj_points for s in home_slots.values()),
-            away_proj=sum(s.proj_points for s in away_slots.values()),
+            home_score=_side_score(home),
+            away_score=_side_score(away),
+            home_proj=_side_proj(home, sum(s.proj_points for s in home_slots.values())),
+            away_proj=_side_proj(away, sum(s.proj_points for s in away_slots.values())),
             is_complete=entry.get("winner", "UNDECIDED") != "UNDECIDED",
         )
         matchup_slots = [
