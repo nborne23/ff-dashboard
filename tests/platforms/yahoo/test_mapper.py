@@ -184,6 +184,27 @@ def test_map_roster_maps_injury_status() -> None:
     assert injured_reserve.slot == "IR"
 
 
+def test_map_roster_handles_an_empty_players_collection() -> None:
+    """A team that hasn't drafted yet comes back with `"players": []` — a bare list rather
+    than Yahoo's usual `{"count": 0}` collection — and must map to no slots, not crash."""
+    raw = load_fixture("roster.json")
+    roster_root = find_subresource(raw["fantasy_content"]["team"], "roster")
+    roster_root["0"]["players"] = []
+
+    assert mapper.map_roster(raw, week=14) == []
+
+
+def test_map_roster_reads_players_nested_flat_on_the_roster() -> None:
+    """Yahoo also returns `players` alongside the roster's scalar fields instead of under
+    the numeric `"0"` slot; both shapes must map identically."""
+    nested = load_fixture("roster.json")
+    flat = load_fixture("roster.json")
+    flat_root = find_subresource(flat["fantasy_content"]["team"], "roster")
+    flat_root["players"] = flat_root.pop("0")["players"]
+
+    assert mapper.map_roster(flat, week=14) == mapper.map_roster(nested, week=14)
+
+
 def test_map_roster_unknown_slot_code_raises_mapper_error() -> None:
     raw = load_fixture("roster.json")
     raw["fantasy_content"]["team"][1]["roster"]["0"]["players"]["0"]["player"][1][
@@ -233,6 +254,18 @@ def test_map_matchup_postevent_status_marks_complete() -> None:
     matchup = mapper.map_matchup(raw, week=14)
 
     assert matchup.is_complete is True
+
+
+def test_map_matchup_reads_teams_nested_under_a_numeric_slot() -> None:
+    """Yahoo sometimes returns a matchup's `teams` one level down under a numeric key
+    (`{"week": "2", "0": {"teams": ...}}`) instead of alongside the scalar fields. Both
+    shapes must map identically."""
+    flat = load_fixture("matchup.json")
+    nested = load_fixture("matchup.json")
+    node = nested["fantasy_content"]["team"][1]["matchups"]["0"]["matchup"]
+    node["0"] = {"teams": node.pop("teams")}
+
+    assert mapper.map_matchup(nested, week=14) == mapper.map_matchup(flat, week=14)
 
 
 def test_map_matchup_missing_teams_raises_mapper_error() -> None:
@@ -305,3 +338,10 @@ def test_unrecognized_yahoo_status_is_none_not_active(caplog) -> None:
     with caplog.at_level(logging.WARNING):
         assert mapper._map_injury_status("SOME-NEW-CODE") is None
     assert "SOME-NEW-CODE" in caplog.text
+
+
+# --- _yahoo_json collection quirks -----------------------------------------------------------
+
+
+def test_collection_items_treats_an_empty_list_as_an_empty_collection() -> None:
+    assert collection_items([]) == []

@@ -18,6 +18,7 @@ from backend.gridiron.platforms.yahoo._yahoo_json import (
     collection_items,
     find_subresource,
     flatten,
+    nested_subresource,
     truthy,
 )
 
@@ -199,7 +200,7 @@ def map_roster(raw: dict, week: int) -> list[schemas.RosterSlot]:
         team_key = team_fields["team_key"]
 
         roster_root = find_subresource(team_array, "roster")
-        players_root = roster_root["0"]["players"]
+        players_root = nested_subresource(roster_root, "players")
 
         counters: dict[str, int] = {}
         slots: list[schemas.RosterSlot] = []
@@ -255,7 +256,7 @@ def map_matchup(raw: dict, week: int) -> schemas.Matchup:
             raise MapperError("yahoo matchup payload has no matchups")
         matchup = matchup_items[0]["matchup"]
 
-        team_entries = collection_items(matchup["teams"])
+        team_entries = collection_items(nested_subresource(matchup, "teams"))
         if len(team_entries) < 2:
             raise MapperError("yahoo matchup payload does not have two teams")
 

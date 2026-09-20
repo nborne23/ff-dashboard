@@ -10,8 +10,14 @@ extra level of list nesting for resources with many optional sub-resources (`tea
 from typing import Any
 
 
-def collection_items(collection: dict) -> list[Any]:
-    """Return the ordered items of a Yahoo `{"count": N, "0": {...}, ...}` collection."""
+def collection_items(collection: Any) -> list[Any]:
+    """Return the ordered items of a Yahoo `{"count": N, "0": {...}, ...}` collection.
+
+    An *empty* collection comes back as a bare `[]` rather than `{"count": 0}` (seen on a
+    roster for a team that hasn't drafted yet), so a list is passed through as its own items.
+    """
+    if not isinstance(collection, dict):
+        return list(collection or [])
     count = collection.get("count", 0)
     return [collection[str(i)] for i in range(count) if str(i) in collection]
 
@@ -38,6 +44,22 @@ def find_subresource(parts: Any, key: str) -> Any:
     for part in parts:
         if isinstance(part, dict) and key in part:
             return part[key]
+    raise KeyError(key)
+
+
+def nested_subresource(container: dict, key: str) -> Any:
+    """Find a sub-resource inside a Yahoo resource *object* (not array).
+
+    Yahoo is inconsistent about where a resource's sub-resources live: sometimes they sit
+    alongside the resource's scalar fields (`{"week": "2", "teams": {...}}`) and sometimes
+    they're tucked one level down under a numeric key (`{"week": "2", "0": {"teams": {...}}}`).
+    Look in both shapes. Raises `KeyError` if `key` is never found.
+    """
+    if key in container:
+        return container[key]
+    for slot, value in container.items():
+        if slot.isdigit() and isinstance(value, dict) and key in value:
+            return value[key]
     raise KeyError(key)
 
 
