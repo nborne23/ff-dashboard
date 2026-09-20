@@ -254,14 +254,22 @@ def map_projection(
 
 
 async def _season_and_week(session: AsyncSession) -> tuple[int, int]:
-    from backend.gridiron.services.fantasy_service import _current_season
+    """The season and week these projections are stored under.
+
+    The week comes from `fantasy_service.current_week` — the max across leagues, and the
+    same function the read paths default to — rather than from whichever league sorts
+    first. A league that hasn't drafted reports `current_week` 0, so picking arbitrarily
+    filed every weekly projection under week 1 while the app asked for week 2, and the
+    waivers screen's whole weekly axis came back null on both platforms.
+    """
+    from backend.gridiron.services.fantasy_service import _current_season, current_week
 
     league = (
         (await session.execute(select(League).order_by(League.season.desc()))).scalars().first()
     )
     if league is None:
         return _current_season(), 1
-    return league.season, league.current_week or 1
+    return league.season, await current_week(session)
 
 
 async def fetch_and_upsert(

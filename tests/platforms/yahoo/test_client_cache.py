@@ -352,3 +352,54 @@ async def test_get_matchup_different_weeks_are_cached_separately(session_factory
     assert route15.call_count == 1
 
     await client.aclose()
+
+
+# --- list_player_pool_raw ------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_list_player_pool_raw_pages_until_the_pool_runs_out(session_factory, client) -> None:
+    """Yahoo caps a players collection at 25 per request, so the pool is paged. A short
+    page means the pool ended before the limit did — stop rather than spend the rest of
+    the budget on empty requests."""
+    page = load_fixture("player_pool.json")  # 4 players, i.e. short of a full page
+    route = respx.get(url__regex=rf"{BASE_URL}/league/461\.l\.123456/players.*").mock(
+        return_value=httpx.Response(200, json=page)
+    )
+
+    async with session_factory() as session:
+        items = await client.list_player_pool_raw(session, "461.l.123456")
+
+    assert len(items) == 4
+    assert route.call_count == 1
+
+    async with session_factory() as session:
+        again = await client.list_player_pool_raw(session, "461.l.123456")
+    assert len(again) == 4
+    assert route.call_count == 1  # cache hit
+
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_list_player_pool_raw_stops_at_the_limit(session_factory, client) -> None:
+    """A full page every time means a pool deeper than the budget; the limit is what ends
+    the paging, and it is a bandwidth decision (see the method's docstring)."""
+    full = load_fixture("player_pool.json")
+    players = {"count": 25}
+    for i in range(25):
+        players[str(i)] = full["fantasy_content"]["league"][1]["players"]["0"]
+    full["fantasy_content"]["league"][1]["players"] = players
+    route = respx.get(url__regex=rf"{BASE_URL}/league/461\.l\.123456/players.*").mock(
+        return_value=httpx.Response(200, json=full)
+    )
+
+    async with session_factory() as session:
+        items = await client.list_player_pool_raw(session, "461.l.123456", limit=75)
+
+    assert len(items) == 75
+    assert route.call_count == 3
+
+    await client.aclose()

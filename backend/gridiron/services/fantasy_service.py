@@ -768,10 +768,10 @@ async def get_waivers(
         )
     ).all()
     # base slot -> the season projections of the user's starters occupying it
+    # Built below, once the independent projections are loaded: the pool's season number
+    # only exists for a platform that publishes one (ESPN does; Yahoo publishes none
+    # anywhere in its API), so the independent source has to be able to stand in.
     starters_by_slot: dict[str, list[float]] = {}
-    for slot, _player_id, proj in starter_rows:
-        if proj is not None:
-            starters_by_slot.setdefault(_base_slot(slot), []).append(proj)
 
     # The same map on the WEEKLY axis, built from the independent projection because
     # the platform publishes no weekly number for an unrostered player — so both sides
@@ -779,17 +779,27 @@ async def get_waivers(
     league_row = await session.get(League, league_id)
     scoring_type = league_row.scoring_type if league_row else None
     season_year = league_row.season if league_row else 0
-    week_projections = await _projections_by_player(
+    starter_projections = await _projections_by_player_and_week(
         session,
         [pid for _slot, pid, _proj in starter_rows],
         season=season_year,
-        week=week,
+        weeks=[week, SEASON_PROJECTION_WEEK],
     )
     starters_by_slot_week: dict[str, list[float]] = {}
-    for slot, player_id, _proj in starter_rows:
-        points = _resolve_points(week_projections.get(player_id), scoring_type)
+    for slot, player_id, pool_proj in starter_rows:
+        points = _resolve_points(starter_projections.get((player_id, week)), scoring_type)
         if points is not None:
             starters_by_slot_week.setdefault(_base_slot(slot), []).append(points)
+
+        # The season axis, pool first and independent projection second — same fallback
+        # the candidates get below, so the two sides of the delta stay comparable.
+        season_points = pool_proj
+        if season_points is None:
+            season_points = _resolve_points(
+                starter_projections.get((player_id, SEASON_PROJECTION_WEEK)), scoring_type
+            )
+        if season_points is not None:
+            starters_by_slot.setdefault(_base_slot(slot), []).append(season_points)
 
     # 2 of 2: the candidates themselves. ONTEAM rows are ingested for the comparison
     # above and are never claimable, so they are excluded here.
@@ -830,11 +840,17 @@ async def get_waivers(
             proj for slot, projs in starters_by_slot.items() if slot in startable for proj in projs
         ]
 
+        season_points = entry.season_proj_points
+        if season_points is None:
+            season_points = _resolve_points(
+                candidate_proj.get((player.id, SEASON_PROJECTION_WEEK)), scoring_type
+            )
+
         # Null, never 0.0: "no comparison available" and "exactly as good as the
         # weakest starter" are different answers, and both occur.
         delta = None
-        if entry.season_proj_points is not None and contested:
-            delta = entry.season_proj_points - min(contested)
+        if season_points is not None and contested:
+            delta = season_points - min(contested)
 
         week_points = _resolve_points(candidate_proj.get((player.id, week)), scoring_type)
         contested_week = [
@@ -848,7 +864,7 @@ async def get_waivers(
             week_delta = week_points - min(contested_week)
         week_by_player[player.id] = (week_points, week_delta)
 
-        scored.append((delta, entry.season_proj_points, entry, player, eligible))
+        scored.append((delta, season_points, entry, player, eligible))
 
     # Biggest upgrade first; unrankable rows (no delta, then no projection) last.
     # Projection breaks ties, so two equal upgrades order by the better player.
@@ -871,7 +887,7 @@ async def get_waivers(
             on_team_id=entry.on_team_id,
             percent_owned=entry.percent_owned,
             percent_started=entry.percent_started,
-            season_proj_points=entry.season_proj_points,
+            season_proj_points=season_points,
             eligible_slots=eligible,
             delta_vs_worst_starter=delta,
             # SEASON scope (`week=0`) to match `season_proj_points`. A weekly number
@@ -883,7 +899,7 @@ async def get_waivers(
             week_proj_points=week_by_player.get(player.id, (None, None))[0],
             delta_vs_worst_starter_week=week_by_player.get(player.id, (None, None))[1],
         )
-        for delta, _proj, entry, player, eligible in shortlist
+        for delta, season_points, entry, player, eligible in shortlist
     ]
 
     return schemas.WaiversData(
@@ -1950,7 +1966,111 @@ def summarize_outcomes(outcomes: dict[str, PlatformOutcome]) -> str | None:
 async def refresh_player_pool(
     session: AsyncSession, settings: Settings | None = None
 ) -> str | None:
-    """Refresh the free-agent/waiver/rostered pool for every league the user plays in.
+    """Refresh every connected platform's player pool. Errors from both are combined, so
+    one platform being down or disconnected never hides the other's result."""
+    settings = settings or get_settings()
+    errors = [
+        error
+        for error in (
+            await _refresh_espn_player_pool(session, settings),
+            await _refresh_yahoo_player_pool(session, settings),
+        )
+        if error
+    ]
+    return "; ".join(errors) or None
+
+
+async def _refresh_yahoo_player_pool(session: AsyncSession, settings: Settings) -> str | None:
+    """Yahoo's half of `refresh_player_pool`.
+
+    Shaped like `_discover_yahoo` rather than like the ESPN pool sync: Yahoo's pool comes
+    from a paged players collection whose pages are cached individually (see
+    `client.list_player_pool_raw`), so there is no single freshness marker to consult —
+    a re-run inside the TTL replays cache and re-persists without touching the network.
+    """
+    conn = await session.get(Connection, "yahoo")
+    if conn is None or not conn.access_token_enc or not conn.refresh_token_enc:
+        return None  # Yahoo not connected — nothing to do, and not an error
+
+    access_token = credentials.decrypt(settings.gridiron_secret_key, conn.access_token_enc)
+    refresh_token = credentials.decrypt(settings.gridiron_secret_key, conn.refresh_token_enc)
+    factory = async_sessionmaker(session.bind, expire_on_commit=False)
+
+    async def persist_tokens(new_access: str, new_refresh: str) -> None:
+        async with factory() as write_session:
+            row = await write_session.get(Connection, "yahoo")
+            if row is not None:
+                row.access_token_enc = credentials.encrypt(settings.gridiron_secret_key, new_access)
+                row.refresh_token_enc = credentials.encrypt(
+                    settings.gridiron_secret_key, new_refresh
+                )
+                await write_session.commit()
+
+    league_rows = (
+        (
+            await session.execute(
+                select(League)
+                .join(Team, Team.league_id == League.id)
+                .where(
+                    League.platform == "yahoo",
+                    League.is_enabled.is_(True),
+                    Team.is_user_team.is_(True),
+                )
+                .distinct()
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not league_rows:
+        return None
+
+    client = YahooClient(
+        settings,
+        access_token=access_token,
+        refresh_token=refresh_token,
+        on_token_refresh=persist_tokens,
+    )
+
+    total_entries = 0
+    total_skipped = 0
+    errors: list[str] = []
+    try:
+        for league in league_rows:
+            try:
+                items = await client.list_player_pool_raw(session, league.platform_id)
+            except (httpx.HTTPError, AuthRequiredError, RateLimitedError) as exc:
+                errors.append(f"{league.name}: {_classify_error(exc)}")
+                continue
+
+            entries, skipped = yahoo_mapper.map_player_pool(items)
+            async with factory() as write_session:
+                await _upsert_player_pool_entries(write_session, league.id, entries)
+                await write_session.commit()
+
+            total_entries += len(entries)
+            total_skipped += skipped
+    finally:
+        await client.aclose()
+
+    logger.info(
+        "player_pool (yahoo): %d leagues, %d entries, %d skipped",
+        len(league_rows),
+        total_entries,
+        total_skipped,
+    )
+
+    if errors:
+        return "; ".join(errors)
+    if total_skipped:
+        return f"skipped {total_skipped} unmappable yahoo entries"
+    return None
+
+
+async def _refresh_espn_player_pool(
+    session: AsyncSession, settings: Settings | None = None
+) -> str | None:
+    """Refresh the free-agent/waiver/rostered pool for every ESPN league the user plays in.
 
     Return value follows the `JOBS` protocol: `None` means success, and any string is
     recorded as `refresh_runs.error` with `ok=False`. That is why a clean run returns

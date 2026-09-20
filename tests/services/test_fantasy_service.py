@@ -1988,3 +1988,94 @@ async def test_upserting_a_matchup_drops_a_stale_row_for_the_same_team_and_week(
     assert [r.id for r in rows] == ["yahoo:461.l.123456.mu.14.corrected"]
     # The stale row's slots go with it rather than dangling.
     assert "yahoo:461.l.123456.mu.14" not in slot_ids
+
+
+@pytest.mark.asyncio
+async def test_waivers_season_axis_falls_back_to_the_independent_projection(
+    session_factory,
+) -> None:
+    """The pool's season number only exists for a platform that publishes one — ESPN does,
+    Yahoo publishes none anywhere in its API. Without this fallback every Yahoo candidate
+    had a null delta, which sorts into the unrankable bucket, so the screen's whole
+    ranking collapsed to arbitrary order."""
+    await _seed_waiver_league(session_factory)
+    async with session_factory() as session:
+        # A candidate shaped like every Yahoo one: in the pool, no season projection on
+        # the row, and an independent projection to stand in for it.
+        session.add(
+            Player(
+                id="espn:p-204",
+                platform="espn",
+                platform_id="204",
+                name="Poolless RB",
+                position="RB",
+                nfl_team="GB",
+                nfl_opponent=None,
+                nfl_game_id=None,
+                bye_week=6,
+                injury_status="ACTIVE",
+            )
+        )
+        session.add(
+            PlayerPoolEntry(
+                league_id=WAIVER_LEAGUE,
+                player_id="espn:p-204",
+                status="FREEAGENT",
+                on_team_id=None,
+                percent_owned=20.0,
+                percent_started=0.0,
+                season_proj_points=None,
+                eligible_slots=json.dumps(["RB", "RB/WR", "FLEX", "BN", "IR"]),
+            )
+        )
+        session.add(
+            PlayerProjection(
+                player_id="espn:p-204",
+                season=2024,
+                week=fantasy_service.SEASON_PROJECTION_WEEK,
+                source="rotowire",
+                pts_ppr=200.0,
+                pts_half_ppr=190.0,
+                pts_std=180.0,
+                fetched_at=datetime(2026, 9, 3),
+            )
+        )
+        await session.commit()
+
+    async with session_factory() as session:
+        data = await fantasy_service.get_waivers(session, WAIVER_TEAM, week=5)
+
+    candidate = _by_name(data)["Poolless RB"]
+    assert candidate.season_proj_points == pytest.approx(200.0)
+    # Measured against the weakest RB starter (136.0), exactly as a pool-projected
+    # candidate would be — and it ranks, instead of landing in the unrankable bucket.
+    assert candidate.delta_vs_worst_starter == pytest.approx(64.0)
+    assert data.candidates[0].player.name == "Poolless RB"
+
+
+@pytest.mark.asyncio
+async def test_waivers_prefer_the_platform_season_projection_over_the_independent_one(
+    session_factory,
+) -> None:
+    """The fallback is a fallback: where the platform publishes its own number, that one
+    still wins, so ESPN's ranking is unchanged by the Yahoo fix."""
+    await _seed_waiver_league(session_factory)
+    async with session_factory() as session:
+        session.add(
+            PlayerProjection(
+                player_id="espn:p-200",  # pool says 190.0
+                season=2024,
+                week=fantasy_service.SEASON_PROJECTION_WEEK,
+                source="rotowire",
+                pts_ppr=5.0,
+                pts_half_ppr=5.0,
+                pts_std=5.0,
+                fetched_at=datetime(2026, 9, 3),
+            )
+        )
+        await session.commit()
+
+    async with session_factory() as session:
+        data = await fantasy_service.get_waivers(session, WAIVER_TEAM, week=5)
+
+    assert _by_name(data)["Better RB"].season_proj_points == pytest.approx(190.0)

@@ -392,3 +392,54 @@ def test_unrecognized_yahoo_status_is_none_not_active(caplog) -> None:
 
 def test_collection_items_treats_an_empty_list_as_an_empty_collection() -> None:
     assert collection_items([]) == []
+
+
+# --- map_player_pool -------------------------------------------------------------------------
+
+
+def _pool_items() -> list[dict]:
+    raw = load_fixture("player_pool.json")
+    return collection_items(raw["fantasy_content"]["league"][1]["players"])
+
+
+def test_map_player_pool_maps_a_claimable_player() -> None:
+    entries, _skipped = mapper.map_player_pool(_pool_items())
+
+    receiver = next(e for e in entries if e.player.id == "yahoo:461.p.100")
+    assert receiver.player.name == "Wide Receiver"
+    assert receiver.player.position == "WR"
+    # Upper-cased like every other Yahoo player mapping, so team joins line up.
+    assert receiver.player.nfl_team == "MIA"
+    assert receiver.player.bye_week == 6
+    assert receiver.status == "FREEAGENT"
+    assert receiver.percent_owned == pytest.approx(69.0)
+    # Yahoo publishes neither of these; reported as absent rather than faked.
+    assert receiver.percent_started == 0.0
+    assert receiver.season_proj_points is None
+
+
+def test_map_player_pool_translates_eligible_positions_to_internal_unnumbered_slots() -> None:
+    entries, _skipped = mapper.map_player_pool(_pool_items())
+
+    receiver = next(e for e in entries if e.player.id == "yahoo:461.p.100")
+    # "W/R/T" is Yahoo's flex; BN/IR carry through for _startable_eligibility to drop.
+    assert receiver.eligible_slots == ["WR", "FLEX", "BN", "IR"]
+    defense = next(e for e in entries if e.player.id == "yahoo:461.p.103")
+    assert defense.eligible_slots == ["DST", "BN"]
+
+
+def test_map_player_pool_takes_the_primary_of_a_multi_position_player() -> None:
+    """Yahoo's `display_position` is a list for a multi-position player ("RB,TE")."""
+    entries, _skipped = mapper.map_player_pool(_pool_items())
+
+    flex = next(e for e in entries if e.player.id == "yahoo:461.p.101")
+    assert flex.player.position == "RB"
+    assert flex.player.injury_status == "Q"
+
+
+def test_map_player_pool_skips_a_position_this_app_does_not_model() -> None:
+    """An IDP league's pool carries defensive players; one must not abort the sync."""
+    entries, skipped = mapper.map_player_pool(_pool_items())
+
+    assert skipped == 1
+    assert all(e.player.id != "yahoo:461.p.102" for e in entries)

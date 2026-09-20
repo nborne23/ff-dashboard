@@ -101,6 +101,11 @@ def _translate_slot(code: str, counters: dict[str, int]) -> str:
 
 
 def _map_position(raw_position: str) -> str:
+    """Yahoo's `display_position` is a comma-separated list for a multi-position player
+    ("RB,TE"), where ESPN has a single primary position. The first entry is Yahoo's own
+    primary, and it is what the rest of this app models — without the split such a player
+    raises, which on a roster would fail the whole league's sync over one tight end."""
+    raw_position = raw_position.split(",")[0].strip()
     position = _POSITION_MAP.get(raw_position, raw_position)
     if position not in _VALID_POSITIONS:
         raise MapperError(f"unknown yahoo player position: {raw_position!r}")
@@ -329,3 +334,85 @@ def map_matchup(raw: dict, week: int) -> schemas.Matchup:
         )
     except KeyError as exc:
         raise MapperError(f"yahoo matchup payload missing expected field: {exc}") from exc
+
+
+def _unnumbered_slot(code: str) -> str | None:
+    """A Yahoo eligible-position code as the internal *unnumbered* slot name, or `None`
+    for a code this app has no slot for.
+
+    Unnumbered on purpose, matching the ESPN pool mapper: the internal numbering
+    (RB1/RB2, FLEX1/FLEX2) comes from per-roster counters, and a pool player is on no
+    roster. `fantasy_service._startable_eligibility` compares these against
+    `_base_slot`-ed roster slots, so the two vocabularies have to be the same one.
+    """
+    renamed = _NUMBERED_RENAMES.get(code)
+    if renamed is not None:
+        return renamed
+    if code in _NUMBERED_SLOTS:
+        return code
+    return _SLOT_MAP.get(code)
+
+
+def map_player_pool(items: list[dict]) -> tuple[list[schemas.PlayerPoolEntry], int]:
+    """Map `client.list_player_pool_raw` fragments to pool entries, plus a skip count.
+
+    Skips rather than raises, for the reason the ESPN pool mapper gives: the pool is a
+    league-wide catalog that legitimately holds positions this app doesn't model, and one
+    of them must not abort a whole league's sync.
+
+    Two fields ESPN supplies have no Yahoo equivalent and are reported as such rather than
+    faked: `percent_started` (Yahoo publishes ownership only) is 0.0, and
+    `season_proj_points` is `None` — Yahoo has no season projection anywhere in its API, so
+    that axis comes from the independent projection source (`fantasy_service.get_waivers`).
+    """
+    entries: list[schemas.PlayerPoolEntry] = []
+    skipped = 0
+
+    for item in items:
+        fields = flatten(item["player"])
+        try:
+            player_key = fields["player_key"]
+            position = _map_position(fields["display_position"])
+        except (KeyError, MapperError):
+            skipped += 1
+            continue
+
+        eligible_raw = fields.get("eligible_positions") or []
+        eligible = [
+            slot
+            for slot in (
+                _unnumbered_slot(flatten(entry).get("position", "")) for entry in eligible_raw
+            )
+            if slot is not None
+        ]
+
+        bye = fields.get("bye_weeks") or {}
+        bye_week = int(bye["week"]) if bye.get("week") not in (None, "") else None
+        headshot = fields.get("headshot") or {}
+
+        entries.append(
+            schemas.PlayerPoolEntry(
+                league_id="",  # set by the caller, which knows which league it fetched
+                player=schemas.Player(
+                    id=f"yahoo:{player_key}",
+                    name=fields.get("name", {}).get("full", ""),
+                    position=position,
+                    nfl_team=fields.get("editorial_team_abbr", "").upper(),
+                    nfl_opponent=None,
+                    nfl_game_id=None,
+                    headshot_url=headshot.get("url", "") if isinstance(headshot, dict) else "",
+                    bye_week=bye_week,
+                    injury_status=_map_injury_status(fields.get("status")),
+                ),
+                # `status=A` is available-only, so every row here is claimable. Yahoo does
+                # distinguish a waiver period, but only on the league's transaction feed.
+                status="FREEAGENT",
+                on_team_id=None,
+                percent_owned=_as_float(flatten(fields.get("percent_owned") or []).get("value")),
+                percent_started=0.0,
+                season_proj_points=None,
+                eligible_slots=eligible,
+            )
+        )
+
+    return entries, skipped

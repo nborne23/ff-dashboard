@@ -286,3 +286,33 @@ def test_bridge_leaves_a_player_with_no_espn_side_alone():
     player = make_player("yahoo:p-40404", "Someone Else", "WR", "BUF")
     assert sleeper.bridge_espn_athlete_ids(BRIDGE_DUMP, [player]) == 0
     assert player.espn_athlete_id is None
+
+
+async def test_projections_are_filed_under_the_apps_current_week(db):
+    """A league that hasn't drafted reports `current_week` 0. Picking a league arbitrarily
+    and defaulting that 0 to 1 filed every weekly projection under week 1 while the read
+    paths asked for the real current week, so the waivers screen's weekly axis was null on
+    both platforms."""
+    await seed(db, [("espn:p-3139477", "Patrick Mahomes", "QB", "KC")], week=0)
+    async with db() as session:
+        undrafted = await session.get(League, "espn:1")
+        assert undrafted.current_week == 0
+        session.add(
+            League(
+                id="espn:999",
+                platform="espn",
+                platform_id="999",
+                name="Started League",
+                season=undrafted.season,
+                team_count=10,
+                scoring_type="ppr",
+                current_week=4,
+            )
+        )
+        await session.commit()
+
+    async with db() as session:
+        await sleeper.fetch_and_upsert(session, FakeClient())
+        rows = (await session.execute(select(PlayerProjection))).scalars().all()
+
+    assert sorted(r.week for r in rows) == [sleeper.SEASON_SCOPE, 4]

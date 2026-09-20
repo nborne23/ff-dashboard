@@ -43,6 +43,13 @@ LEAGUE_TTL = timedelta(hours=24)  # league settings / scoring rules
 TEAM_TTL = timedelta(hours=6)  # team metadata
 ROSTER_TTL = timedelta(hours=1)  # roster, off-day default
 MATCHUP_TTL = timedelta(hours=1)  # matchup, off-day default
+PLAYER_POOL_TTL = timedelta(hours=6)  # matches the ESPN pool's TTL
+
+# Yahoo caps a players collection at 25 per request; the pool limit is the bandwidth
+# budget for one league (300 = 12 requests), sorted best-available-first so the cut
+# falls at the tail nobody claims from.
+PLAYER_POOL_PAGE = 25
+PLAYER_POOL_LIMIT = 300
 
 # Called with (access_token, refresh_token) after a successful refresh so the caller
 # can persist the new tokens.
@@ -285,3 +292,46 @@ class YahooClient:
             path=f"/team/{team_key}/matchups;weeks={week}",
             ttl=cache_service.select_ttl(week, current_week, MATCHUP_TTL),
         )
+
+    async def list_player_pool_raw(
+        self, session: AsyncSession, league_key: str, *, limit: int = PLAYER_POOL_LIMIT
+    ) -> list[dict]:
+        """Return the raw `{"player": [...]}` fragments for the claimable players in
+        `league_key`, best-available first.
+
+        Yahoo caps a players collection at `PLAYER_POOL_PAGE` per request and has no
+        equivalent of ESPN's one-shot 1500-player filter, so this pages. `limit` is
+        therefore a bandwidth decision, not a display one: the waivers screen ranks by
+        upgrade-over-incumbent and shows tens of rows, so the deep tail of a ~1000-player
+        pool costs requests nobody reads. Sorting by `AR` (Yahoo's own actual-rank) means
+        the cut falls at the bottom of the pool, not somewhere arbitrary.
+
+        `status=A` is available-only — free agents and waivers. Unlike ESPN's filter this
+        does not also pull rostered players for their season projection, because Yahoo
+        publishes no season projection at all; that axis comes from the independent
+        projection source for both sides (see `fantasy_service.get_waivers`).
+        """
+        items: list[dict] = []
+        for start in range(0, limit, PLAYER_POOL_PAGE):
+            count = min(PLAYER_POOL_PAGE, limit - start)
+            raw = await self._cached_get(
+                session,
+                endpoint="player_pool",
+                cache_params={"league_key": league_key, "start": start, "count": count},
+                path=(
+                    f"/league/{league_key}/players;status=A;sort=AR"
+                    f";start={start};count={count}/percent_owned"
+                ),
+                ttl=PLAYER_POOL_TTL,
+            )
+            league_array = raw["fantasy_content"]["league"]
+            try:
+                players_root = find_subresource(league_array, "players")
+            except KeyError:
+                break
+            page = collection_items(players_root)
+            items.extend(page)
+            # A short page means the pool ran out before `limit` did.
+            if len(page) < count:
+                break
+        return items

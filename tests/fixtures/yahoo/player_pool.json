@@ -1,0 +1,292 @@
+{
+ "fantasy_content": {
+  "xml:lang": "en-US",
+  "yahoo:uri": "/fantasy/v2/league/461.l.123456/players;status=A;sort=AR;start=0;count=25/percent_owned",
+  "league": [
+   {
+    "league_key": "461.l.123456",
+    "name": "Test League"
+   },
+   {
+    "players": {
+     "count": 4,
+     "0": {
+      "player": [
+       [
+        {
+         "player_key": "461.p.100"
+        },
+        {
+         "player_id": "100"
+        },
+        {
+         "name": {
+          "full": "Wide Receiver",
+          "first": "Wide",
+          "last": "Receiver",
+          "ascii_first": "Wide",
+          "ascii_last": "Receiver"
+         }
+        },
+        {
+         "editorial_team_abbr": "Mia"
+        },
+        {
+         "bye_weeks": {
+          "week": "6"
+         }
+        },
+        {
+         "headshot": {
+          "url": "https://s.yimg.com/iu/api/res/1.2/100.png",
+          "size": "small"
+         }
+        },
+        {
+         "display_position": "WR"
+        },
+        {
+         "primary_position": "WR"
+        },
+        {
+         "eligible_positions": [
+          {
+           "position": "WR"
+          },
+          {
+           "position": "W/R/T"
+          },
+          {
+           "position": "BN"
+          },
+          {
+           "position": "IR"
+          }
+         ]
+        }
+       ],
+       {
+        "percent_owned": [
+         {
+          "coverage_type": "week",
+          "week": 2
+         },
+         {
+          "value": 69
+         },
+         {
+          "delta": "-6"
+         }
+        ]
+       }
+      ]
+     },
+     "1": {
+      "player": [
+       [
+        {
+         "player_key": "461.p.101"
+        },
+        {
+         "player_id": "101"
+        },
+        {
+         "name": {
+          "full": "Flex Back",
+          "first": "Flex",
+          "last": "Back",
+          "ascii_first": "Flex",
+          "ascii_last": "Back"
+         }
+        },
+        {
+         "editorial_team_abbr": "KC"
+        },
+        {
+         "bye_weeks": {
+          "week": "10"
+         }
+        },
+        {
+         "headshot": {
+          "url": "https://s.yimg.com/iu/api/res/1.2/101.png",
+          "size": "small"
+         }
+        },
+        {
+         "display_position": "RB,TE"
+        },
+        {
+         "primary_position": "RB"
+        },
+        {
+         "eligible_positions": [
+          {
+           "position": "RB"
+          },
+          {
+           "position": "TE"
+          },
+          {
+           "position": "W/R/T"
+          },
+          {
+           "position": "BN"
+          }
+         ]
+        },
+        {
+         "status": "Q"
+        }
+       ],
+       {
+        "percent_owned": [
+         {
+          "coverage_type": "week",
+          "week": 2
+         },
+         {
+          "value": 31
+         },
+         {
+          "delta": "-6"
+         }
+        ]
+       }
+      ]
+     },
+     "2": {
+      "player": [
+       [
+        {
+         "player_key": "461.p.102"
+        },
+        {
+         "player_id": "102"
+        },
+        {
+         "name": {
+          "full": "Line Backer",
+          "first": "Line",
+          "last": "Backer",
+          "ascii_first": "Line",
+          "ascii_last": "Backer"
+         }
+        },
+        {
+         "editorial_team_abbr": "SF"
+        },
+        {
+         "bye_weeks": {
+          "week": "9"
+         }
+        },
+        {
+         "headshot": {
+          "url": "https://s.yimg.com/iu/api/res/1.2/102.png",
+          "size": "small"
+         }
+        },
+        {
+         "display_position": "LB"
+        },
+        {
+         "primary_position": "LB"
+        },
+        {
+         "eligible_positions": [
+          {
+           "position": "LB"
+          },
+          {
+           "position": "BN"
+          }
+         ]
+        }
+       ],
+       {
+        "percent_owned": [
+         {
+          "coverage_type": "week",
+          "week": 2
+         },
+         {
+          "value": 4
+         },
+         {
+          "delta": "-6"
+         }
+        ]
+       }
+      ]
+     },
+     "3": {
+      "player": [
+       [
+        {
+         "player_key": "461.p.103"
+        },
+        {
+         "player_id": "103"
+        },
+        {
+         "name": {
+          "full": "Team Defense",
+          "first": "Team",
+          "last": "Defense",
+          "ascii_first": "Team",
+          "ascii_last": "Defense"
+         }
+        },
+        {
+         "editorial_team_abbr": "Was"
+        },
+        {
+         "bye_weeks": {
+          "week": "8"
+         }
+        },
+        {
+         "headshot": {
+          "url": "https://s.yimg.com/iu/api/res/1.2/103.png",
+          "size": "small"
+         }
+        },
+        {
+         "display_position": "DEF"
+        },
+        {
+         "primary_position": "DEF"
+        },
+        {
+         "eligible_positions": [
+          {
+           "position": "DEF"
+          },
+          {
+           "position": "BN"
+          }
+         ]
+        }
+       ],
+       {
+        "percent_owned": [
+         {
+          "coverage_type": "week",
+          "week": 2
+         },
+         {
+          "value": 12
+         },
+         {
+          "delta": "-6"
+         }
+        ]
+       }
+      ]
+     }
+    }
+   }
+  ]
+ }
+}
