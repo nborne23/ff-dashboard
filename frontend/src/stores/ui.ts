@@ -114,6 +114,16 @@ export const COLLAPSED_SIDEBAR_W = 56;
 interface UiState {
   week: number;
   setWeek: (week: number) => void;
+  /**
+   * Whether `week` is a real answer yet — set by the URL's `?week=`, by the Topbar's
+   * arrows, or by the seed from `meta.current_week`. Until then `week` is only the
+   * placeholder 1 that has to render while the first envelope is in flight.
+   *
+   * Deliberately absent from `partialize`, like `week` itself. A persisted `true` would
+   * mean a wall display restored by the LaunchAgent never seeds and sits on week 1 for
+   * the rest of the season — precisely the bug this exists to prevent.
+   */
+  weekPinned: boolean;
   tweaks: Tweaks;
   setTweak: <K extends keyof Tweaks>(key: K, value: Tweaks[K]) => void;
   /**
@@ -163,8 +173,11 @@ interface UiState {
 export const useUiStore = create<UiState>()(
   persist(
     (set) => ({
+      // 1 is a placeholder, not a default: `useCurrentWeekDefault` replaces it with the
+      // live week as soon as the first envelope lands, unless the URL already named one.
       week: 1,
-      setWeek: (week) => set({ week }),
+      weekPinned: false,
+      setWeek: (week) => set({ week, weekPinned: true }),
       tweaks: TWEAK_DEFAULTS,
       setTweak: (key, value) => set((state) => ({ tweaks: { ...state.tweaks, [key]: value } })),
       sidebarCollapsed: false,

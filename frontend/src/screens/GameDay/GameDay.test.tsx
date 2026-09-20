@@ -23,6 +23,7 @@ function envelope(matchups: GameDayMatchup[]): Envelope<GameDayData> {
       live_state: "live",
       as_of: "2026-09-13T18:00:00Z",
       next_refresh_at: "2026-09-13T18:00:30Z",
+      current_week: 1,
       platforms: { yahoo: { ok: true }, espn: { ok: true } },
     },
   };

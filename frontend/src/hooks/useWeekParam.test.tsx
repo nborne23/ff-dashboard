@@ -28,7 +28,7 @@ function renderProbe(initialPath: string) {
 describe("useWeekParam", () => {
   afterEach(() => {
     cleanup();
-    useUiStore.setState({ week: 1 });
+    useUiStore.setState({ week: 1, weekPinned: false });
   });
 
   it("initializes the store from ?week= present in the URL on load", async () => {
@@ -50,13 +50,25 @@ describe("useWeekParam", () => {
   });
 
   it("leaves the store alone when the URL already matches it", async () => {
-    useUiStore.setState({ week: 1 });
+    useUiStore.setState({ week: 1, weekPinned: false });
     renderProbe("/?week=1");
 
     await waitFor(() => {
       expect(screen.getByTestId("url-week").textContent).toBe("1");
     });
     expect(screen.getByTestId("store-week").textContent).toBe("1");
+  });
+
+  it("pins a ?week= that already matches the store, so the default never overrides it", async () => {
+    // `?week=1` names week 1 as explicitly as `?week=14` names 14. Skipping `setWeek`
+    // because the value happens to match would leave the week unpinned, and
+    // `useCurrentWeekDefault` would then replace the user's choice with the live week.
+    useUiStore.setState({ week: 1, weekPinned: false });
+    renderProbe("/?week=1");
+
+    await waitFor(() => {
+      expect(useUiStore.getState().weekPinned).toBe(true);
+    });
   });
 
   it("reflects subsequent store changes (Topbar back/forward) into the URL", async () => {

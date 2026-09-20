@@ -9,6 +9,7 @@ import { Topbar } from "./components/shell/Topbar";
 import { TweaksPanel } from "./components/shell/TweaksPanel";
 import { useActiveTeamSync } from "./hooks/useActiveTeam";
 import { parseTeamRoute } from "./hooks/teamRoute";
+import { useCurrentWeekDefault } from "./hooks/useCurrentWeekDefault";
 import { useWeekParam } from "./hooks/useWeekParam";
 import { COLLAPSED_SIDEBAR_W, useUiStore } from "./stores/ui";
 
@@ -33,6 +34,7 @@ export default function App() {
   const mobileNavOpen = useUiStore((s) => s.mobileNavOpen);
   const setMobileNavOpen = useUiStore((s) => s.setMobileNavOpen);
   useWeekParam();
+  useCurrentWeekDefault();
   useLiveEvents();
   useActiveTeamSync();
 

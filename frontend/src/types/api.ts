@@ -63,6 +63,12 @@ export interface Meta {
   /** ISO timestamp of the scheduler's next planned run. */
   next_refresh_at: string;
   platforms: Record<Platform, PlatformStatus>;
+  /**
+   * The week a request omitting `?week=` resolves to — the NFL week the leagues are on.
+   * `hooks/useCurrentWeekDefault.ts` seeds the week selector from it, which is why it
+   * rides along on every envelope instead of having an endpoint of its own.
+   */
+  current_week: number;
 }
 
 /** The envelope every read endpoint returns. */

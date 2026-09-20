@@ -22,6 +22,7 @@ function envelope(teams: TeamsListData["teams"]): Envelope<TeamsListData> {
       live_state: "live",
       as_of: "2026-07-12T12:00:00Z",
       next_refresh_at: "2026-07-12T12:00:30Z",
+      current_week: 1,
       platforms: { yahoo: { ok: true }, espn: { ok: true } },
     },
   };

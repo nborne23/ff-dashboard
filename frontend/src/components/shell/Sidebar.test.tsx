@@ -56,6 +56,7 @@ describe("Sidebar footer", () => {
             live_state: "off_day",
             as_of: new Date().toISOString(),
             next_refresh_at: new Date().toISOString(),
+            current_week: 1,
             platforms: {},
           },
         }),

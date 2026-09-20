@@ -1397,6 +1397,8 @@ async def build_meta(
     - `next_refresh_at`: the scheduler's next planned run when the caller provides it
       (the API layer asks `scheduler.next_run_time()`), else now + the off-day cadence.
     - `platforms`: connection status overlaid with the last refresh error per platform.
+    - `current_week`: what a request omitting `?week=` resolves to, so the frontend can
+      default to the live week without asking separately.
     """
     now = datetime.now(UTC).replace(tzinfo=None)
 
@@ -1418,6 +1420,7 @@ async def build_meta(
         as_of=as_of,
         next_refresh_at=next_refresh_at or (now + timedelta(minutes=30)),
         platforms=platforms,
+        current_week=await current_week(session),
     )
 
 

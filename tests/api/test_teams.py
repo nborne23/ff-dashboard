@@ -174,6 +174,19 @@ def assert_envelope(body: dict) -> None:
     assert set(meta["platforms"]) == {"yahoo", "espn"}
     for status in meta["platforms"].values():
         assert "ok" in status
+    # The week a request omitting `?week=` resolves to. The frontend defaults its week
+    # selector to this, so every envelope has to carry it.
+    assert isinstance(meta["current_week"], int)
+
+
+@pytest.mark.asyncio
+async def test_meta_carries_the_leagues_current_week(client, db) -> None:
+    await seed(db)
+
+    response = await client.get("/api/teams")
+
+    assert response.status_code == 200
+    assert response.json()["meta"]["current_week"] == 14
 
 
 @pytest.mark.asyncio

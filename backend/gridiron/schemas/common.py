@@ -79,6 +79,11 @@ class Meta(BaseModel):
     as_of: datetime
     next_refresh_at: datetime
     platforms: dict[Platform, PlatformStatus]
+    #: The week a request that omits `?week=` resolves to — the NFL week the leagues are
+    #: actually on. Carried on every envelope so the frontend can land on it without a
+    #: request of its own. Required, not defaulted: a default would let a future
+    #: `build_meta` path quietly ship a fabricated week 1.
+    current_week: int
 
 
 T = TypeVar("T")

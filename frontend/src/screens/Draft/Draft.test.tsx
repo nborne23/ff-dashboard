@@ -30,6 +30,7 @@ function envelope<T>(data: T): Envelope<T> {
       live_state: "off_day",
       as_of: "2026-08-23T12:00:00Z",
       next_refresh_at: "2026-08-23T12:30:00Z",
+      current_week: 1,
       platforms: { yahoo: { ok: true }, espn: { ok: true } },
     },
   };

@@ -31,10 +31,15 @@ export function useWeekParam(): void {
     const fromUrl = searchParams.get(WEEK_PARAM);
     if (fromUrl === null) return;
     const parsed = Number(fromUrl);
-    if (Number.isInteger(parsed) && parsed > 0 && parsed !== week) {
-      skipNextWrite.current = true;
-      setWeek(parsed);
-    }
+    if (!Number.isInteger(parsed) || parsed <= 0) return;
+
+    // `setWeek` runs even when the URL agrees with the store, because it is also what
+    // PINS the week (stores/ui.ts) — and a `?week=1` that skipped the call would leave
+    // the week unpinned and let `useCurrentWeekDefault` overwrite an explicit choice.
+    // `skipNextWrite` stays inside the inequality: when the two already agree, the
+    // write effect only rewrites the URL to the value it already holds.
+    if (parsed !== week) skipNextWrite.current = true;
+    setWeek(parsed);
     // Mount-only: intentionally ignoring `searchParams`/`week` so this never re-runs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
