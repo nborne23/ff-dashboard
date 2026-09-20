@@ -12,11 +12,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import App from "./App";
 import { COLLAPSED_SIDEBAR_W, TWEAK_DEFAULTS, useUiStore } from "./stores/ui";
 
-function renderApp() {
+function renderApp(path = "/") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={["/"]}>
+      <MemoryRouter initialEntries={[path]}>
         <App />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -54,7 +54,8 @@ describe("App tweaks live-wiring (task 10.5)", () => {
   });
 
   it("modulates the Aurora gradient's alpha from the auroraIntensity tweak", () => {
-    const { container } = renderApp();
+    // Rendered at /dashboard: "/" is Game Day now, which carries its own live-orange tint.
+    const { container } = renderApp("/dashboard");
     const aurora = () => container.querySelector(".aurora") as HTMLElement;
 
     expect(aurora().style.getPropertyValue("--aurora-color")).toBe(

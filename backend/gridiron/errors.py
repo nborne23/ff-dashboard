@@ -17,6 +17,14 @@ class RateLimitedError(GridironError):
     """Raised when a platform keeps returning a rate-limit status after backoff retries."""
 
 
+class MatchupNotFoundError(GridironError):
+    """Raised when a league's schedule has no matchup for the requested week and team.
+
+    Normal for a league that hasn't started (ESPN reports `current_week` 0 for one that
+    hasn't drafted), so callers skip that league's matchup rather than failing the sync.
+    """
+
+
 class DraftPickConflictError(GridironError):
     """Raised by `draft_state.record_pick` when a manual pick names an `overall_pick`
     that's already taken by a *different* player. ESPN-sourced picks (phase 5) are

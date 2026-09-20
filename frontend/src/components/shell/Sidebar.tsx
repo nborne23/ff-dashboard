@@ -38,6 +38,11 @@ export function Sidebar() {
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const activeTeamId = useUiStore((s) => s.activeTeamId);
+  // App closes the drawer when the pathname changes, which never fires for a tap on the
+  // screen you are already on — now the common case, since Game Day is both the landing
+  // page and a nav item. Closing on the click itself covers both.
+  const setMobileNavOpen = useUiStore((s) => s.setMobileNavOpen);
+  const closeMobileNav = () => setMobileNavOpen(false);
   const teamsQuery = useTeams(week);
   const freshness = useFreshness(teamsQuery.data?.meta?.as_of);
   const connectionLostLong = useLiveConnectionStore((s) => s.connectionLostLong);
@@ -91,7 +96,7 @@ export function Sidebar() {
       </div>
 
       <div className="nav-group">
-        <NavLink to="/" end className={navItemClassName}>
+        <NavLink to="/dashboard" className={navItemClassName} onClick={closeMobileNav}>
           <span className="icon">
             <IconDashboard size={18} />
           </span>
@@ -101,7 +106,7 @@ export function Sidebar() {
         {/* Between Dashboard and the "My Teams" group, and — unlike Matchups and
             Season below — a DIRECT link rather than a primaryTeamId one: Game Day
             spans every team, so there is no team to select. */}
-        <NavLink to="/gameday" className={navItemClassName}>
+        <NavLink to="/" end className={navItemClassName} onClick={closeMobileNav}>
           <span className="icon">
             <IconBolt size={18} />
           </span>
@@ -186,7 +191,7 @@ export function Sidebar() {
           <span className="label">League</span>
         </NavLink>
         {DRAFT_ASSISTANT && (
-          <NavLink to="/draft" className={navItemClassName}>
+          <NavLink to="/draft" className={navItemClassName} onClick={closeMobileNav}>
             <span className="icon">
               <IconFlame size={18} />
             </span>
@@ -196,7 +201,7 @@ export function Sidebar() {
       </div>
 
       <div className="nav-group">
-        <NavLink to="/settings" className={navItemClassName}>
+        <NavLink to="/settings" className={navItemClassName} onClick={closeMobileNav}>
           <span className="icon">
             <IconSettings size={18} />
           </span>

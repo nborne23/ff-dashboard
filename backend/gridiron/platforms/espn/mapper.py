@@ -25,6 +25,7 @@ Scope of each `raw` argument:
 import logging
 
 from backend.gridiron import schemas
+from backend.gridiron.errors import MatchupNotFoundError
 from backend.gridiron.platforms.espn.slot_table import UnknownSlotError, espn_slot_name
 
 logger = logging.getLogger("uvicorn.error")
@@ -461,6 +462,12 @@ def map_matchup(
     league_id = raw["id"]
     injury_by_id = injury_status_by_player_id(raw)
     for entry in raw.get("schedule", []):
+        # `schedule[]` is the league's WHOLE season, so the user's team appears in one entry
+        # per week. Without this, every week mapped the user's first (week-1) matchup and
+        # stored it under the requested week's id — Game Day showed week 1 forever.
+        period = entry.get("matchupPeriodId")
+        if period is not None and period != week:
+            continue
         home, away = entry.get("home"), entry.get("away")
         involves_user = (home and home.get("teamId") == user_team_id) or (
             away and away.get("teamId") == user_team_id
@@ -507,4 +514,6 @@ def map_matchup(
         ]
         return matchup, matchup_slots
 
-    raise ValueError(f"no schedule entry found for user_team_id={user_team_id!r} in week {week}")
+    raise MatchupNotFoundError(
+        f"no schedule entry found for user_team_id={user_team_id!r} in week {week}"
+    )

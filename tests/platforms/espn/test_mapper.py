@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from backend.gridiron.errors import MatchupNotFoundError
 from backend.gridiron.platforms.espn import mapper
 from backend.gridiron.platforms.espn.slot_table import UnknownSlotError
 
@@ -231,8 +232,29 @@ def test_map_matchup_works_from_either_side(roster_matchup_raw: dict) -> None:
     assert matchup.away_team_id == "espn:l-1234567-t-5"
 
 
+def test_map_matchup_picks_the_entry_for_the_requested_week(roster_matchup_raw: dict) -> None:
+    """`schedule[]` holds the league's whole season, so the user's team appears once per
+    week. Mapping week 10 must skip their week-9 entry rather than take the first match —
+    taking the first is why every week rendered week 1's finished matchup."""
+    earlier = copy.deepcopy(roster_matchup_raw["schedule"][0])
+    earlier["id"] = 4001
+    earlier["matchupPeriodId"] = 9
+    roster_matchup_raw["schedule"].insert(0, earlier)
+
+    matchup, _ = mapper.map_matchup(roster_matchup_raw, week=10, user_team_id=2)
+
+    assert matchup.id == "espn:l-1234567-m-5001-w-10"
+
+
+def test_map_matchup_raises_when_the_week_has_no_entry(roster_matchup_raw: dict) -> None:
+    """A league that hasn't started reports `current_week` 0, which matches no schedule
+    entry; the caller skips that league's matchup on this error."""
+    with pytest.raises(MatchupNotFoundError):
+        mapper.map_matchup(roster_matchup_raw, week=3, user_team_id=2)
+
+
 def test_map_matchup_raises_when_team_not_in_schedule(roster_matchup_raw: dict) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(MatchupNotFoundError):
         mapper.map_matchup(roster_matchup_raw, week=10, user_team_id=999)
 
 

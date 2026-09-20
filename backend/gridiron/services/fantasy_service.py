@@ -26,7 +26,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from backend.gridiron import schemas
 from backend.gridiron.config import Settings, get_settings
-from backend.gridiron.errors import AuthRequiredError, CredentialDecryptError, RateLimitedError
+from backend.gridiron.errors import (
+    AuthRequiredError,
+    CredentialDecryptError,
+    MatchupNotFoundError,
+    RateLimitedError,
+)
 from backend.gridiron.models import (
     Connection,
     Headshot,
@@ -1815,18 +1820,30 @@ async def _discover_espn(factory: async_sessionmaker, settings: Settings) -> Non
                 for team_id, slots in by_team.items():
                     await _replace_roster(session, team_id, week, slots)
 
-                if user_team_id is not None:
-                    matchup, matchup_slots = espn_mapper.map_matchup(roster_raw, week, user_team_id)
-                    await _upsert_matchup(session, matchup)
-                    await _replace_matchup_slots(session, matchup.id, matchup_slots)
-                    names = {
-                        f"espn:l-{league.platform_id}-t-{t['id']}": (
-                            t.get("name")
-                            or f"{t.get('location', '')} {t.get('nickname', '')}".strip()
+                if user_team_id is not None and week > 0:
+                    try:
+                        matchup, matchup_slots = espn_mapper.map_matchup(
+                            roster_raw, week, user_team_id
                         )
-                        for t in raw.get("teams", [])
-                    }
-                    await _record_season_weeks_from_matchup(session, matchup, names)
+                    except MatchupNotFoundError:
+                        # A league with no matchup this week (undrafted, or a bye) still has
+                        # teams and rosters worth keeping — don't fail the whole platform.
+                        logger.info(
+                            "espn league %s has no week-%s matchup for the user's team",
+                            league.platform_id,
+                            week,
+                        )
+                    else:
+                        await _upsert_matchup(session, matchup)
+                        await _replace_matchup_slots(session, matchup.id, matchup_slots)
+                        names = {
+                            f"espn:l-{league.platform_id}-t-{t['id']}": (
+                                t.get("name")
+                                or f"{t.get('location', '')} {t.get('nickname', '')}".strip()
+                            )
+                            for t in raw.get("teams", [])
+                        }
+                        await _record_season_weeks_from_matchup(session, matchup, names)
                 await session.commit()
     finally:
         await client.aclose()
