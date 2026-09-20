@@ -1,5 +1,6 @@
 // Screen 5: Settings — ported from design/screen-settings.jsx. All six prototype
-// groups are wired up (task 7.3-7.7): Connected Platforms, ESPN Leagues, ESPN
+// groups are wired up (task 7.3-7.7): Connected Platforms, one Leagues group per
+// platform (Yahoo then ESPN, matching Connected Platforms' order), ESPN
 // Credentials, Preferences, Appearance, Data Management, in prototype order.
 
 import { useRef } from "react";
@@ -8,7 +9,7 @@ import { AppearanceCard } from "./AppearanceCard";
 import { ConnectionsCard } from "./ConnectionsCard";
 import { DataManagementCard } from "./DataManagementCard";
 import { EspnCredentialsCard } from "./EspnCredentialsCard";
-import { EspnLeaguesCard } from "./EspnLeaguesCard";
+import { LeaguesCard } from "./LeaguesCard";
 import { PreferencesCard } from "./PreferencesCard";
 
 export default function Settings() {
@@ -29,7 +30,8 @@ export default function Settings() {
             input?.scrollIntoView?.({ behavior: "smooth", block: "center" });
           }}
         />
-        <EspnLeaguesCard />
+        <LeaguesCard platform="yahoo" />
+        <LeaguesCard platform="espn" />
         <EspnCredentialsCard ref={swidInputRef} />
         <PreferencesCard />
         <AppearanceCard />

@@ -225,9 +225,9 @@ describe("Settings", () => {
     });
   });
 
-  // --- EspnLeaguesCard (task 7.3) ------------------------------------------------------
+  // --- LeaguesCard (task 7.3) ----------------------------------------------------------
 
-  it("lists ESPN leagues and toggles enable via PATCH", async () => {
+  it("lists each platform's leagues in its own group and toggles enable via PATCH", async () => {
     const { fetchMock, state } = installFetchMock({
       leagues: [
         league({ id: "espn:1", name: "Office League" }),
@@ -238,9 +238,11 @@ describe("Settings", () => {
     renderSettings();
 
     expect(await screen.findByText("Office League")).toBeTruthy();
-    // Only the ESPN league renders in this card — the Yahoo one is filtered out.
-    expect(screen.queryByText("Yahoo League")).toBeNull();
+    // Yahoo leagues get their own group rather than being dropped (they used to be
+    // filtered out, so a Yahoo-only user saw no leagues at all here).
+    expect(screen.getByText("Yahoo League")).toBeTruthy();
     expect(screen.getByText("ESPN · 2025 · 10 teams · standard scoring")).toBeTruthy();
+    expect(screen.getByText("Yahoo · 2025 · 10 teams · standard scoring")).toBeTruthy();
 
     const toggle = screen.getByRole("switch", { name: "Office League enabled" });
     fireEvent.click(toggle);
@@ -258,12 +260,13 @@ describe("Settings", () => {
     expect(state.leagues.find((l) => l.id === "espn:1")?.is_enabled).toBe(false);
   });
 
-  it("shows an empty state when no ESPN leagues are found", async () => {
+  it("shows a per-platform empty state when no leagues are found", async () => {
     installFetchMock({ leagues: [] });
 
     renderSettings();
 
     expect(await screen.findByText("No ESPN leagues found")).toBeTruthy();
+    expect(screen.getByText("No Yahoo leagues found")).toBeTruthy();
   });
 
   // --- PreferencesCard (task 7.4) ------------------------------------------------------

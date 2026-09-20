@@ -1,6 +1,6 @@
-// "ESPN Leagues" settings-group — matches design/screen-settings.jsx's ESPN Leagues
-// group. Lists every discovered ESPN league (GET /api/leagues, both platforms — this
-// card filters to platform === "espn") with a per-league enable Switch; disabling a
+// "<Platform> Leagues" settings-group — matches design/screen-settings.jsx's ESPN Leagues
+// group, rendered once per connected platform. Lists every discovered league for that
+// platform (GET /api/leagues returns both) with a per-league enable Switch; disabling a
 // league excludes its teams from GET /api/teams aggregation (backend/gridiron/
 // services/fantasy_service.py:list_teams) without dropping the discovered rows.
 
@@ -17,20 +17,27 @@ const SCORING_LABELS: Record<LeagueSetting["scoring_type"], string> = {
   custom: "custom scoring",
 };
 
+const PLATFORM_LABELS: Record<LeagueSetting["platform"], string> = {
+  espn: "ESPN",
+  yahoo: "Yahoo",
+};
+
 function leagueSub(league: LeagueSetting): string {
   const scoring = SCORING_LABELS[league.scoring_type] ?? league.scoring_type;
-  return `ESPN · ${league.season} · ${league.team_count} teams · ${scoring}`;
+  const platform = PLATFORM_LABELS[league.platform] ?? league.platform;
+  return `${platform} · ${league.season} · ${league.team_count} teams · ${scoring}`;
 }
 
-export function EspnLeaguesCard() {
+export function LeaguesCard({ platform }: { platform: LeagueSetting["platform"] }) {
   const leaguesQuery = useLeagues();
   const updateLeague = useUpdateLeague();
 
-  const espnLeagues = (leaguesQuery.data ?? []).filter((league) => league.platform === "espn");
+  const label = PLATFORM_LABELS[platform] ?? platform;
+  const leagues = (leaguesQuery.data ?? []).filter((league) => league.platform === platform);
 
   return (
     <div className="settings-group">
-      <h3>ESPN Leagues</h3>
+      <h3>{label} Leagues</h3>
 
       {leaguesQuery.isLoading && (
         <>
@@ -46,11 +53,14 @@ export function EspnLeaguesCard() {
         />
       )}
 
-      {leaguesQuery.data && espnLeagues.length === 0 && (
-        <SettingsRow label="No ESPN leagues found" sub="Connect ESPN below to discover leagues." />
+      {leaguesQuery.data && leagues.length === 0 && (
+        <SettingsRow
+          label={`No ${label} leagues found`}
+          sub={`Connect ${label} above to discover leagues.`}
+        />
       )}
 
-      {espnLeagues.map((league) => (
+      {leagues.map((league) => (
         <SettingsRow
           key={league.id}
           label={league.name}
