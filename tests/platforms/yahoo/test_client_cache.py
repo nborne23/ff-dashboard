@@ -120,8 +120,8 @@ async def test_list_leagues_returns_tuples_and_caches(session_factory, client) -
 @pytest.mark.asyncio
 @respx.mock
 async def test_get_team_finds_owned_team_and_caches(session_factory, client) -> None:
-    route = respx.get(f"{BASE_URL}/league/461.l.123456/teams", params={"format": "json"}).mock(
-        return_value=httpx.Response(200, json=load_fixture("teams.json"))
+    route = respx.get(f"{BASE_URL}/league/461.l.123456/standings", params={"format": "json"}).mock(
+        return_value=httpx.Response(200, json=load_fixture("standings.json"))
     )
 
     async with session_factory() as session:
@@ -139,12 +139,12 @@ async def test_get_team_finds_owned_team_and_caches(session_factory, client) -> 
 @pytest.mark.asyncio
 @respx.mock
 async def test_get_team_raises_when_no_owned_team_found(session_factory, client) -> None:
-    unowned = load_fixture("teams.json")
-    for team_item in unowned["fantasy_content"]["league"][1]["teams"].values():
+    unowned = load_fixture("standings.json")
+    for team_item in unowned["fantasy_content"]["league"][1]["standings"][0]["teams"].values():
         if isinstance(team_item, dict):
             team_item["team"][0][-1]["is_owned_by_current_login"] = 0
 
-    respx.get(f"{BASE_URL}/league/461.l.123456/teams", params={"format": "json"}).mock(
+    respx.get(f"{BASE_URL}/league/461.l.123456/standings", params={"format": "json"}).mock(
         return_value=httpx.Response(200, json=unowned)
     )
 

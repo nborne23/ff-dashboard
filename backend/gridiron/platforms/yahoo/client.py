@@ -25,6 +25,7 @@ from backend.gridiron.platforms.yahoo._yahoo_json import (
     collection_items,
     find_subresource,
     flatten,
+    nested_subresource,
     truthy,
 )
 from backend.gridiron.services import cache as cache_service
@@ -213,16 +214,28 @@ class YahooClient:
     async def list_teams_raw(self, session: AsyncSession, league_key: str) -> list[dict]:
         """Return the raw `{"team": [...]}` collection fragments for every team in
         `league_key` — the exact input shape `mapper.map_team` expects. Shares the cache
-        entry with `get_team` (one upstream call feeds both)."""
+        entry with `get_team` (one upstream call feeds both).
+
+        Fetched from `/standings` rather than `/teams`: the two return the same team
+        fragments, but standings additionally carries `team_standings` (rank, W-L-T,
+        points for/against) on each one. `/teams` alone leaves every Yahoo team at 0-0 and
+        rank 0 — the ESPN league payload has those numbers inline, so this is what it takes
+        to reach parity, and it costs no extra request.
+        """
         raw = await self._cached_get(
             session,
-            endpoint="teams",
+            endpoint="standings",
             cache_params={"league_key": league_key},
-            path=f"/league/{league_key}/teams",
+            path=f"/league/{league_key}/standings",
             ttl=TEAM_TTL,
         )
         league_array = raw["fantasy_content"]["league"]
-        teams_root = find_subresource(league_array, "teams")
+        standings_root = find_subresource(league_array, "standings")
+        # Yahoo wraps the standings collection in a single-element array on some responses
+        # and returns the object directly on others.
+        if isinstance(standings_root, list):
+            standings_root = standings_root[0]
+        teams_root = nested_subresource(standings_root, "teams")
         return collection_items(teams_root)
 
     async def get_team(self, session: AsyncSession, league_key: str) -> str:

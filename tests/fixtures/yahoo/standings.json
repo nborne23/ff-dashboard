@@ -1,0 +1,181 @@
+{
+ "fantasy_content": {
+  "xml:lang": "en-US",
+  "yahoo:uri": "/fantasy/v2/league/461.l.123456/standings",
+  "league": [
+   {
+    "league_key": "461.l.123456",
+    "league_id": "123456",
+    "name": "The League of Extraordinary Gentlemen",
+    "url": "https://football.fantasysports.yahoo.com/f1/123456",
+    "num_teams": 10,
+    "scoring_type": "head",
+    "current_week": 14,
+    "season": "2025"
+   },
+   {
+    "standings": [
+     {
+      "teams": {
+       "0": {
+        "team": [
+         [
+          {
+           "team_key": "461.l.123456.t.1"
+          },
+          {
+           "team_id": "1"
+          },
+          {
+           "name": "Gridiron Gurus"
+          },
+          {
+           "url": "https://football.fantasysports.yahoo.com/f1/123456/1"
+          },
+          {
+           "managers": [
+            {
+             "manager": {
+              "manager_id": "1",
+              "nickname": "Nick",
+              "guid": "ABCDEF1234567890ABCDEF1234567890",
+              "is_current_login": 1
+             }
+            }
+           ]
+          },
+          {
+           "waiver_priority": 4
+          },
+          {
+           "number_of_moves": "12"
+          },
+          {
+           "number_of_trades": 0
+          },
+          {
+           "is_owned_by_current_login": 1
+          },
+          {
+           "team_logos": [
+            {
+             "team_logo": {
+              "size": "large",
+              "url": "https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png"
+             }
+            }
+           ]
+          }
+         ],
+         {
+          "team_points": {
+           "coverage_type": "season",
+           "season": "2025",
+           "total": "138.46"
+          }
+         },
+         {
+          "team_standings": {
+           "rank": "1",
+           "playoff_seed": "1",
+           "outcome_totals": {
+            "wins": "1",
+            "losses": 0,
+            "ties": 0,
+            "percentage": "1.000"
+           },
+           "streak": {
+            "type": "win",
+            "value": "1"
+           },
+           "points_for": "138.46",
+           "points_against": 125.06
+          }
+         }
+        ]
+       },
+       "1": {
+        "team": [
+         [
+          {
+           "team_key": "461.l.123456.t.2"
+          },
+          {
+           "team_id": "2"
+          },
+          {
+           "name": "The Contenders"
+          },
+          {
+           "url": "https://football.fantasysports.yahoo.com/f1/123456/2"
+          },
+          {
+           "managers": [
+            {
+             "manager": {
+              "manager_id": "2",
+              "nickname": "Sam",
+              "guid": "0123456789ABCDEF0123456789ABCDEF",
+              "is_current_login": 0
+             }
+            }
+           ]
+          },
+          {
+           "waiver_priority": 7
+          },
+          {
+           "number_of_moves": "3"
+          },
+          {
+           "number_of_trades": 1
+          },
+          {
+           "is_owned_by_current_login": 0
+          },
+          {
+           "team_logos": [
+            {
+             "team_logo": {
+              "size": "large",
+              "url": "https://s.yimg.com/cv/apiv2/default/nfl/nfl_2.png"
+             }
+            }
+           ]
+          }
+         ],
+         {
+          "team_points": {
+           "coverage_type": "season",
+           "season": "2025",
+           "total": "125.06"
+          }
+         },
+         {
+          "team_standings": {
+           "rank": "2",
+           "playoff_seed": "2",
+           "outcome_totals": {
+            "wins": 0,
+            "losses": "1",
+            "ties": 0,
+            "percentage": "1.000"
+           },
+           "streak": {
+            "type": "win",
+            "value": "1"
+           },
+           "points_for": "125.06",
+           "points_against": 138.46
+          }
+         }
+        ]
+       },
+       "count": 2
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

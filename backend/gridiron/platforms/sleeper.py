@@ -124,11 +124,35 @@ def bridge_espn_athlete_ids(dump: dict, players: list[Player]) -> int:
         for p in dump.values()
         if p.get("yahoo_id") and p.get("espn_id")
     }
+
+    # Tier 2, same shape as PlayerIndex's: the dump's `yahoo_id` coverage is patchy —
+    # a measured run left 18 of 30 rostered Yahoo players unmatched, most of them recent
+    # draftees — so fall back to (normalized name, NFL team). Ambiguous keys are dropped
+    # rather than resolved: pointing one player's injury report at another is worse than
+    # showing none, and it would be invisible once it's on screen.
+    by_name_team: dict[tuple[str, str], str | None] = {}
+    for entry in dump.values():
+        espn_id, team = entry.get("espn_id"), entry.get("team")
+        if not espn_id or not team:
+            continue
+        key = (
+            normalize_name(f"{entry.get('first_name', '')} {entry.get('last_name', '')}"),
+            team,
+        )
+        by_name_team[key] = None if key in by_name_team else str(espn_id)
+    by_name_team = {k: v for k, v in by_name_team.items() if v is not None}
+
     changed = 0
     for player in players:
         if player.platform == "espn" or player.position == "DST":
             continue
-        espn_id = by_yahoo_id.get(player.platform_id.removeprefix("p-"))
+        # A Yahoo platform_id is the full player key (`470.p.41810`) while Sleeper's
+        # `yahoo_id` is the bare trailing id — the same `rsplit` the headshot URL uses.
+        # Matching on the whole key silently matched nothing, so no Yahoo player ever got
+        # a bridge and Yahoo rosters showed injury badges with no detail behind them.
+        espn_id = by_yahoo_id.get(player.platform_id.rsplit(".", 1)[-1].removeprefix("p-"))
+        if espn_id is None:
+            espn_id = by_name_team.get((normalize_name(player.name), player.nfl_team))
         if espn_id and player.espn_athlete_id != espn_id:
             player.espn_athlete_id = espn_id
             changed += 1

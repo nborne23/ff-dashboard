@@ -119,6 +119,36 @@ def test_map_team_missing_field_raises_mapper_error() -> None:
         mapper.map_team(broken, league_id="yahoo:461.l.1")
 
 
+def test_map_team_reads_record_rank_points_and_logo_from_standings() -> None:
+    """`list_teams_raw` sources teams from /standings, so each fragment carries
+    `team_standings` and `team_logos` — the ESPN league payload has the equivalent inline,
+    and without these every Yahoo team sat at 0-0, rank 0, with no logo."""
+    raw = load_fixture("standings.json")
+    item = collection_items(raw["fantasy_content"]["league"][1]["standings"][0]["teams"])[0]
+
+    team = mapper.map_team(item, "yahoo:461.l.123456")
+
+    assert team.record == schemas.Record(w=1, l=0, t=0)
+    assert team.rank.current == 1
+    assert team.points_for == pytest.approx(138.46)
+    assert team.points_against == pytest.approx(125.06)
+    assert team.logo_source_url == "https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png"
+
+
+def test_map_team_still_maps_a_fragment_without_standings() -> None:
+    """The plain /teams shape carries no standings; those fields fall back to neutral
+    values rather than raising."""
+    raw = load_fixture("teams.json")
+    item = collection_items(raw["fantasy_content"]["league"][1]["teams"])[0]
+
+    team = mapper.map_team(item, "yahoo:461.l.123456")
+
+    assert team.record == schemas.Record(w=0, l=0, t=0)
+    assert team.rank.current == 0
+    assert team.points_for == 0.0
+    assert team.logo_source_url is None
+
+
 # --- map_roster ----------------------------------------------------------------------------
 
 
@@ -203,6 +233,23 @@ def test_map_roster_reads_players_nested_flat_on_the_roster() -> None:
     flat_root["players"] = flat_root.pop("0")["players"]
 
     assert mapper.map_roster(flat, week=14) == mapper.map_roster(nested, week=14)
+
+
+def test_map_roster_upper_cases_the_nfl_team_abbreviation() -> None:
+    """Yahoo cases these as "Mia"/"Was"; ESPN and the NFL scoreboard use "MIA"/"WAS".
+    Anything joining on a team code — live-game state, Sleeper's name+team projection
+    match, its defense lookup — needs the two platforms to agree."""
+    raw = load_fixture("roster.json")
+    players = find_subresource(raw["fantasy_content"]["team"], "roster")["0"]["players"]
+    first = collection_items(players)[0]["player"]
+    for part in first[0]:
+        if isinstance(part, dict) and "editorial_team_abbr" in part:
+            part["editorial_team_abbr"] = "Mia"
+            break
+
+    slots = mapper.map_roster(raw, week=14)
+
+    assert slots[0].player.nfl_team == "MIA"
 
 
 def test_map_roster_unknown_slot_code_raises_mapper_error() -> None:

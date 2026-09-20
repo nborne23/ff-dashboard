@@ -227,6 +227,12 @@ BRIDGE_DUMP = {
     "111": {"espn_id": 3139477, "yahoo_id": 30123},
     "222": {"espn_id": None, "yahoo_id": 40404},  # no ESPN side — nothing to bridge
     "333": {"espn_id": 4360248},  # no Yahoo side
+    # No yahoo_id, but a name and team to match on — Sleeper's yahoo_id coverage is
+    # patchy, and this is what the name+team fallback is for.
+    "444": {"espn_id": 4426502, "first_name": "Brock", "last_name": "Bowers", "team": "LV"},
+    # Two players sharing a name+team key: ambiguous, so neither may be used.
+    "555": {"espn_id": 1, "first_name": "Josh", "last_name": "Allen", "team": "JAX"},
+    "666": {"espn_id": 2, "first_name": "Josh", "last_name": "Allen", "team": "JAX"},
 }
 
 
@@ -234,6 +240,27 @@ def test_bridge_fills_espn_athlete_id_for_yahoo_players():
     player = make_player("yahoo:p-30123", "Patrick Mahomes", "QB", "KC")
     assert sleeper.bridge_espn_athlete_ids(BRIDGE_DUMP, [player]) == 1
     assert player.espn_athlete_id == "3139477"
+
+
+def test_bridge_matches_a_real_yahoo_player_key():
+    """A Yahoo `platform_id` is the full player key (`470.p.30123`) while Sleeper's
+    `yahoo_id` is the bare trailing id. Matching on the whole key found nothing, so no
+    Yahoo player was ever bridged and their injury badges had no detail behind them."""
+    player = make_player("yahoo:470.p.30123", "Patrick Mahomes", "QB", "KC")
+    assert sleeper.bridge_espn_athlete_ids(BRIDGE_DUMP, [player]) == 1
+    assert player.espn_athlete_id == "3139477"
+
+
+def test_bridge_falls_back_to_name_and_team_when_the_dump_has_no_yahoo_id():
+    player = make_player("yahoo:470.p.40878", "Brock Bowers", "TE", "LV")
+    assert sleeper.bridge_espn_athlete_ids(BRIDGE_DUMP, [player]) == 1
+    assert player.espn_athlete_id == "4426502"
+
+
+def test_bridge_drops_an_ambiguous_name_and_team_rather_than_guessing():
+    player = make_player("yahoo:470.p.1", "Josh Allen", "DE", "JAX")
+    assert sleeper.bridge_espn_athlete_ids(BRIDGE_DUMP, [player]) == 0
+    assert player.espn_athlete_id is None
 
 
 def test_bridge_skips_espn_players_who_already_carry_the_id():

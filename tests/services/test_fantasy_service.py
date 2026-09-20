@@ -643,8 +643,8 @@ def _mock_yahoo_discovery() -> None:
     respx.get(f"{YAHOO_BASE}/users;use_login=1/games;game_keys=461/leagues").mock(
         return_value=httpx.Response(200, json=_single_league_yahoo_leagues())
     )
-    respx.get(f"{YAHOO_BASE}/league/461.l.123456/teams").mock(
-        return_value=httpx.Response(200, json=load_fixture("yahoo", "teams.json"))
+    respx.get(f"{YAHOO_BASE}/league/461.l.123456/standings").mock(
+        return_value=httpx.Response(200, json=load_fixture("yahoo", "standings.json"))
     )
     respx.get(f"{YAHOO_BASE}/team/461.l.123456.t.1/roster;week=14/players/stats").mock(
         return_value=httpx.Response(200, json=roster)

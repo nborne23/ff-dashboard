@@ -12,6 +12,7 @@ nesting deeper for `team`/`league`/`player`, which carry many optional sub-resou
 
 import hashlib
 import logging
+from typing import Any
 
 from backend.gridiron import schemas
 from backend.gridiron.platforms.yahoo._yahoo_json import (
@@ -151,17 +152,40 @@ def map_league(raw: dict) -> schemas.League:
         raise MapperError(f"yahoo league payload missing expected field: {exc}") from exc
 
 
+def _as_int(value: Any) -> int:
+    """Yahoo mixes types within one object (`{"wins": "1", "losses": 0}`) and uses `""`
+    for "not applicable yet" — both map to a plain int here."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _as_float(value: Any) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def map_team(raw: dict, league_id: str) -> schemas.Team:
     """`raw` is a single collection item's `{"team": [...]}` fragment, e.g.
     `teams_collection["0"]` from `/league/{league_key}/teams?format=json`.
 
-    The teams-list endpoint doesn't carry score/record/standings data (that requires a
-    separate matchup/standings fetch), so those fields get neutral defaults here; a later
-    enrichment step fills them in from `map_matchup` results.
+    `client.list_teams_raw` sources these from `/league/{league_key}/standings`, so each
+    fragment also carries `team_standings` (rank, W-L-T, points for/against) and
+    `team_logos`. A fragment without them — the plain `/teams` shape — still maps, with
+    the neutral defaults this used to return unconditionally. `rank.total` stays 0 here
+    because a single fragment doesn't know the league size; discovery fills it in.
     """
     try:
         fields = flatten(raw["team"])
         team_key = fields["team_key"]
+
+        standings = fields.get("team_standings") or {}
+        outcomes = standings.get("outcome_totals") or {}
+        logos = fields.get("team_logos") or []
+        logo_url = logos[0]["team_logo"]["url"] if logos else None
 
         manager_name = ""
         managers = fields.get("managers") or []
@@ -175,10 +199,14 @@ def map_team(raw: dict, league_id: str) -> schemas.Team:
             league_id=league_id,
             name=fields["name"],
             manager_name=manager_name,
-            record=schemas.Record(w=0, l=0, t=0),
-            rank=schemas.Rank(current=0, total=0),
-            points_for=0.0,
-            points_against=0.0,
+            record=schemas.Record(
+                w=_as_int(outcomes.get("wins")),
+                l=_as_int(outcomes.get("losses")),
+                t=_as_int(outcomes.get("ties")),
+            ),
+            rank=schemas.Rank(current=_as_int(standings.get("rank")), total=0),
+            points_for=_as_float(standings.get("points_for")),
+            points_against=_as_float(standings.get("points_against")),
             is_user_team=truthy(fields.get("is_owned_by_current_login", 0)),
             current_score=0.0,
             current_opp_score=0.0,
@@ -186,6 +214,7 @@ def map_team(raw: dict, league_id: str) -> schemas.Team:
             is_live=False,
             spark_last_6=[],
             accent_color=accent_color,
+            logo_source_url=logo_url,
         )
     except KeyError as exc:
         raise MapperError(f"yahoo team payload missing expected field: {exc}") from exc
@@ -221,7 +250,12 @@ def map_roster(raw: dict, week: int) -> list[schemas.RosterSlot]:
                 id=f"yahoo:{player_key}",
                 name=fields.get("name", {}).get("full", ""),
                 position=_map_position(fields["display_position"]),
-                nfl_team=fields.get("editorial_team_abbr", ""),
+                # Yahoo cases these as "Mia"/"Bal"/"Was"; ESPN and the NFL scoreboard both
+                # use "MIA"/"BAL"/"WAS". Upper-casing is the whole difference between the
+                # two sets, and everything that joins on a team code — live-game state,
+                # Sleeper's name+team projection match, its defense lookup — needs them to
+                # agree or a Yahoo player silently matches nothing.
+                nfl_team=fields.get("editorial_team_abbr", "").upper(),
                 nfl_opponent=None,
                 nfl_game_id=None,
                 headshot_url=fields.get("image_url", ""),
