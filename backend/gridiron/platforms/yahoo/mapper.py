@@ -12,6 +12,8 @@ nesting deeper for `team`/`league`/`player`, which carry many optional sub-resou
 
 import hashlib
 import logging
+from collections import Counter
+from collections.abc import Iterable
 from typing import Any
 
 from backend.gridiron import schemas
@@ -52,6 +54,8 @@ _NUMBERED_RENAMES = {"W/R/T": "FLEX", "Q/W/R/T": "OP"}
 
 # Yahoo player `display_position` -> internal `Position` vocabulary. Yahoo uses "DEF" here
 # too; everything else already matches.
+_RESERVE_SLOTS = {"BN", "IR"}
+
 _POSITION_MAP = {"DEF": "DST"}
 _VALID_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DST"}
 
@@ -87,7 +91,10 @@ _INJURY_MAP: dict[str, str] = {
 _SCORING_TYPE_MAP = {"head": "standard", "point": "ppr", "roto": "custom"}
 
 
-def _translate_slot(code: str, counters: dict[str, int]) -> str:
+def _translate_slot(code: str, counters: dict[str, int], repeated: set[str] | None = None) -> str:
+    """`repeated` names the Yahoo slot codes this lineup holds more than one of, which is
+    what numbers a second kicker `K1`/`K2`. Without it both rows read `K` and the matchup
+    pairing — keyed by slot label — silently drops one of them."""
     name = _NUMBERED_RENAMES.get(code)
     if name is not None:
         counters[name] = counters.get(name, 0) + 1
@@ -96,8 +103,19 @@ def _translate_slot(code: str, counters: dict[str, int]) -> str:
         counters[code] = counters.get(code, 0) + 1
         return f"{code}{counters[code]}"
     if code in _SLOT_MAP:
-        return _SLOT_MAP[code]
+        mapped = _SLOT_MAP[code]
+        if repeated and code in repeated and mapped not in _RESERVE_SLOTS:
+            counters[mapped] = counters.get(mapped, 0) + 1
+            return f"{mapped}{counters[mapped]}"
+        return mapped
     raise MapperError(f"unknown yahoo roster slot code: {code!r}")
+
+
+def _repeated_slot_codes(codes: Iterable[str]) -> set[str]:
+    """Yahoo slot codes appearing more than once, ignoring the reserve slots (BN/IR hold
+    many by design and are never paired in a matchup)."""
+    counts = Counter(code for code in codes if _SLOT_MAP.get(code) not in _RESERVE_SLOTS)
+    return {code for code, count in counts.items() if count > 1}
 
 
 def _map_position(raw_position: str) -> str:
@@ -237,13 +255,18 @@ def map_roster(raw: dict, week: int) -> list[schemas.RosterSlot]:
         players_root = nested_subresource(roster_root, "players")
 
         counters: dict[str, int] = {}
+        player_items = collection_items(players_root)
+        repeated = _repeated_slot_codes(
+            flatten(flatten(item["player"]).get("selected_position") or []).get("position", "")
+            for item in player_items
+        )
         slots: list[schemas.RosterSlot] = []
-        for item in collection_items(players_root):
+        for item in player_items:
             fields = flatten(item["player"])
             player_key = fields["player_key"]
 
             selected = flatten(fields["selected_position"])
-            slot = _translate_slot(selected["position"], counters)
+            slot = _translate_slot(selected["position"], counters, repeated)
 
             actual_points = float((fields.get("player_points") or {}).get("total", 0) or 0)
             proj_points = float((fields.get("player_points_projected") or {}).get("total", 0) or 0)

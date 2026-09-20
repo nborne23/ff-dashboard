@@ -21,11 +21,20 @@ export type LiveState = "live" | "game_day" | "off_day";
  */
 export type Slot =
   | "QB"
+  | "QB1"
+  | "QB2"
   | "RB1"
   | "RB2"
+  | "RB3"
+  | "RB4"
   | "WR1"
   | "WR2"
+  | "WR3"
+  | "WR4"
+  | "WR5"
   | "TE"
+  | "TE1"
+  | "TE2"
   | "FLEX"
   | "FLEX1"
   | "FLEX2"
@@ -34,7 +43,11 @@ export type Slot =
   | "OP1"
   | "OP2"
   | "K"
+  | "K1"
+  | "K2"
   | "DST"
+  | "DST1"
+  | "DST2"
   | "BN"
   | "IR";
 

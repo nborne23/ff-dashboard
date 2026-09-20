@@ -1,5 +1,6 @@
 """`yahoo/mapper.py` — pure raw-JSON -> normalized-entity mappers, tested against fixtures."""
 
+import copy
 import json
 import logging
 from pathlib import Path
@@ -250,6 +251,31 @@ def test_map_roster_upper_cases_the_nfl_team_abbreviation() -> None:
     slots = mapper.map_roster(raw, week=14)
 
     assert slots[0].player.nfl_team == "MIA"
+
+
+def test_map_roster_numbers_a_second_kicker() -> None:
+    """A two-kicker lineup gave both rows the slot "K", and the matchup pairing keys by
+    slot label — so one kicker vanished from Game Day while the roster still listed him."""
+    raw = load_fixture("roster.json")
+    players = find_subresource(raw["fantasy_content"]["team"], "roster")["0"]["players"]
+    second = copy.deepcopy(players["7"])  # the fixture's kicker
+    for part in second["player"][0]:
+        if isinstance(part, dict) and "player_key" in part:
+            part["player_key"] = "461.p.99901"
+    players[str(int(players["count"]))] = second
+    players["count"] = int(players["count"]) + 1
+
+    slots = mapper.map_roster(raw, week=14)
+
+    assert [s.slot for s in slots if s.slot.startswith("K")] == ["K1", "K2"]
+
+
+def test_map_roster_leaves_a_single_kicker_unnumbered() -> None:
+    """Numbering only applies to a slot the lineup actually repeats, so an ordinary
+    league's label stays "K"."""
+    slots = mapper.map_roster(load_fixture("roster.json"), week=14)
+
+    assert [s.slot for s in slots if s.slot.startswith("K")] == ["K"]
 
 
 def test_map_roster_unknown_slot_code_raises_mapper_error() -> None:

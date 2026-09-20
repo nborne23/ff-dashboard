@@ -13,6 +13,8 @@ from backend.gridiron.platforms.espn.slot_table import UnknownSlotError
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "espn"
 
+KICKER_SLOT_ID = 17  # ESPN's K lineup slot, as used by the fixtures
+
 USER_SWID = "{ABC12345-DEAD-BEEF-0000-111111111111}"
 RIVAL_SWID = "{ZZZ99999-DEAD-BEEF-0000-222222222222}"
 
@@ -230,6 +232,47 @@ def test_map_matchup_works_from_either_side(roster_matchup_raw: dict) -> None:
     matchup, _ = mapper.map_matchup(roster_matchup_raw, week=10, user_team_id=5)
     assert matchup.home_team_id == "espn:l-1234567-t-2"
     assert matchup.away_team_id == "espn:l-1234567-t-5"
+
+
+def test_map_roster_numbers_a_second_kicker(roster_matchup_raw: dict) -> None:
+    """A league starting two kickers gave both rows the slot "K", and `map_matchup` keys
+    its starter maps by slot label — so one kicker was dropped from the paired matchup
+    while the roster still showed him. Same collapse multi-flex lineups used to have."""
+    entries = roster_matchup_raw["schedule"][0]["home"]["rosterForCurrentScoringPeriod"]["entries"]
+    kicker = copy.deepcopy(next(e for e in entries if e["lineupSlotId"] == KICKER_SLOT_ID))
+    kicker["playerId"] = 999001
+    kicker["playerPoolEntry"]["player"]["id"] = 999001
+    kicker["playerPoolEntry"]["player"]["fullName"] = "Second Kicker"
+    entries.append(kicker)
+
+    slots = mapper.map_roster(roster_matchup_raw, week=10)
+
+    home = [s for s in slots if s.team_id == "espn:l-1234567-t-2"]
+    assert [s.slot for s in home if s.slot.startswith("K")] == ["K1", "K2"]
+
+
+def test_map_matchup_keeps_both_kickers(roster_matchup_raw: dict) -> None:
+    for side in ("home", "away"):
+        entries = roster_matchup_raw["schedule"][0][side]["rosterForCurrentScoringPeriod"][
+            "entries"
+        ]
+        kicker = copy.deepcopy(next(e for e in entries if e["lineupSlotId"] == KICKER_SLOT_ID))
+        kicker["playerId"] = 999002 if side == "home" else 999003
+        kicker["playerPoolEntry"]["player"]["id"] = kicker["playerId"]
+        entries.append(kicker)
+
+    _matchup, slots = mapper.map_matchup(roster_matchup_raw, week=10, user_team_id=2)
+
+    assert sorted(s.slot for s in slots if s.slot.startswith("K")) == ["K1", "K2"]
+
+
+def test_map_roster_leaves_a_single_kicker_unnumbered(roster_matchup_raw: dict) -> None:
+    """Numbering only kicks in when the lineup actually repeats the slot, so a normal
+    league's label stays "K" rather than becoming "K1"."""
+    slots = mapper.map_roster(roster_matchup_raw, week=10)
+
+    home = [s for s in slots if s.team_id == "espn:l-1234567-t-2"]
+    assert [s.slot for s in home if s.slot.startswith("K")] == ["K"]
 
 
 def test_map_matchup_picks_the_entry_for_the_requested_week(roster_matchup_raw: dict) -> None:

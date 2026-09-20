@@ -29,13 +29,26 @@ LiveState = Literal["live", "game_day", "off_day"]
 # The numbered forms are bounded. A lineup exceeding them raises during mapping rather
 # than silently mislabelling a player, matching the fail-loud rule `UnknownSlotError`
 # already applies to unrecognized platform slot codes.
+# Repeatable starter slots are numbered by order of appearance. RB/WR/FLEX/OP always are;
+# QB/TE/K/DST only when a lineup holds more than one (a two-kicker league emits K1/K2, a
+# normal one still emits plain K) — see espn/mapper.py's `_repeated_slots`. The unnumbered
+# spellings therefore stay in the vocabulary alongside the numbered ones.
 Slot = Literal[
     "QB",
+    "QB1",
+    "QB2",
     "RB1",
     "RB2",
+    "RB3",
+    "RB4",
     "WR1",
     "WR2",
+    "WR3",
+    "WR4",
+    "WR5",
     "TE",
+    "TE1",
+    "TE2",
     "FLEX",  # legacy — persisted by earlier syncs; no longer emitted
     "FLEX1",
     "FLEX2",
@@ -44,7 +57,11 @@ Slot = Literal[
     "OP1",  # superflex / "offensive player"
     "OP2",
     "K",
+    "K1",
+    "K2",
     "DST",
+    "DST1",
+    "DST2",
     "BN",
     "IR",
 ]

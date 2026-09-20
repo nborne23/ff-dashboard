@@ -23,6 +23,8 @@ Scope of each `raw` argument:
 """
 
 import logging
+from collections import Counter
+from collections.abc import Iterable
 
 from backend.gridiron import schemas
 from backend.gridiron.errors import MatchupNotFoundError
@@ -129,6 +131,12 @@ _DIRECT_SLOTS = {"QB", "TE", "DST", "K", "BN", "IR"}
 # a three-flex lineup to one entry, dropping two starters from both the projection and
 # the paired matchup slots.
 _NUMBERED_SLOTS = {"RB", "WR", "FLEX", "OP"}
+
+# Every other starter slot is numbered too, but only when the lineup actually holds more
+# than one of it — a league starting two kickers collapsed to a single "K" and lost one of
+# them from the paired matchup, the same way a multi-flex lineup used to. Numbering these
+# unconditionally would rename "K" to "K1" for every normal league, so the count decides.
+_CONDITIONALLY_NUMBERED = {"QB", "TE", "K", "DST"}
 
 STAT_SOURCE_ACTUAL = 0
 STAT_SOURCE_PROJECTED = 1
@@ -334,15 +342,34 @@ def map_player_pool(raw: dict, season: int) -> tuple[list[schemas.PlayerPoolEntr
     return entries, skipped
 
 
-def _internal_slot(lineup_slot_id: int, counters: dict[str, int]) -> schemas.Slot:
+def _repeated_slots(lineup_slot_ids: Iterable[int]) -> set[str]:
+    """The ESPN slot names this lineup holds more than one of, ignoring the reserve slots
+    (BN/IR hold many by design and are never paired in a matchup)."""
+    counts: Counter[str] = Counter()
+    for slot_id in lineup_slot_ids:
+        try:
+            name = espn_slot_name(slot_id)
+        except UnknownSlotError:
+            continue
+        if name not in _STARTER_SLOTS_EXCLUDED:
+            counts[name] += 1
+    return {name for name, count in counts.items() if count > 1}
+
+
+def _internal_slot(
+    lineup_slot_id: int, counters: dict[str, int], repeated: set[str] | None = None
+) -> schemas.Slot:
     """Translate one entry's `lineupSlotId` to the internal `Slot` vocabulary.
 
     `counters` is mutated in place, keyed by ESPN slot name, so `RB`/`WR` entries are
     numbered `RB1`/`RB2`/`WR1`/`WR2` in the order they appear in the roster — the
     fantasy-data-model spec's documented numbering rule.
+
+    `repeated` names the slots this particular lineup holds more than one of, which is
+    what promotes a second kicker to `K1`/`K2` instead of two rows both called `K`.
     """
     espn_name = espn_slot_name(lineup_slot_id)
-    if espn_name in _NUMBERED_SLOTS:
+    if espn_name in _NUMBERED_SLOTS or (repeated and espn_name in repeated):
         counters[espn_name] = counters.get(espn_name, 0) + 1
         return f"{espn_name}{counters[espn_name]}"  # type: ignore[return-value]
     if espn_name in _DIRECT_SLOTS:
@@ -373,9 +400,10 @@ def _build_roster_slots(
     entries = side.get("rosterForCurrentScoringPeriod", {}).get("entries", [])
     injury_by_id = injury_by_id or {}
     counters: dict[str, int] = {}
+    repeated = _repeated_slots(entry.get("lineupSlotId") for entry in entries)
     slots: list[schemas.RosterSlot] = []
     for entry in entries:
-        slot = _internal_slot(entry["lineupSlotId"], counters)
+        slot = _internal_slot(entry["lineupSlotId"], counters, repeated)
         player_raw = entry["playerPoolEntry"]["player"]
         player = _map_player(player_raw, injury_by_id.get(entry["playerId"]))
         slots.append(
