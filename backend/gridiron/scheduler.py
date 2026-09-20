@@ -153,10 +153,17 @@ async def _refresh_fantasy(session: AsyncSession) -> str | None:
     """The actual fetch+diff+publish work lives in `fantasy_service.refresh_fantasy`;
     this wrapper's only extra job is the self-rescheduling side effect, which needs
     `_scheduler` — a module `fantasy_service` intentionally doesn't know about
-    (layering, not laziness: services stay ignorant of the scheduler that calls them)."""
-    error = await fantasy_service.refresh_fantasy(session)
-    await reschedule_refresh_fantasy(session)
-    return error
+    (layering, not laziness: services stay ignorant of the scheduler that calls them).
+
+    The reschedule is in a `finally` because a run that raises must not be able to
+    freeze the cadence. `run_job` catches the exception, so the old `await` after the
+    call simply never ran — and since this job is the ONLY thing that could speed
+    itself back up, one failed tick on the 30-minute off-day interval meant half an
+    hour of nothing before the next chance to recover."""
+    try:
+        return await fantasy_service.refresh_fantasy(session)
+    finally:
+        await reschedule_refresh_fantasy(session)
 
 
 async def _refresh_nfl_state(session: AsyncSession) -> str | None:
@@ -174,6 +181,13 @@ async def _refresh_nfl_state(session: AsyncSession) -> str | None:
     if new_state != live_state.get_current_live_state():
         live_state.set_current_live_state(new_state)
         events.publish(LiveStateChangedEvent(live_state=new_state))
+        # THIS job is what notices kickoff; `refresh_fantasy` only ever re-read the
+        # live_state at the end of its own run. On the off-day interval that meant the
+        # first half-hour of every game window refreshed scores every 30 minutes — the
+        # tier the user picked didn't take effect until the slow tick it was supposed to
+        # replace had already happened. Propagating the transition here is the same move
+        # `POST /api/settings/live-tier` already makes for a tier change.
+        await reschedule_refresh_fantasy(session)
 
     fingerprints = await differ.live_nfl_games_fingerprints(session)
     differ.diff_and_publish(fingerprints)

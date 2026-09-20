@@ -29,6 +29,15 @@ async function parseBody(response: Response): Promise<unknown> {
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(path, {
+    // The read endpoints answer with `Cache-Control: private, max-age=15`, which the
+    // browser honors by serving its own copy for those 15 seconds — including for the
+    // refetch an SSE `data.changed` just triggered. At the 10s live tier that put a
+    // second, invisible staleness layer underneath the one the user configured: scores
+    // could only ever land in 15-second quanta, and could be 15 seconds behind what the
+    // server already had. TanStack Query dedupes concurrent identical queries and
+    // `staleTime` suppresses mount-driven refetches, so the HTTP cache was only ever
+    // belt-and-braces on top of that — and it fought the feature it sat under.
+    cache: "no-store",
     ...init,
     headers: {
       Accept: "application/json",

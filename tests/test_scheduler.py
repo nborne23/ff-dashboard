@@ -429,3 +429,89 @@ async def test_player_pool_interval_is_fixed_not_live_adaptive(session_factory) 
         assert fantasy < after, "sanity: the fantasy job did drop to a live cadence"
     finally:
         scheduler.shutdown_scheduler()
+
+
+# ---------------------------------------------------------------------------
+# The live cadence has to reach the fantasy job (the "still slow at 10s" bug)
+# ---------------------------------------------------------------------------
+
+
+def _kickoff_game():
+    from backend.gridiron.schemas.live_nfl_games import LiveNflGame
+
+    return LiveNflGame(
+        nfl_game_id="1",
+        home_team="KC",
+        away_team="BUF",
+        home_score=7,
+        away_score=0,
+        state="in",
+        clock="10:00",
+        period=1,
+        kickoff_at=datetime.now(UTC).replace(tzinfo=None),
+    )
+
+
+@pytest.mark.asyncio
+async def test_kickoff_speeds_up_the_fantasy_job_without_waiting_for_its_next_run(
+    session_factory, monkeypatch
+) -> None:
+    """`refresh_nfl_state` is what notices kickoff, but `refresh_fantasy` used to re-read
+    live_state only at the end of its OWN run. Sitting on the 30-minute off-day interval,
+    that meant the first half hour of every game window refreshed scores every 30
+    minutes — the tier the user picked took effect only after the slow tick it was
+    supposed to replace."""
+
+    async def fake_fetch_and_upsert(session):
+        return [_kickoff_game()]
+
+    async def fake_user_nfl_teams(session):
+        return {"KC"}
+
+    monkeypatch.setattr(
+        "backend.gridiron.platforms.nfl_scoreboard.fetch_and_upsert", fake_fetch_and_upsert
+    )
+    monkeypatch.setattr(live_state, "user_nfl_teams", fake_user_nfl_teams)
+
+    running = scheduler.start_scheduler()
+    try:
+        live_state.set_current_live_state("off_day")
+        assert (
+            running.get_job("refresh_fantasy").trigger.interval.total_seconds()
+            == scheduler.OFF_DAY_INTERVAL_SECONDS
+        )
+
+        async with session_factory() as session:
+            session.add(AppSetting(key="live_tier", value="10s"))
+            await session.commit()
+            await scheduler.run_job("refresh_nfl_state", session)
+
+        assert live_state.get_current_live_state() == "live"
+        assert running.get_job("refresh_fantasy").trigger.interval.total_seconds() == 10
+    finally:
+        scheduler.shutdown_scheduler()
+
+
+@pytest.mark.asyncio
+async def test_a_failed_fantasy_run_still_reschedules_itself(session_factory, monkeypatch) -> None:
+    """`run_job` swallows the exception, so a reschedule that sat after the call simply
+    never ran. This job is the only thing that can speed itself back up, so one failed
+    tick on the off-day interval cost half an hour before the next chance to recover."""
+
+    async def boom(session, settings=None):
+        raise RuntimeError("upstream fell over")
+
+    monkeypatch.setattr(fantasy_service, "refresh_fantasy", boom)
+
+    running = scheduler.start_scheduler()
+    try:
+        live_state.set_current_live_state("live")
+        async with session_factory() as session:
+            session.add(AppSetting(key="live_tier", value="10s"))
+            await session.commit()
+            run = await scheduler.run_job("refresh_fantasy", session)
+
+        assert run.ok is False
+        assert running.get_job("refresh_fantasy").trigger.interval.total_seconds() == 10
+    finally:
+        scheduler.shutdown_scheduler()
