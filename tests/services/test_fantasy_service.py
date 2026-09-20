@@ -13,6 +13,7 @@ import respx
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from backend.gridiron import schemas
 from backend.gridiron.config import Settings
 from backend.gridiron.db import make_engine
 from backend.gridiron.models import (
@@ -1954,3 +1955,36 @@ async def test_a_candidate_with_no_weekly_projection_reports_null_not_zero(
     for candidate in data.candidates:
         assert candidate.week_proj_points is None
         assert candidate.delta_vs_worst_starter_week is None
+
+
+async def test_upserting_a_matchup_drops_a_stale_row_for_the_same_team_and_week(
+    session_factory,
+) -> None:
+    """The row id embeds the platform's matchup id, so a corrected mapping writes a new
+    id instead of overwriting the old one. Both would match Game Day's team lookup, so
+    the write prunes the loser — a DB already holding a bad row heals on next refresh."""
+    await seed_read_model(session_factory)
+
+    async with session_factory() as session:
+        corrected = schemas.Matchup(
+            id="yahoo:461.l.123456.mu.14.corrected",
+            league_id=LEAGUE_ID,
+            week=14,
+            home_team_id=USER_TEAM,
+            away_team_id=OPP_TEAM,
+            home_score=91.0,
+            away_score=76.1,
+            home_proj=105.0,
+            away_proj=95.2,
+            is_complete=False,
+        )
+        await fantasy_service._upsert_matchup(session, corrected)
+        await session.commit()
+
+    async with session_factory() as session:
+        rows = (await session.execute(select(Matchup).where(Matchup.week == 14))).scalars().all()
+        slot_ids = (await session.execute(select(MatchupSlot.matchup_id))).scalars().all()
+
+    assert [r.id for r in rows] == ["yahoo:461.l.123456.mu.14.corrected"]
+    # The stale row's slots go with it rather than dangling.
+    assert "yahoo:461.l.123456.mu.14" not in slot_ids

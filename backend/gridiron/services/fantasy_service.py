@@ -1534,6 +1534,33 @@ async def _upsert_player_pool_entries(
 
 
 async def _upsert_matchup(session: AsyncSession, matchup: schemas.Matchup) -> None:
+    """Upsert the week's matchup for these two teams, dropping any other row that claims
+    the same team and week.
+
+    A team plays one matchup per week, but the row id embeds the platform's own matchup
+    id, so a corrected mapping (or a platform renumbering its schedule) writes a *new*
+    id rather than overwriting the old one. Both rows would then match `game_day`'s
+    team lookup and the stale one could win. Pruning on write keeps a DB that already
+    holds a bad row self-healing on the next refresh.
+    """
+    sides = (matchup.home_team_id, matchup.away_team_id)
+    stale = (
+        (
+            await session.execute(
+                select(Matchup.id).where(
+                    Matchup.week == matchup.week,
+                    Matchup.id != matchup.id,
+                    Matchup.home_team_id.in_(sides) | Matchup.away_team_id.in_(sides),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if stale:
+        await session.execute(delete(MatchupSlot).where(MatchupSlot.matchup_id.in_(stale)))
+        await session.execute(delete(Matchup).where(Matchup.id.in_(stale)))
+
     await session.merge(
         Matchup(
             id=matchup.id,
