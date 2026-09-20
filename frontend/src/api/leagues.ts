@@ -1,6 +1,6 @@
 // Query/mutation hooks for /api/leagues — Settings' "ESPN Leagues" card (task 7.3).
 // GET returns a plain list across both platforms (no envelope — this is Settings
-// config data, not a Dashboard read); EspnLeaguesCard filters to platform === "espn".
+// config data, not a Dashboard read); LeaguesCard renders one group per platform.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
