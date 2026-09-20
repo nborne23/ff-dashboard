@@ -33,6 +33,11 @@ export function Sparkline({
   yMax,
 }: SparklineProps) {
   const t = thickness || readSparkThickness();
+  // Nothing to draw: a team with no games yet (or a trend with no weeks) hands us an
+  // empty array, and every path below assumes at least one point.
+  if (data.length === 0) {
+    return <svg width={width} height={height} style={{ display: "block", overflow: "visible" }} />;
+  }
   const lo = yMin != null ? yMin : Math.min(...data);
   const hi = yMax != null ? yMax : Math.max(...data);
   const range = hi - lo || 1;
@@ -41,7 +46,7 @@ export function Sparkline({
   const innerW = width - padX * 2;
   const innerH = height - padY * 2;
   const points = data.map((y, i) => {
-    const x = padX + (i / (data.length - 1)) * innerW;
+    const x = padX + (data.length === 1 ? 0.5 : i / (data.length - 1)) * innerW;
     const yp = padY + innerH - ((y - lo) / range) * innerH;
     return [x, yp];
   });

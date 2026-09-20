@@ -61,6 +61,17 @@ describe("primitives", () => {
     expect(container.innerHTML).toMatchSnapshot();
   });
 
+  it("Sparkline renders with no data instead of crashing", () => {
+    const { container } = render(<Sparkline data={[]} width={140} height={48} area dots />);
+    expect(container.querySelector("path")).toBeNull();
+  });
+
+  it("Sparkline renders a single point", () => {
+    const { container } = render(<Sparkline data={[42]} width={140} height={48} area dots />);
+    expect(container.innerHTML).toContain("<path");
+    expect(container.innerHTML).not.toContain("NaN");
+  });
+
   it("BarChart renders", () => {
     const data = [
       { x: "0:00", y: 5 },
