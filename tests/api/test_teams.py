@@ -1,6 +1,7 @@
 """`/api/teams*` — envelope shape, Cache-Control headers, 404 typed errors, week defaulting."""
 
 import json
+from datetime import datetime
 from collections.abc import AsyncIterator
 
 import httpx
@@ -11,6 +12,7 @@ from backend.gridiron.db import get_session, make_engine
 from backend.gridiron.models import (
     Base,
     League,
+    LiveNflGame,
     Matchup,
     MatchupSlot,
     Player,
@@ -21,6 +23,24 @@ from backend.gridiron.models import (
 )
 from backend.gridiron.services import fantasy_service
 from backend.main import app
+
+WEEK_14_KICKOFF = datetime(2025, 12, 7, 18, 0)
+WEEK_13_KICKOFF = datetime(2025, 11, 30, 18, 0)
+
+
+def _nfl_game(
+    game_id: str, home: str, away: str, state: str, kickoff: datetime = WEEK_14_KICKOFF
+) -> LiveNflGame:
+    return LiveNflGame(
+        nfl_game_id=game_id,
+        home_team=home,
+        away_team=away,
+        home_score=0,
+        away_score=0,
+        state=state,
+        kickoff_at=kickoff,
+    )
+
 
 CACHE_CONTROL = "private, max-age=15, stale-while-revalidate=30"
 
@@ -1082,3 +1102,125 @@ async def test_lineup_endpoint_404s_an_unknown_team(client, db):
     response = await client.get("/api/teams/espn:l-9-t-9/lineup?week=14")
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "team_not_found"
+
+
+# --- Per-slot game state, derived from the live scoreboard ------------------------------
+#
+# These drive the assertion purely from `live_nfl_games` rows and deliberately leave the
+# seeded `roster_slots.game_state` disagreeing with them. Nothing writes that column in
+# production — both mappers store a literal None — so a test that seeds it and asserts on
+# it exercises a path the iMac never takes.
+
+
+@pytest.mark.asyncio
+async def test_yet_to_play_falls_as_each_nfl_game_goes_final(client, db) -> None:
+    await seed(db)
+    await seed_game_day_extras(db)
+    async with db() as session:
+        # The user's QB is on KC (final), the opponent's on BUF (still playing) — and the
+        # stored game_state says the opposite for both.
+        session.add_all(
+            [
+                _nfl_game("g-kc", "KC", "DEN", "post"),
+                _nfl_game("g-buf", "BUF", "MIA", "in"),
+            ]
+        )
+        await session.commit()
+
+    body = (await client.get("/api/teams/game-day?week=14")).json()
+    entry = game_day_entry(body, USER_TEAM)
+
+    assert entry["remaining"] == {"mine": 0, "theirs": 1}
+
+
+@pytest.mark.asyncio
+async def test_slot_state_and_live_come_from_the_scoreboard_not_the_stored_column(
+    client, db
+) -> None:
+    await seed(db)
+    await seed_game_day_extras(db)
+    async with db() as session:
+        session.add_all(
+            [
+                _nfl_game("g-kc", "KC", "DEN", "post"),
+                _nfl_game("g-buf", "BUF", "MIA", "in"),
+            ]
+        )
+        await session.commit()
+
+    body = (await client.get("/api/teams/game-day?week=14")).json()
+    entry = game_day_entry(body, USER_TEAM)
+    slot = next(s for s in entry["slots"] if s["slot"] == "QB")
+
+    # Seeded as home_state "in" / away_state "pre"; the scoreboard says otherwise.
+    assert (slot["home_state"], slot["home_is_live"]) == ("post", False)
+    assert (slot["away_state"], slot["away_is_live"]) == ("in", True)
+
+
+@pytest.mark.asyncio
+async def test_a_team_code_the_scoreboard_spells_differently_still_resolves(client, db) -> None:
+    """Both fantasy platforms say "WAS"; ESPN's scoreboard says "WSH". Unmapped, every
+    Washington player would stay "yet to play" all season — invisible, because the screen
+    would look merely wrong rather than broken."""
+    await seed(db)
+    await seed_game_day_extras(db)
+    async with db() as session:
+        player = await session.get(Player, "yahoo:461.p.1")
+        player.nfl_team = "WAS"
+        session.add(_nfl_game("g-wsh", "WSH", "DAL", "post"))
+        await session.commit()
+
+    body = (await client.get("/api/teams/game-day?week=14")).json()
+
+    assert game_day_entry(body, USER_TEAM)["remaining"]["mine"] == 0
+
+
+@pytest.mark.asyncio
+async def test_a_starter_on_bye_is_not_yet_to_play(client, db) -> None:
+    # A bye outranks the scoreboard: their NFL team's most recent row is about a week
+    # this player has no game in.
+    await seed(db)
+    await seed_game_day_extras(db)
+    async with db() as session:
+        player = await session.get(Player, "yahoo:461.p.1")
+        player.bye_week = 14
+        session.add(_nfl_game("g-kc", "KC", "DEN", "pre"))
+        await session.commit()
+
+    body = (await client.get("/api/teams/game-day?week=14")).json()
+    entry = game_day_entry(body, USER_TEAM)
+
+    assert entry["remaining"]["mine"] == 0
+    assert next(s for s in entry["slots"] if s["slot"] == "QB")["home_state"] == "bye"
+
+
+@pytest.mark.asyncio
+async def test_a_stale_row_from_last_week_does_not_decide_this_week(client, db) -> None:
+    """`live_nfl_games` rows are never deleted, so a team has one row per polled week.
+    Taking any row rather than the newest would report last week's final as this week's."""
+    await seed(db)
+    await seed_game_day_extras(db)
+    async with db() as session:
+        session.add_all(
+            [
+                _nfl_game("g-kc-13", "KC", "LV", "post", WEEK_13_KICKOFF),
+                _nfl_game("g-kc-14", "KC", "DEN", "pre", WEEK_14_KICKOFF),
+            ]
+        )
+        await session.commit()
+
+    body = (await client.get("/api/teams/game-day?week=14")).json()
+
+    assert game_day_entry(body, USER_TEAM)["remaining"]["mine"] == 1
+
+
+@pytest.mark.asyncio
+async def test_a_never_polled_scoreboard_leaves_everyone_yet_to_play(client, db) -> None:
+    # The safe degrade: with no rows at all, report "1 vs 1" rather than claiming the
+    # matchup is settled.
+    await seed(db)
+    await seed_game_day_extras(db)
+
+    body = (await client.get("/api/teams/game-day?week=14")).json()
+
+    assert game_day_entry(body, USER_TEAM)["remaining"] == {"mine": 1, "theirs": 1}

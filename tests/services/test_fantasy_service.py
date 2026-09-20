@@ -2079,3 +2079,62 @@ async def test_waivers_prefer_the_platform_season_projection_over_the_independen
         data = await fantasy_service.get_waivers(session, WAIVER_TEAM, week=5)
 
     assert _by_name(data)["Better RB"].season_proj_points == pytest.approx(190.0)
+
+
+@pytest.mark.asyncio
+async def test_only_the_current_week_resolves_against_the_live_scoreboard(
+    session_factory,
+) -> None:
+    """`live_nfl_games` holds several weeks at once and is never pruned, so asking it
+    about a week other than the one being played answers about the wrong games. A past
+    week is over and a future one has not started, whatever the scoreboard says right
+    now — otherwise a Tuesday would report week 13 as having ten players yet to play."""
+    await seed_read_model(session_factory)
+    async with session_factory() as session:
+        session.add(
+            LiveNflGame(
+                nfl_game_id="g-kc",
+                home_team="KC",
+                away_team="DEN",
+                home_score=0,
+                away_score=0,
+                state="pre",
+                kickoff_at=datetime(2025, 12, 7, 18, 0),
+            )
+        )
+        await session.commit()
+
+    async with session_factory() as session:
+        # The league's current_week is 14.
+        assert await fantasy_service._nfl_states_for_week(session, 13) == ({}, "post")
+        assert await fantasy_service._nfl_states_for_week(session, 15) == ({}, "pre")
+        # Both sides of the game land in the map — the lookup is by NFL team, and the
+        # opponent's players are on the other rosters in the league.
+        assert await fantasy_service._nfl_states_for_week(session, 14) == (
+            {"KC": "pre", "DEN": "pre"},
+            None,
+        )
+
+
+@pytest.mark.asyncio
+async def test_a_postponed_game_reads_as_not_yet_played(session_factory) -> None:
+    await seed_read_model(session_factory)
+    async with session_factory() as session:
+        session.add(
+            LiveNflGame(
+                nfl_game_id="g-kc",
+                home_team="KC",
+                away_team="DEN",
+                home_score=0,
+                away_score=0,
+                state="postponed",
+                kickoff_at=datetime(2025, 12, 7, 18, 0),
+            )
+        )
+        await session.commit()
+
+    async with session_factory() as session:
+        states, _ = await fantasy_service._nfl_states_for_week(session, 14)
+
+    # A roster slot has no "postponed" state, and the game has not been played.
+    assert states["KC"] == "pre"

@@ -349,8 +349,15 @@ async def _projections_by_player_and_week(
 
 
 def _roster_slot_schema(
-    row: RosterSlot, player: Player, ext_proj_points: float | None = None
+    row: RosterSlot,
+    player: Player,
+    ext_proj_points: float | None = None,
+    game_state: str | None = None,
+    is_live: bool = False,
 ) -> schemas.RosterSlot:
+    """`game_state`/`is_live` come from `_resolve_slot_state`, not from the row: the
+    stored columns are written by discovery, which cannot know a game kicked off since it
+    ran. Callers with no scoreboard context leave them at the unresolved default."""
     return schemas.RosterSlot(
         team_id=row.team_id,
         week=row.week,
@@ -358,8 +365,8 @@ def _roster_slot_schema(
         player=_player_schema(player),
         proj_points=row.proj_points,
         actual_points=row.actual_points,
-        is_live=row.is_live,
-        game_state=row.game_state,
+        is_live=is_live,
+        game_state=game_state,
         status_text=row.status_text,
         ext_proj_points=ext_proj_points,
     )
@@ -405,6 +412,19 @@ def _league_schema(row: League) -> schemas.League:
     )
 
 
+# ESPN's public scoreboard and the two fantasy platforms disagree on exactly one team
+# code: both ESPN fantasy and Yahoo say "WAS", the scoreboard says "WSH". Everything
+# downstream joins rosters to games on this abbreviation, so an unmapped code means a
+# whole team's players silently never go live and never finish — which is worse than a
+# visible error, because the screen looks merely wrong rather than broken.
+_SCOREBOARD_ABBR_FIXUPS = {"WSH": "WAS"}
+
+
+def _normalize_nfl_abbr(abbr: str) -> str:
+    """A scoreboard team code in the vocabulary the rosters use."""
+    return _SCOREBOARD_ABBR_FIXUPS.get(abbr, abbr)
+
+
 async def _live_nfl_teams(session: AsyncSession) -> set[str]:
     """NFL team abbreviations currently in an in-progress game (`live_nfl_games.state ==
     "in"`), fed by the `refresh_nfl_state` scheduler job. Feeds `_team_schema`'s
@@ -416,7 +436,7 @@ async def _live_nfl_teams(session: AsyncSession) -> set[str]:
             select(LiveNflGame.home_team, LiveNflGame.away_team).where(LiveNflGame.state == "in")
         )
     ).all()
-    teams: set[str] = {abbr for pair in rows for abbr in pair if abbr}
+    teams: set[str] = {_normalize_nfl_abbr(abbr) for pair in rows for abbr in pair if abbr}
     return teams
 
 
@@ -696,13 +716,20 @@ async def get_team(session: AsyncSession, team_id: str, week: int) -> TeamDetail
         week=week,
     )
     scoring_type = league_row.scoring_type if league_row else None
-    slots = sorted(
-        (
-            _roster_slot_schema(rs, player, _resolve_points(ext.get(player.id), scoring_type))
-            for rs, player in slot_rows
-        ),
-        key=lambda s: _SLOT_RANK.get(s.slot, len(SLOT_ORDER)),
-    )
+    states, fallback = await _nfl_states_for_week(session, week)
+    unsorted_slots = []
+    for rs, player in slot_rows:
+        resolved = _resolve_slot_state(rs.game_state, player, week, states, fallback)
+        unsorted_slots.append(
+            _roster_slot_schema(
+                rs,
+                player,
+                _resolve_points(ext.get(player.id), scoring_type),
+                game_state=resolved,
+                is_live=resolved == "in",
+            )
+        )
+    slots = sorted(unsorted_slots, key=lambda s: _SLOT_RANK.get(s.slot, len(SLOT_ORDER)))
     starters = [s for s in slots if s.slot not in STARTER_EXCLUDED_SLOTS]
     bench = [s for s in slots if s.slot in STARTER_EXCLUDED_SLOTS]
 
@@ -992,26 +1019,113 @@ async def get_league_standings(session: AsyncSession, team_id: str) -> LeagueSta
 
 
 def _slot_is_remaining(game_state: str | None) -> bool:
-    """A starter counts as "yet to play" until its NFL game is final. Discovery leaves
-    `game_state` NULL (pre-classification), which counts as not-finished."""
-    return game_state != "post"
+    """A starter counts as "yet to play" until its NFL game is final — or until it turns
+    out they were never going to play it. A bye is not "yet to play": that player is done
+    for the week the moment the week starts.
+
+    An unresolved state (no scoreboard row for their NFL team, and nothing stored)
+    counts as remaining, which is the safe degrade: a never-polled scoreboard reports
+    "10 vs 10" rather than claiming a matchup is already settled.
+    """
+    return game_state not in ("post", "bye")
 
 
-async def _per_side_slot_state(
+# `live_nfl_games.state` and a roster slot's `game_state` are near-identical vocabularies
+# that differ at both ends: the scoreboard has "postponed" and no "bye", a roster slot has
+# "bye" and no "postponed". A postponed game has not been played, so it reads as "pre".
+_SLOT_STATE_FROM_SCOREBOARD = {"pre": "pre", "in": "in", "post": "post", "postponed": "pre"}
+
+
+async def _nfl_states_for_week(
+    session: AsyncSession, week: int
+) -> tuple[dict[str, str], str | None]:
+    """`(nfl_team -> slot state, the state to assume for teams with no row)`.
+
+    Per-slot state is derived HERE, at read time, rather than persisted: the scoreboard
+    is polled every 30s by `refresh_nfl_state` while discovery runs on a far slower
+    cadence, so a `roster_slots.game_state` written during discovery would be stale
+    before it was read. (Both mappers do write the column — as a literal `None`. It is
+    kept as a last-resort fallback below, nothing more.)
+
+    Only the CURRENT week resolves against the live scoreboard. `live_nfl_games` rows are
+    never deleted (see `nfl_scoreboard.upsert_games`), so the table holds several weeks at
+    once and a past week asked about "now" would report this week's kickoffs — which on a
+    Tuesday would claim a finished week still has ten players yet to play. A past week is
+    over and a future week has not started, both unconditionally.
+    """
+    current = await current_week(session)
+    if week < current:
+        return {}, "post"
+    if week > current:
+        return {}, "pre"
+
+    rows = (
+        await session.execute(
+            select(
+                LiveNflGame.home_team,
+                LiveNflGame.away_team,
+                LiveNflGame.state,
+                LiveNflGame.kickoff_at,
+            )
+        )
+    ).all()
+
+    # Newest kickoff wins, for the same reason the week check above exists: a team has
+    # one row per week in this table and only the latest is about the week being asked
+    # about.
+    latest: dict[str, tuple[datetime, str]] = {}
+    for home, away, state, kickoff in rows:
+        for abbr in (home, away):
+            if not abbr:
+                continue
+            key = _normalize_nfl_abbr(abbr)
+            seen = latest.get(key)
+            if seen is None or kickoff > seen[0]:
+                latest[key] = (kickoff, state)
+
+    return {
+        team: _SLOT_STATE_FROM_SCOREBOARD.get(state, "pre") for team, (_, state) in latest.items()
+    }, None
+
+
+def _resolve_slot_state(
+    stored: str | None,
+    player: Player | None,
+    week: int,
+    states: dict[str, str],
+    fallback: str | None,
+) -> str | None:
+    """One roster slot's `game_state`, from `_nfl_states_for_week`'s two return values.
+
+    A bye outranks the scoreboard: a player on bye has no game this week, so whatever
+    their NFL team's most recent row says is about a different week entirely.
+    """
+    if player is not None:
+        if player.bye_week == week:
+            return "bye"
+        live = states.get(player.nfl_team)
+        if live is not None:
+            return live
+    return fallback if fallback is not None else stored
+
+
+async def _slot_state_and_remaining(
     session: AsyncSession, team_ids: list[str], week: int
-) -> dict[tuple[str, str], tuple[str | None, bool]]:
-    """`(team_id, player_id) -> (game_state, is_live)` for one week's roster slots.
+) -> tuple[dict[tuple[str, str], tuple[str | None, bool]], dict[str, int]]:
+    """`((team_id, player_id) -> (game_state, is_live), team_id -> starters yet to play)`.
 
-    This is the join behind `MatchupSlot`'s per-side state (design D6). The key is
-    **player identity, not the slot label**: the Yahoo path pairs matchup slots by
-    internal slot label (`_pair_matchup_slots`) while the ESPN path receives them
-    natively from `espn.mapper.map_matchup`, so slot labels are not comparable across
-    platforms.
+    One roster load serves both, since the remaining count is just a tally over the same
+    resolved states.
+
+    The state map is the join behind `MatchupSlot`'s per-side state (design D6). Its key
+    is **player identity, not the slot label**: the Yahoo path pairs matchup slots by
+    internal slot label (`_pair_matchup_slots`) while the ESPN path receives them natively
+    from `espn.mapper.map_matchup`, so slot labels are not comparable across platforms.
 
     `team_id` is part of the key because `(player_id, week)` alone is **not** unique —
     `roster_slots`' constraint is `uq_roster_slots_team_week_player`, so one player
-    rostered in two of the user's leagues has one row per team. Scoping the lookup by
-    the matchup's own home/away team ids keeps the join on player identity (D6's actual
+    rostered in two of the user's leagues has one row per team. Scoping the lookup by the
+    matchup's own home/away team ids keeps the join on player identity (D6's actual
     requirement) while matching the uniqueness that really holds. Joining on
     `(player_id, week)` alone would let a multi-league player pick up the wrong league's
     state.
@@ -1020,17 +1134,29 @@ async def _per_side_slot_state(
     every side in one query rather than one query per team.
     """
     if not team_ids:
-        return {}
+        return {}, {}
+
+    states, fallback = await _nfl_states_for_week(session, week)
     rows = (
-        (
-            await session.execute(
-                select(RosterSlot).where(RosterSlot.team_id.in_(team_ids), RosterSlot.week == week)
-            )
+        await session.execute(
+            select(RosterSlot, Player)
+            .join(Player, RosterSlot.player_id == Player.id)
+            .where(RosterSlot.team_id.in_(team_ids), RosterSlot.week == week)
         )
-        .scalars()
-        .all()
-    )
-    return {(r.team_id, r.player_id): (r.game_state, r.is_live) for r in rows}
+    ).all()
+
+    state_by_key: dict[tuple[str, str], tuple[str | None, bool]] = {}
+    remaining: dict[str, int] = dict.fromkeys(team_ids, 0)
+    for row, player in rows:
+        resolved = _resolve_slot_state(row.game_state, player, week, states, fallback)
+        # `is_live` is derived from the same resolved state rather than read off the
+        # column: the column is written by discovery, which cannot know a game kicked
+        # off since it ran.
+        state_by_key[(row.team_id, row.player_id)] = (resolved, resolved == "in")
+        if row.slot not in STARTER_EXCLUDED_SLOTS and _slot_is_remaining(resolved):
+            remaining[row.team_id] = remaining.get(row.team_id, 0) + 1
+
+    return state_by_key, remaining
 
 
 def _matchup_slot_schema(
@@ -1057,24 +1183,6 @@ def _matchup_slot_schema(
         home_is_live=home_is_live,
         away_is_live=away_is_live,
     )
-
-
-async def _remaining_count(session: AsyncSession, team_id: str, week: int) -> int:
-    """Starters whose NFL game hasn't finished (game_state != 'post'). Discovery leaves
-    game_state NULL (pre-classification), which counts as not-finished."""
-    count = (
-        await session.execute(
-            select(func.count())
-            .select_from(RosterSlot)
-            .where(
-                RosterSlot.team_id == team_id,
-                RosterSlot.week == week,
-                RosterSlot.slot.not_in(STARTER_EXCLUDED_SLOTS),
-                (RosterSlot.game_state.is_(None)) | (RosterSlot.game_state != "post"),
-            )
-        )
-    ).scalar()
-    return int(count or 0)
 
 
 async def get_h2h(session: AsyncSession, team_id: str, week: int) -> H2HData | None:
@@ -1107,7 +1215,7 @@ async def get_h2h(session: AsyncSession, team_id: str, week: int) -> H2HData | N
         .scalars()
         .all()
     }
-    state = await _per_side_slot_state(
+    state, remaining_by_team = await _slot_state_and_remaining(
         session, [matchup_row.home_team_id, matchup_row.away_team_id], week
     )
     slots = sorted(
@@ -1126,8 +1234,8 @@ async def get_h2h(session: AsyncSession, team_id: str, week: int) -> H2HData | N
         else matchup_row.home_team_id
     )
     remaining = Remaining(
-        mine=await _remaining_count(session, team_id, week),
-        theirs=await _remaining_count(session, opp_id, week),
+        mine=remaining_by_team.get(team_id, 0),
+        theirs=remaining_by_team.get(opp_id, 0),
     )
     return H2HData(matchup=_matchup_schema(matchup_row), slots=slots, remaining=remaining)
 
@@ -1235,26 +1343,9 @@ async def game_day(session: AsyncSession, week: int) -> GameDayData:
         .all()
     }
 
-    # One roster-slot load serves both the per-side state overlay and the remaining
-    # counts, rather than `_per_side_slot_state` plus a `_remaining_count` per side.
-    roster_rows = (
-        (
-            await session.execute(
-                select(RosterSlot).where(
-                    RosterSlot.team_id.in_(all_team_ids), RosterSlot.week == week
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    state = {(r.team_id, r.player_id): (r.game_state, r.is_live) for r in roster_rows}
-    remaining_by_team: dict[str, int] = dict.fromkeys(all_team_ids, 0)
-    for r in roster_rows:
-        if r.slot in STARTER_EXCLUDED_SLOTS:
-            continue
-        if _slot_is_remaining(r.game_state):
-            remaining_by_team[r.team_id] += 1
+    # One roster load serves both the per-side state overlay and the remaining counts,
+    # for every panel on the screen at once.
+    state, remaining_by_team = await _slot_state_and_remaining(session, all_team_ids, week)
 
     entries: list[GameDayMatchup] = []
     for team in user_teams:
@@ -1703,7 +1794,7 @@ def _pair_matchup_slots(
             away_pts=away[slot].actual_points,
             # No join needed here: this write path already holds both sides' RosterSlot
             # schemas, which carry game_state/is_live directly. The read path
-            # (`_per_side_slot_state`) has to look them up because `matchup_slots`
+            # (`_slot_state_and_remaining`) has to look them up because `matchup_slots`
             # persists only the points.
             home_state=home[slot].game_state,
             away_state=away[slot].game_state,
