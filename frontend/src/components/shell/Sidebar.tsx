@@ -16,7 +16,6 @@ import { useUiStore } from "../../stores/ui";
 import {
   IconBolt,
   IconChevR,
-  IconDashboard,
   IconFlame,
   IconFootball,
   IconMatchups,
@@ -52,7 +51,7 @@ export function Sidebar() {
   // team happens to sort first, which is what made those two screens feel unrelated to
   // the team you had just opened. `resolveTeamId` falls back to the first team when the
   // remembered one is gone, and to `undefined` when nothing is connected at all, in
-  // which case these links point at the dashboard and its "connect a league" state.
+  // which case these links point at "/" — Game Day, and its "connect a league" state.
   const selectedTeamId = resolveTeamId(activeTeamId, teams);
 
   const teamRoute = parseTeamRoute(location.pathname);
@@ -96,16 +95,9 @@ export function Sidebar() {
       </div>
 
       <div className="nav-group">
-        <NavLink to="/dashboard" className={navItemClassName} onClick={closeMobileNav}>
-          <span className="icon">
-            <IconDashboard size={18} />
-          </span>
-          <span className="label">Dashboard</span>
-        </NavLink>
-
-        {/* Between Dashboard and the "My Teams" group, and — unlike Matchups and
-            Season below — a DIRECT link rather than a primaryTeamId one: Game Day
-            spans every team, so there is no team to select. */}
+        {/* First in the group, and — unlike Matchups and Season below — a DIRECT link
+            rather than a primaryTeamId one: Game Day spans every team, so there is no
+            team to select. It is also the app's index route. */}
         <NavLink to="/" end className={navItemClassName} onClick={closeMobileNav}>
           <span className="icon">
             <IconBolt size={18} />

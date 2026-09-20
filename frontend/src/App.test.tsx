@@ -54,8 +54,9 @@ describe("App tweaks live-wiring (task 10.5)", () => {
   });
 
   it("modulates the Aurora gradient's alpha from the auroraIntensity tweak", () => {
-    // Rendered at /dashboard: "/" is Game Day now, which carries its own live-orange tint.
-    const { container } = renderApp("/dashboard");
+    // Rendered at a team route: "/" is Game Day, which carries its own live-orange
+    // tint, and MyTeam is now the only screen left on the default pink.
+    const { container } = renderApp("/team/espn:t1");
     const aurora = () => container.querySelector(".aurora") as HTMLElement;
 
     expect(aurora().style.getPropertyValue("--aurora-color")).toBe(
@@ -223,7 +224,7 @@ describe("mobile nav drawer", () => {
     renderApp();
     fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
 
-    for (const label of ["Dashboard", "Game Day", "Matchups", "Season", "Settings"]) {
+    for (const label of ["Game Day", "Matchups", "Season", "Settings"]) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
   });

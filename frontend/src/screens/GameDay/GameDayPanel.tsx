@@ -11,6 +11,7 @@ import type { GameDayMatchup } from "../../types/api";
 import { computeProjectedFinal } from "../HeadToHead/projectedFinal";
 import { liveCount } from "./arrangement";
 import { MirroredRoster } from "./MirroredRoster";
+import { useBigPlays } from "./useBigPlay";
 import { TIE_EPSILON, useLeadFlip } from "./useLeadFlip";
 
 export interface GameDayPanelProps {
@@ -77,6 +78,11 @@ export function GameDayPanel({
   const tied = Math.abs(margin) < TIE_EPSILON;
   const leadFlip = useLeadFlip(margin);
 
+  // Detected once, here, and handed down — so the panel's flare and the row that caused
+  // it are the same event. A panel lighting up with nothing flashing inside it would be
+  // worse than no cue at all.
+  const bigPlays = useBigPlays(matchup.slots, matchup.i_am_home);
+
   // --- Panel state derives from authoritative fields only (design D4) ---------------
   //
   // `is_live` off the slots and `is_complete` off the matchup. NOT a `game_state`
@@ -105,6 +111,7 @@ export function GameDayPanel({
       data-live={isLive ? "true" : undefined}
       data-settled={isSettled ? "true" : undefined}
       data-spotlight={isSpotlight ? "true" : undefined}
+      data-big-play={bigPlays.panelSide}
       // Absent (not "auto") when the user has no preference, so the container query in
       // gameday.css is the only thing deciding — an attribute selector can't match a
       // missing attribute, which is exactly the fall-through we want (design D3).
@@ -210,18 +217,24 @@ export function GameDayPanel({
           type="button"
           className="gd-disclosure"
           onClick={handleToggleRoster}
-          aria-expanded={rosterOverride === "open"}
+          // Absent means OPEN now — the roster shows at every width unless explicitly
+          // shut — so both the state and the label key off "shut", not off "open".
+          aria-expanded={rosterOverride !== "shut"}
         >
-          {rosterOverride === "open" ? "⌃ HIDE MATCHUP" : "⌄ FULL MATCHUP"}
+          {rosterOverride === "shut" ? "⌄ FULL MATCHUP" : "⌃ HIDE MATCHUP"}
         </button>
       )}
 
-      {/* Rendered unconditionally, at every width and arrangement (design D3). CSS
-          cannot set React state, so "open by default at >= 540px" cannot be a useState
-          initializer — the container query hides it below that instead, and the
-          disclosure sets data-roster to override the query in either direction. Cost:
-          6 panels x 9 rows of DOM. */}
-      <MirroredRoster rosterRef={rosterRef} slots={matchup.slots} iAmHome={matchup.i_am_home} />
+      {/* Rendered unconditionally, at every width and arrangement (design D3), and now
+          VISIBLE by default at every width too — the container query that used to hide
+          it under 540px is gone. The disclosure sets data-roster to override that
+          default in either direction. Cost: 6 panels x ~10 rows of DOM. */}
+      <MirroredRoster
+        rosterRef={rosterRef}
+        slots={matchup.slots}
+        iAmHome={matchup.i_am_home}
+        bigPlays={bigPlays.bySlot}
+      />
 
       {onResizePointerDown && (
         <span

@@ -48,79 +48,6 @@ function TweakSlider({
   );
 }
 
-function TweakToggle({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: boolean;
-  onChange: (value: boolean) => void;
-}) {
-  return (
-    <div className="twk-row twk-row-h">
-      <div className="twk-lbl">
-        <span>{label}</span>
-      </div>
-      <button
-        type="button"
-        className="twk-toggle"
-        data-on={value ? "1" : "0"}
-        role="switch"
-        aria-checked={value}
-        onClick={() => onChange(!value)}
-      >
-        <i />
-      </button>
-    </div>
-  );
-}
-
-function TweakSegmented({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  options: { value: number; label: string }[];
-  onChange: (value: number) => void;
-}) {
-  const idx = Math.max(
-    0,
-    options.findIndex((o) => o.value === value),
-  );
-  const n = options.length;
-  return (
-    <div className="twk-row">
-      <div className="twk-lbl">
-        <span>{label}</span>
-      </div>
-      <div className="twk-seg" role="radiogroup" aria-label={label}>
-        <div
-          className="twk-seg-thumb"
-          style={{
-            left: `calc(2px + ${idx} * (100% - 4px) / ${n})`,
-            width: `calc((100% - 4px) / ${n})`,
-          }}
-        />
-        {options.map((o) => (
-          <button
-            key={o.value}
-            type="button"
-            role="radio"
-            aria-checked={o.value === value}
-            onClick={() => onChange(o.value)}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export function TweaksPanel() {
   const [open, setOpen] = useState(false);
   const tweaks = useUiStore((s) => s.tweaks);
@@ -163,15 +90,6 @@ export function TweaksPanel() {
           unit="px"
           onChange={(v) => setTweak("sidebarWidth", v)}
         />
-        <TweakSegmented
-          label="Team cards / row"
-          value={tweaks.teamCols}
-          options={[
-            { value: 2, label: "2" },
-            { value: 3, label: "3" },
-          ]}
-          onChange={(v) => setTweak("teamCols", v)}
-        />
         <TweakSlider
           label="Roster row height"
           value={tweaks.rowHeight}
@@ -181,12 +99,6 @@ export function TweaksPanel() {
           unit="px"
           onChange={(v) => setTweak("rowHeight", v)}
         />
-        <TweakToggle
-          label="Show Insights rail"
-          value={tweaks.showInsights}
-          onChange={(v) => setTweak("showInsights", v)}
-        />
-
         <div className="twk-sect">Visuals</div>
         <TweakSlider
           label="Sparkline thickness"

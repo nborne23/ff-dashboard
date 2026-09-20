@@ -4,7 +4,7 @@
 // same-week-1 team with 0-1 games played gets a text fallback instead.
 
 import { IconShield, Sparkline } from "../../components/primitives";
-import { ordinal } from "../Dashboard/ordinal";
+import { ordinal } from "../../components/shared/ordinal";
 import type { SeasonWeek, Team } from "../../types/api";
 
 export interface RecordCardProps {

@@ -394,6 +394,130 @@
   }
 }
 
+/* --- Cue 5: a big play (2.4s) ------------------------------------------------------
+ * The loudest thing on the screen, and the only cue meant to be caught from across the
+ * room by peripheral vision. Three layers fire together: the row washes in the scoring
+ * side's color, a burst chip flies up out of the row naming the player and the points,
+ * and the whole panel gets an outward flare so the right panel draws the eye first.
+ *
+ * Colored by SIDE, never by size: a 22-point touchdown against you is not a
+ * celebration, and green-for-mine / pink-for-theirs is the same mapping the margin chip
+ * and the slot differential already use.
+ *
+ * These rules sit AFTER the plain row flash deliberately. Both selectors have the same
+ * specificity and `animation` does not compose — a row with both attributes must run
+ * the big-play animation, so the big-play rule has to be the later one. */
+.gd-row {
+  position: relative;
+}
+.gd-row[data-big-play] {
+  animation: gd-big-play-row 2400ms ease-out;
+}
+.gd-row[data-big-play="mine"] {
+  --gd-big: var(--exercise);
+}
+.gd-row[data-big-play="theirs"] {
+  --gd-big: var(--move);
+}
+@keyframes gd-big-play-row {
+  0% {
+    background: color-mix(in srgb, var(--gd-big) 70%, transparent);
+  }
+  12% {
+    background: color-mix(in srgb, var(--gd-big) 70%, transparent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+/* The chip is absolutely positioned so it can leave the row's grid without reflowing
+ * the nine rows under it — a cue that pushes the lineup around is a cue that makes the
+ * screen unreadable for the 2.4s it is up. `pointer-events: none` keeps it clear of the
+ * disclosure and the drag handle it flies over. */
+.gd-big-play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  pointer-events: none;
+  white-space: nowrap;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  font-variant-numeric: tabular-nums;
+  color: #000;
+  background: var(--gd-big);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--gd-big) 60%, transparent);
+  animation: gd-big-play-chip 2400ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes gd-big-play-chip {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.15);
+  }
+  22% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  75% {
+    opacity: 1;
+    transform: translate(-50%, -160%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -220%) scale(1);
+  }
+}
+
+/* The panel flare: a border and glow in the same side color, so which panel to look at
+ * is legible before any text is.
+ *
+ * A big play that also flips the lead renders as the flare ALONE — this rule and
+ * `[data-lead-flip]` both set `animation` on the panel at equal specificity, so the
+ * later one replaces the earlier rather than composing with it. That is the intended
+ * order: two loud full-panel cues at once read as neither. */
+.gd-panel[data-big-play="mine"] {
+  --gd-big: var(--exercise);
+}
+.gd-panel[data-big-play="theirs"] {
+  --gd-big: var(--move);
+}
+/* Both sides scored big in the same refresh — orange, the screen's "something is
+ * happening" color, rather than arbitrarily picking one team's. */
+.gd-panel[data-big-play="both"] {
+  --gd-big: var(--live);
+}
+.gd-panel[data-big-play] {
+  animation: gd-big-play-flare 2400ms ease-out;
+}
+/* A settled panel is dimmed to 0.52; a big play on it (a stat correction, a late
+ * scoring change) still has to be visible, so the flare brings it back to full. */
+.gd-panel[data-big-play][data-settled="true"] {
+  opacity: 1;
+}
+@keyframes gd-big-play-flare {
+  0%,
+  100% {
+    /* Back to the panel's own transparent border, not to a color — a live panel sets
+       its own border and must get it back when the flare ends. */
+    border-color: transparent;
+    box-shadow: none;
+  }
+  10%,
+  55% {
+    border-color: var(--gd-big);
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--gd-big) 55%, transparent),
+      0 0 46px color-mix(in srgb, var(--gd-big) 40%, transparent);
+  }
+}
+
 .gd-side {
   display: flex;
   align-items: baseline;
@@ -587,18 +711,16 @@
   }
 }
 
-/* The roster's default visibility is the container query's call... */
-@container gdpanel (max-width: 539px) {
-  .gd-roster {
-    display: none;
-  }
-}
-
-/* ...and the disclosure button's job is to beat that query in BOTH directions. These
- * live outside the @container block deliberately: an attribute on the panel has to win
- * over a query about the panel, at any width. A panel with no data-roster attribute at
- * all falls through to the query above — which is why the attribute is omitted rather
- * than set to "auto" when the user has expressed no preference. */
+/* The roster is open at EVERY width by default. It used to be hidden under 540px by a
+ * container query, on the theory that a narrow panel had no room to read one — but the
+ * lineup is the reason this screen exists, and a panel that has to be clicked open on
+ * every restart is a panel nobody sees on Sunday. Below 360px the row sheds its NFL
+ * team code (band 1) and gets tight; that is the accepted cost of the default.
+ *
+ * [data-roster] still overrides in both directions, and still lives outside any
+ * @container block: an attribute on the panel has to win at any width. A panel with no
+ * data-roster attribute at all falls through to the default above — which is why the
+ * attribute is omitted rather than set to "auto" when the user has no preference. */
 .gd-panel[data-roster="open"] .gd-roster {
   display: flex;
 }
@@ -620,8 +742,17 @@
  * are the ones the screen actually depends on. */
 @media (prefers-reduced-motion: reduce) {
   .gd-panel[data-lead-flip="true"],
-  .gd-row[data-just-changed="true"] {
+  .gd-row[data-just-changed="true"],
+  .gd-row[data-big-play],
+  .gd-panel[data-big-play] {
     animation: none;
+  }
+  /* The big-play chip keeps its color and position but stops flying: it is the only
+     transient cue that also carries TEXT (who, how many), so silencing it entirely
+     would lose information the other cues never had. */
+  .gd-big-play {
+    animation: none;
+    transform: translate(-50%, -50%);
   }
   .gd-live-dot {
     animation: none;

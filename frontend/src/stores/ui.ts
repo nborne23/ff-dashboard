@@ -5,21 +5,21 @@ import { persist } from "zustand/middleware";
  * Visual tweaks matching design/app.jsx's TWEAK_DEFAULTS. Persisted to
  * localStorage so layout/visual experiments survive a reload; `week` (below)
  * is intentionally left out of persistence.
+ *
+ * `teamCols` and `showInsights` were dropped with the Dashboard screen — they only ever
+ * sized that screen's card grid and its insights rail, and a control that changes
+ * nothing is worse than no control. Persisted copies of them are simply ignored.
  */
 export interface Tweaks {
   sidebarWidth: number;
-  teamCols: number;
   rowHeight: number;
-  showInsights: boolean;
   sparkThickness: number;
   auroraIntensity: number;
 }
 
 export const TWEAK_DEFAULTS: Tweaks = {
   sidebarWidth: 240,
-  teamCols: 2,
   rowHeight: 56,
-  showInsights: true,
   sparkThickness: 1.5,
   auroraIntensity: 0.18,
 };

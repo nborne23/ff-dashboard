@@ -37,11 +37,13 @@ describe("routes", () => {
     expect(within(content).getByText("Game Day")).toBeTruthy();
   });
 
-  it("keeps the Dashboard reachable at /dashboard", () => {
-    renderAt("/dashboard");
+  it("redirects the retired /dashboard path to /, week intact", () => {
+    // The Dashboard screen is gone, but the URL outlives it in bookmarks and in the
+    // session history a restarted wall display restores from.
+    const router = renderAt("/dashboard?week=2");
 
-    const content = screen.getByTestId("content-inner");
-    expect(within(content).getByText("Dashboard")).toBeTruthy();
+    expect(router.state.location.pathname).toBe("/");
+    expect(router.state.location.search).toBe("?week=2");
   });
 
   it("redirects the old /gameday path to / with its week intact", () => {

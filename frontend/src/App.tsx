@@ -13,8 +13,9 @@ import { useWeekParam } from "./hooks/useWeekParam";
 import { COLLAPSED_SIDEBAR_W, useUiStore } from "./stores/ui";
 
 // Per-route aurora tint, matching design/app.jsx's SCREEN_AURORAS table.
-// Dashboard ("/dashboard") and MyTeam ("/team/:teamId") share the pink aurora; H2H,
-// Season, and Settings each get their own.
+// MyTeam ("/team/:teamId") keeps the pink aurora the removed Dashboard used to share
+// with it, and is now the only route that falls through to it; H2H, Season, Settings,
+// and Game Day each get their own.
 function auroraColorForPath(pathname: string, intensity: number): string {
   // Game Day gets the live orange, the one screen whose whole point is games in
   // progress; every other screen keeps the tint it already had.

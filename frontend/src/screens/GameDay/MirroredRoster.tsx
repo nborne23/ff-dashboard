@@ -13,6 +13,7 @@ import { InjuryBadge } from "../../components/shared/InjuryBadge";
 import { useChangedValuePulse } from "../../hooks/useChangedValuePulse";
 import type { GameState, InjuryStatus, MatchupSlot } from "../../types/api";
 import { orientSlot } from "../HeadToHead/orientation";
+import type { BigPlay } from "./useBigPlay";
 import { TIE_EPSILON } from "./useLeadFlip";
 
 export interface MirroredRosterProps {
@@ -25,6 +26,8 @@ export interface MirroredRosterProps {
    * dropped — leaving the toggle unable to tell open from shut.
    */
   rosterRef?: React.Ref<HTMLDivElement>;
+  /** Big plays firing right now, keyed by slot label. Detected by the panel. */
+  bigPlays?: Record<string, BigPlay>;
 }
 
 interface SideProps {
@@ -61,9 +64,10 @@ function Side({ name, nflTeam, points, state, isLive, side, injuryStatus }: Side
 interface RowProps {
   slot: MatchupSlot;
   iAmHome: boolean;
+  bigPlay?: BigPlay;
 }
 
-function MirroredRow({ slot, iAmHome }: RowProps) {
+function MirroredRow({ slot, iAmHome, bigPlay }: RowProps) {
   const { myPlayer, oppPlayer, myPts, oppPts } = orientSlot(slot, iAmHome);
   const myState = iAmHome ? slot.home_state : slot.away_state;
   const oppState = iAmHome ? slot.away_state : slot.home_state;
@@ -78,7 +82,23 @@ function MirroredRow({ slot, iAmHome }: RowProps) {
   const tied = Math.abs(diff) < TIE_EPSILON;
 
   return (
-    <div className="gd-row" {...pulse}>
+    <div
+      className="gd-row"
+      data-just-changed={pulse["data-just-changed"]}
+      data-big-play={bigPlay?.side}
+      // `animationend` bubbles, so the burst chip's own animation would otherwise reach
+      // this handler and clear the row's flash early. Only the row's animation counts.
+      onAnimationEnd={(event) => {
+        if (event.target === event.currentTarget) pulse.onAnimationEnd();
+      }}
+    >
+      {bigPlay && (
+        // Keyed by firing id so a second big play on a row whose chip is still up
+        // remounts the chip and replays the animation from the start.
+        <span key={bigPlay.id} className="gd-big-play" data-side={bigPlay.side}>
+          <span aria-hidden="true">⚡</span> +{bigPlay.delta.toFixed(1)} {bigPlay.player}
+        </span>
+      )}
       <Side
         name={myPlayer.name}
         nflTeam={myPlayer.nfl_team}
@@ -112,11 +132,16 @@ function MirroredRow({ slot, iAmHome }: RowProps) {
   );
 }
 
-export function MirroredRoster({ slots, iAmHome, rosterRef }: MirroredRosterProps) {
+export function MirroredRoster({ slots, iAmHome, rosterRef, bigPlays }: MirroredRosterProps) {
   return (
     <div className="gd-roster" data-testid="gd-roster" ref={rosterRef}>
       {slots.map((slot) => (
-        <MirroredRow key={slot.slot} slot={slot} iAmHome={iAmHome} />
+        <MirroredRow
+          key={slot.slot}
+          slot={slot}
+          iAmHome={iAmHome}
+          bigPlay={bigPlays?.[slot.slot]}
+        />
       ))}
     </div>
   );

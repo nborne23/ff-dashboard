@@ -155,3 +155,41 @@ describe("MirroredRoster injury badges", () => {
     expect(screen.getByTestId("injury-badge").tagName).toBe("SPAN");
   });
 });
+
+describe("MirroredRoster big-play cue", () => {
+  afterEach(cleanup);
+
+  const bigPlay = { side: "mine" as const, delta: 14.4, player: "Home Guy", id: 1 };
+
+  it("marks the row with the scoring side and shows the burst chip", () => {
+    render(<MirroredRoster slots={[makeSlot()]} iAmHome bigPlays={{ QB: bigPlay }} />);
+
+    const row = screen.getByTestId("gd-roster").querySelector(".gd-row") as HTMLElement;
+    expect(row.getAttribute("data-big-play")).toBe("mine");
+
+    const chip = row.querySelector(".gd-big-play") as HTMLElement;
+    expect(chip.getAttribute("data-side")).toBe("mine");
+    expect(chip.textContent).toContain("+14.4");
+    expect(chip.textContent).toContain("Home Guy");
+  });
+
+  it("leaves rows with no big play untouched", () => {
+    render(
+      <MirroredRoster
+        slots={[makeSlot(), makeSlot({ slot: "RB1" })]}
+        iAmHome
+        bigPlays={{ QB: bigPlay }}
+      />,
+    );
+
+    const rows = screen.getByTestId("gd-roster").querySelectorAll(".gd-row");
+    expect(rows[1].getAttribute("data-big-play")).toBeNull();
+    expect(rows[1].querySelector(".gd-big-play")).toBeNull();
+  });
+
+  // The row's `onAnimationEnd` target guard is deliberately NOT covered here: React's
+  // synthetic animation events never fire under jsdom (neither Testing Library's
+  // `fireEvent.animationEnd` nor a raw bubbling `dispatchEvent` reaches the handler), so
+  // any test of it would pass with the guard removed. It matters in a real browser,
+  // where the chip's own 2.4s animation does bubble to the row.
+});

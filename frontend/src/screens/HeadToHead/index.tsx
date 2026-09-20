@@ -16,7 +16,7 @@ import { EmptyState } from "../../components/shared/EmptyState";
 import { ErrorCard } from "../../components/shared/ErrorCard";
 import { usePlatformsDisconnected } from "../../hooks/usePlatformsDisconnected";
 import { useUiStore } from "../../stores/ui";
-import { ordinal } from "../Dashboard/ordinal";
+import { ordinal } from "../../components/shared/ordinal";
 import { H2HRings } from "./H2HRings";
 import { H2HTable } from "./H2HTable";
 import { orientMatchup } from "./orientation";
