@@ -23,6 +23,8 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 from sqlalchemy import select
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
@@ -33,6 +35,12 @@ from backend.gridiron.schemas import ProjectionSource
 from backend.gridiron.services import fantasy_service, lineup
 
 MIN_TOKEN_LENGTH = 24
+
+# claude.ai's "Add custom connector" dialog probes the URL from the browser before it will
+# save it. Without CORS that probe is blocked and the dialog reports "Couldn't reach this
+# address", which is indistinguishable from the host being down — even though Anthropic's
+# cloud, which is what actually calls the tools, reaches the server fine.
+CONNECTOR_ORIGINS = ("https://claude.ai", "https://claude.com")
 
 # Display-only fields that cost context and mean nothing to a language model.
 _NOISE_KEYS = frozenset(
@@ -304,6 +312,26 @@ def create_app(token: str) -> Starlette:
 
     app = Starlette(
         routes=[Route("/healthz", health), *mcp_app.routes],
+        middleware=[
+            Middleware(
+                CORSMiddleware,
+                allow_origins=list(CONNECTOR_ORIGINS),
+                allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+                allow_headers=[
+                    "accept",
+                    "content-type",
+                    "last-event-id",
+                    "mcp-protocol-version",
+                    "mcp-session-id",
+                ],
+                # Streamable HTTP reads the session id back off the response, and a browser
+                # hides every header that is not named here.
+                expose_headers=["mcp-session-id", "mcp-protocol-version"],
+                # Deliberately no allow_credentials: the secret path is the only
+                # authenticator, and no cookie should ever ride along with a call.
+                max_age=86400,
+            )
+        ],
         lifespan=lifespan,
     )
     return app

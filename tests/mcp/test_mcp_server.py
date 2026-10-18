@@ -164,6 +164,57 @@ async def test_only_the_secret_path_serves_mcp(db):
             assert len(ok.json()["result"]["tools"]) == 10
 
 
+async def test_the_connector_dialog_can_probe_the_endpoint_from_the_browser(db):
+    """claude.ai checks the URL from the browser before saving the connector, so the
+    endpoint has to answer a preflight and name the origin back."""
+    app = mcp_server.create_app(TOKEN)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            preflight = await client.request(
+                "OPTIONS",
+                f"/mcp/{TOKEN}",
+                headers={
+                    "Origin": "https://claude.ai",
+                    "Access-Control-Request-Method": "POST",
+                    "Access-Control-Request-Headers": "content-type",
+                },
+            )
+            assert preflight.status_code == 200
+            assert preflight.headers["access-control-allow-origin"] == "https://claude.ai"
+
+            posted = await client.post(
+                f"/mcp/{TOKEN}",
+                json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+                headers={
+                    "Accept": "application/json, text/event-stream",
+                    "Origin": "https://claude.ai",
+                },
+            )
+            assert posted.status_code == 200
+            assert posted.headers["access-control-allow-origin"] == "https://claude.ai"
+            # Without this the browser hides the session id from the transport.
+            assert "mcp-session-id" in posted.headers["access-control-expose-headers"]
+
+
+async def test_other_origins_get_no_cors_grant(db):
+    app = mcp_server.create_app(TOKEN)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            posted = await client.post(
+                f"/mcp/{TOKEN}",
+                json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+                headers={
+                    "Accept": "application/json, text/event-stream",
+                    "Origin": "https://evil.example",
+                },
+            )
+            assert "access-control-allow-origin" not in posted.headers
+
+
 async def test_league_rosters_cover_every_team_in_the_league_compactly(db):
     async with db() as session:
         session.add(
