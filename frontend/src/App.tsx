@@ -10,7 +10,6 @@ import { TweaksPanel } from "./components/shell/TweaksPanel";
 import { useActiveTeamSync } from "./hooks/useActiveTeam";
 import { parseTeamRoute } from "./hooks/teamRoute";
 import { useCurrentWeekDefault } from "./hooks/useCurrentWeekDefault";
-import { useWeekParam } from "./hooks/useWeekParam";
 import { COLLAPSED_SIDEBAR_W, useUiStore } from "./stores/ui";
 
 // Per-route aurora tint, matching design/app.jsx's SCREEN_AURORAS table.
@@ -33,7 +32,6 @@ export default function App() {
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const mobileNavOpen = useUiStore((s) => s.mobileNavOpen);
   const setMobileNavOpen = useUiStore((s) => s.setMobileNavOpen);
-  useWeekParam();
   useCurrentWeekDefault();
   useLiveEvents();
   useActiveTeamSync();

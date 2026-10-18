@@ -115,8 +115,8 @@ interface UiState {
   week: number;
   setWeek: (week: number) => void;
   /**
-   * Whether `week` is a real answer yet — set by the URL's `?week=`, by the Topbar's
-   * arrows, or by the seed from `meta.current_week`. Until then `week` is only the
+   * Whether `week` is a real answer yet — set by the Topbar's arrows
+   * or by the seed from `meta.current_week`. Until then `week` is only the
    * placeholder 1 that has to render while the first envelope is in flight.
    *
    * Deliberately absent from `partialize`, like `week` itself. A persisted `true` would

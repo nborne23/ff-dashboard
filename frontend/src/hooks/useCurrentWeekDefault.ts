@@ -5,11 +5,12 @@
 // and this hook replaces it with `meta.current_week` (the week a request omitting
 // `?week=` resolves to) as soon as the first envelope lands.
 //
-// It defers to anything that already chose a week: the URL's `?week=`, or the Topbar's
-// arrows. Both go through `setWeek`, which pins, and a pinned week is never overwritten
-// — so this fires at most once per load, and a deep link to week 2 stays on week 2.
+// Every load starts on the live week: the URL's `?week=` is deliberately NOT read, so a
+// stale bookmark or a wall display restored by the LaunchAgent can never pin an old week.
+// The only thing that defers this is the Topbar's arrows, which go through `setWeek` and
+// pin — so this fires at most once per load, and browsing weeks within a session sticks.
 //
-// Mounted once in the shell (App.tsx), beside `useWeekParam`. It reuses the `teams`
+// Mounted once in the shell (App.tsx). It reuses the `teams`
 // query the Topbar already issues, so it costs no request of its own.
 
 import { useEffect } from "react";

@@ -70,8 +70,8 @@ describe("useCurrentWeekDefault", () => {
   });
 
   it("leaves a week the user already chose alone", async () => {
-    // The Topbar's arrows and the URL's ?week= both pin through `setWeek`. A deep link
-    // to week 2 must survive the envelope landing on week 3.
+    // The Topbar's arrows pin through `setWeek`; browsing back to week 2 must survive the
+    // envelope landing on week 3.
     stubTeams(3);
     useUiStore.setState({ week: 2, weekPinned: true });
     renderProbe();
