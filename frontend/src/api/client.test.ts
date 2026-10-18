@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiClient } from "./client";
 
 function stubFetch() {
-  const fetchMock = vi.fn(async () => ({
+  const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => ({
     ok: true,
     status: 200,
     text: async () => JSON.stringify({ data: {}, meta: {} }),
@@ -28,7 +28,8 @@ describe("apiClient", () => {
 
     await apiClient.get("/api/teams?week=2");
 
-    expect(fetchMock.mock.calls[0][1].cache).toBe("no-store");
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init?.cache).toBe("no-store");
   });
 
   it("applies to writes too, not just reads", async () => {
@@ -36,7 +37,8 @@ describe("apiClient", () => {
 
     await apiClient.post("/api/admin/refresh", { job: "refresh_fantasy" });
 
-    expect(fetchMock.mock.calls[0][1].method).toBe("POST");
-    expect(fetchMock.mock.calls[0][1].cache).toBe("no-store");
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init?.method).toBe("POST");
+    expect(init?.cache).toBe("no-store");
   });
 });
