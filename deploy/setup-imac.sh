@@ -21,6 +21,27 @@ step() {
 	echo "==> $*"
 }
 
+# launchctl bootout returns before launchd has finished tearing the job down, and
+# bootstrapping the same label while the old one is still going away fails with
+# "Bootstrap failed: 5: Input/output error". Wait for it to go, then load.
+reload_agent() {
+	local label="$1" dest="$2" domain
+	domain="gui/$(id -u)"
+	if launchctl print "${domain}/${label}" >/dev/null 2>&1; then
+		echo "${label} already loaded, bootout before reloading"
+		launchctl bootout "${domain}/${label}" || true
+		for _ in $(seq 1 50); do
+			launchctl print "${domain}/${label}" >/dev/null 2>&1 || break
+			sleep 0.2
+		done
+	fi
+	if ! launchctl bootstrap "$domain" "$dest"; then
+		echo "${label}: bootstrap failed, retrying in 2s..." >&2
+		sleep 2
+		launchctl bootstrap "$domain" "$dest"
+	fi
+}
+
 step "Checking for Homebrew (optional — only used as a fallback installer for uv/node)"
 HAVE_BREW=0
 if command -v brew >/dev/null 2>&1; then
@@ -120,11 +141,7 @@ sed \
 	"$APP_DIR/deploy/${PLIST_SRC_NAME}" >"$PLIST_DEST"
 echo "Wrote $PLIST_DEST"
 
-if launchctl print "gui/$(id -u)/${PLIST_LABEL}" >/dev/null 2>&1; then
-	echo "LaunchAgent already loaded, bootout before reloading"
-	launchctl bootout "gui/$(id -u)/${PLIST_LABEL}" || true
-fi
-launchctl bootstrap "gui/$(id -u)" "$PLIST_DEST"
+reload_agent "$PLIST_LABEL" "$PLIST_DEST"
 echo "LaunchAgent bootstrapped"
 
 step "MCP connector endpoint (optional)"
@@ -135,10 +152,7 @@ if grep -qE '^GRIDIRON_MCP_TOKEN=.{24,}' "$APP_DIR/.env"; then
 		-e "s#__APP_DIR__#${APP_DIR}#g" \
 		-e "s#__HOME__#${HOME}#g" \
 		"$APP_DIR/deploy/${MCP_LABEL}.plist" >"$MCP_DEST"
-	if launchctl print "gui/$(id -u)/${MCP_LABEL}" >/dev/null 2>&1; then
-		launchctl bootout "gui/$(id -u)/${MCP_LABEL}" || true
-	fi
-	launchctl bootstrap "gui/$(id -u)" "$MCP_DEST"
+	reload_agent "$MCP_LABEL" "$MCP_DEST"
 	echo "MCP LaunchAgent bootstrapped on 127.0.0.1:8001."
 	echo "It is NOT public yet. To let claude.ai reach it, run (deliberately, by hand):"
 	echo "  tailscale funnel --bg --https=8443 8001"
