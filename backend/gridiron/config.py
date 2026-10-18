@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     # behavior unchanged. Set to a directory (e.g. ~/Library/Logs/gridiron on the iMac)
     # to also rotate app + scheduler logs to a file there.
     gridiron_log_dir: str = ""
+    # Secret path segment guarding the public MCP endpoint (backend/mcp_main.py).
+    gridiron_mcp_token: str = ""
 
 
 @lru_cache

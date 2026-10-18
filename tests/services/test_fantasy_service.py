@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from backend.gridiron import schemas
 from backend.gridiron.config import Settings
 from backend.gridiron.db import make_engine
+from backend.gridiron.errors import RateLimitedError
 from backend.gridiron.models import (
     Base,
     Connection,
@@ -2138,3 +2139,86 @@ async def test_a_postponed_game_reads_as_not_yet_played(session_factory) -> None
 
     # A roster slot has no "postponed" state, and the game has not been played.
     assert states["KC"] == "pre"
+
+
+# --------------------------------------------------------------------------------------
+# Yahoo: rosters for the rest of the league (best-effort, cheap on the live tier)
+# --------------------------------------------------------------------------------------
+
+
+class _StubYahooClient:
+    """Stands in for YahooClient.get_roster; `fail` maps a team key to an exception."""
+
+    def __init__(self, fail: dict | None = None) -> None:
+        self.fetched: list[str] = []
+        self.fail = fail or {}
+
+    async def get_roster(self, session, team_key, week, current_week=None) -> dict:
+        self.fetched.append(team_key)
+        if team_key in self.fail:
+            raise self.fail[team_key]
+        return json.loads(
+            json.dumps(load_fixture("yahoo", "roster.json")).replace(".t.1", f".t.{team_key[-1]}")
+        )
+
+
+def _other_teams(*numbers: int) -> list:
+    from types import SimpleNamespace
+
+    return [SimpleNamespace(id=f"yahoo:461.l.123456.t.{n}") for n in numbers]
+
+
+async def _roster_rows(session_factory, team_id: str) -> int:
+    async with session_factory() as session:
+        return len(
+            (await session.execute(select(RosterSlot).where(RosterSlot.team_id == team_id)))
+            .scalars()
+            .all()
+        )
+
+
+@pytest.mark.asyncio
+async def test_other_yahoo_rosters_skip_the_teams_already_synced(session_factory) -> None:
+    client = _StubYahooClient()
+    await fantasy_service._sync_other_yahoo_rosters(
+        session_factory, client, _other_teams(1, 2, 3, 4), 14, synced={USER_TEAM, OPP_TEAM}
+    )
+    assert client.fetched == ["461.l.123456.t.3", "461.l.123456.t.4"]
+    assert await _roster_rows(session_factory, "yahoo:461.l.123456.t.3") == 11
+    assert await _roster_rows(session_factory, "yahoo:461.l.123456.t.4") == 11
+
+
+@pytest.mark.asyncio
+async def test_other_yahoo_rosters_only_fetch_missing_teams_while_live(session_factory) -> None:
+    team3 = "yahoo:461.l.123456.t.3"
+    await fantasy_service._sync_other_yahoo_rosters(
+        session_factory, _StubYahooClient(), _other_teams(3), 14, synced=set()
+    )
+    live_state.set_current_live_state("live")
+
+    client = _StubYahooClient()
+    await fantasy_service._sync_other_yahoo_rosters(
+        session_factory, client, _other_teams(3, 4), 14, synced=set()
+    )
+    assert client.fetched == ["461.l.123456.t.4"]  # t.3 already had a roster
+    assert await _roster_rows(session_factory, team3) == 11
+
+
+@pytest.mark.asyncio
+async def test_other_yahoo_roster_failure_is_skipped_but_rate_limits_propagate(
+    session_factory,
+) -> None:
+    client = _StubYahooClient(fail={"461.l.123456.t.3": ValueError("bad payload")})
+    await fantasy_service._sync_other_yahoo_rosters(
+        session_factory, client, _other_teams(3, 4), 14, synced=set()
+    )
+    assert client.fetched == ["461.l.123456.t.3", "461.l.123456.t.4"]
+    assert await _roster_rows(session_factory, "yahoo:461.l.123456.t.3") == 0
+    assert await _roster_rows(session_factory, "yahoo:461.l.123456.t.4") == 11
+
+    limited = _StubYahooClient(fail={"461.l.123456.t.5": RateLimitedError("slow down")})
+    with pytest.raises(RateLimitedError):
+        await fantasy_service._sync_other_yahoo_rosters(
+            session_factory, limited, _other_teams(5, 6), 14, synced=set()
+        )
+    assert limited.fetched == ["461.l.123456.t.5"]

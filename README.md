@@ -214,6 +214,45 @@ gone until it's back — plan for that, not just for ESPN:
   picks already recorded — you only lose whatever happened while it was down, which is
   exactly what the printed board and the pick-number correction above are for.
 
+## Claude connector (MCP)
+
+A read-only MCP server (`backend/mcp_main.py`, tools in `backend/gridiron/mcp_server.py`)
+lets claude.ai answer questions about your leagues from the web, desktop and mobile apps
+(connectors added on the web show up in the mobile app). Tools: `list_teams`, `game_day`,
+`get_team`, `get_matchup`, `get_season`, `get_league_standings`, `get_waivers`,
+`get_lineup_advice`, `get_player_injury`. It reads the same persisted tables as the
+dashboard and has no write, refresh or draft tools.
+
+**Why it's a separate, public process.** Custom connectors are called from Anthropic's
+cloud, not from your phone, so a tailnet-only address can't work. The main app on `:8000`
+has unauthenticated admin/credential routes and must stay tailnet-only; the MCP server is a
+second process on `:8001` that serves *only* `/mcp/<token>` (everything else 404s, plus a
+harmless `/healthz`). Claude connectors accept OAuth or no auth, not a static header, so the
+secret is the URL path. Anyone holding the URL can read your fantasy data: treat it like a
+password and don't paste it anywhere public.
+
+Setup on the iMac:
+
+1. Generate a token and put it in `.env` as `GRIDIRON_MCP_TOKEN`
+   (see the comment in `.env.example` for the one-liner).
+2. Install the agent: re-run `./deploy/setup-imac.sh` (it installs `com.gridiron.mcp` when
+   the token is set; `make deploy` restarts it afterwards). Logs:
+   `~/Library/Logs/gridiron/mcp*.log`; access logging is off so the token never lands in a log.
+3. In the Tailscale admin console, allow Funnel for the iMac (ACL `nodeAttrs` -> `funnel`).
+4. Publish port 8001 on a *different* HTTPS port from the tailnet-only `serve` on 443 (Funnel
+   is per-port, so this keeps the dashboard private): `tailscale funnel --bg --https=8443 8001`.
+   Then verify: `tailscale funnel status` must show only `:8443` as public, and
+   `https://<imac>.<tailnet>.ts.net/api/health` must NOT answer from a device off the tailnet
+   (e.g. your phone on cellular with Tailscale off).
+5. In claude.ai: Settings -> Connectors -> Add custom connector, URL
+   `https://<imac>.<tailnet>.ts.net:8443/mcp/<token>`, no auth. Enable it per chat from the
+   tools menu.
+
+Rotate by changing the token, `launchctl kickstart -k gui/$(id -u)/com.gridiron.mcp`, and
+re-adding the connector. Take it offline with `tailscale funnel --https=8443 off`.
+Local check: run `uv run uvicorn backend.mcp_main:app --port 8001` with the token set, then
+`npx @modelcontextprotocol/inspector` against `http://127.0.0.1:8001/mcp/<token>`.
+
 ## Logs
 
 - **launchd's own redirect** (always on): `~/Library/Logs/gridiron/app.log` /

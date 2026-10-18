@@ -127,6 +127,26 @@ fi
 launchctl bootstrap "gui/$(id -u)" "$PLIST_DEST"
 echo "LaunchAgent bootstrapped"
 
+step "MCP connector endpoint (optional)"
+MCP_LABEL="com.gridiron.mcp"
+if grep -qE '^GRIDIRON_MCP_TOKEN=.{24,}' "$APP_DIR/.env"; then
+	MCP_DEST="$HOME/Library/LaunchAgents/${MCP_LABEL}.plist"
+	sed \
+		-e "s#__APP_DIR__#${APP_DIR}#g" \
+		-e "s#__HOME__#${HOME}#g" \
+		"$APP_DIR/deploy/${MCP_LABEL}.plist" >"$MCP_DEST"
+	if launchctl print "gui/$(id -u)/${MCP_LABEL}" >/dev/null 2>&1; then
+		launchctl bootout "gui/$(id -u)/${MCP_LABEL}" || true
+	fi
+	launchctl bootstrap "gui/$(id -u)" "$MCP_DEST"
+	echo "MCP LaunchAgent bootstrapped on 127.0.0.1:8001."
+	echo "It is NOT public yet. To let claude.ai reach it, run (deliberately, by hand):"
+	echo "  tailscale funnel --bg --https=8443 8001"
+	echo "See README -> 'Claude connector (MCP)'."
+else
+	echo "GRIDIRON_MCP_TOKEN is not set in .env — skipping. See README -> 'Claude connector (MCP)'."
+fi
+
 step "Health check"
 HEALTH_OK=0
 if curl --fail --silent --show-error --retry 5 --retry-delay 2 --retry-connrefused \

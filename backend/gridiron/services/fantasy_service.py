@@ -1893,8 +1893,65 @@ async def _discover_yahoo(factory: async_sessionmaker, settings: Settings) -> No
                     session, matchup, {t.id: t.name for t in teams}
                 )
                 await session.commit()
+
+            await _sync_other_yahoo_rosters(
+                factory, client, teams, week, synced={user_team.id, opp_id}
+            )
     finally:
         await client.aclose()
+
+
+async def _has_roster(session: AsyncSession, team_id: str, week: int) -> bool:
+    return (
+        await session.execute(
+            select(RosterSlot.team_id)
+            .where(RosterSlot.team_id == team_id, RosterSlot.week == week)
+            .limit(1)
+        )
+    ).first() is not None
+
+
+async def _sync_other_yahoo_rosters(
+    factory: async_sessionmaker,
+    client: YahooClient,
+    teams: list[schemas.Team],
+    week: int,
+    synced: set[str],
+) -> None:
+    """Rosters for the rest of a Yahoo league (ESPN returns every team in one call; Yahoo
+    needs one request per team). Read-only context for the MCP connector, so it is
+    best-effort and cheap on the live tier:
+
+    - runs after the user's own data is committed, one team per transaction, so a failure
+      here never costs the live-tier tick its core data;
+    - while games are live, only teams with no roster yet are fetched (the live tier
+      invalidates the HTTP cache every tick, and ~10 extra requests per tick isn't worth
+      it for rosters nobody is watching score);
+    - rate-limit / auth / 5xx errors still propagate so the platform's cooldown logic
+      applies; anything else is logged and skipped.
+    """
+    live = live_state_service.get_current_live_state() == "live"
+    for team in teams:
+        if team.id in synced:
+            continue
+        async with factory() as session:
+            if live and await _has_roster(session, team.id, week):
+                continue
+            try:
+                raw = await client.get_roster(
+                    session, _split_id(team.id)[1], week, current_week=week
+                )
+                slots = yahoo_mapper.map_roster(raw, week)
+                await _replace_roster(session, team.id, week, slots)
+                await session.commit()
+            except (AuthRequiredError, RateLimitedError, CredentialDecryptError):
+                raise
+            except httpx.HTTPStatusError as exc:
+                if _needs_cooldown(exc) or exc.response.status_code in (401, 403, 429):
+                    raise
+                logger.warning("yahoo roster for %s skipped: %s", team.id, exc)
+            except (httpx.HTTPError, ValueError, KeyError) as exc:
+                logger.warning("yahoo roster for %s skipped: %s", team.id, exc)
 
 
 async def _discover_espn(factory: async_sessionmaker, settings: Settings) -> None:

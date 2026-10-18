@@ -19,6 +19,7 @@ set -euo pipefail
 export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
 
 PLIST_LABEL="com.gridiron.app"
+MCP_PLIST_LABEL="com.gridiron.mcp"
 HEALTH_URL="http://127.0.0.1:8000/api/health"
 LOG_DIR="$HOME/Library/Logs/gridiron"
 
@@ -63,6 +64,10 @@ uv run alembic upgrade head
 
 step "Restarting LaunchAgent"
 launchctl kickstart -k "gui/$(id -u)/${PLIST_LABEL}"
+# The MCP agent is optional (installed by setup-imac.sh only when GRIDIRON_MCP_TOKEN is set).
+if launchctl print "gui/$(id -u)/${MCP_PLIST_LABEL}" >/dev/null 2>&1; then
+	launchctl kickstart -k "gui/$(id -u)/${MCP_PLIST_LABEL}"
+fi
 
 step "Waiting for health check"
 ATTEMPTS=15
