@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -59,6 +59,8 @@ function renderLeague(
       <MemoryRouter initialEntries={[`/team/${team.id}/league`]}>
         <Routes>
           <Route path="/team/:teamId/league" element={<League />} />
+          <Route path="/team/:teamId/league/:rosterTeamId" element={<div>other roster</div>} />
+          <Route path="/team/:teamId" element={<div>own roster</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -168,6 +170,31 @@ describe("League", () => {
     });
 
     expect(await screen.findByTestId("league-empty")).toBeTruthy();
+  });
+
+  it("links another team to its roster under this team's League tab", async () => {
+    renderLeague();
+    await screen.findByText("THE LEAGUE");
+
+    const link = screen.getByRole("link", { name: "Fresh Meat" });
+    expect(link.getAttribute("href")).toBe(`/team/${team.id}/league/espn:l-705139273-t-1`);
+  });
+
+  it("links the user's own team to its Roster tab", async () => {
+    renderLeague();
+    await screen.findByText("THE LEAGUE");
+
+    const link = screen.getByRole("link", { name: team.name });
+    expect(link.getAttribute("href")).toBe(`/team/${team.id}`);
+  });
+
+  it("opens a team's roster when anywhere on its row is clicked", async () => {
+    renderLeague();
+    await screen.findByText("THE LEAGUE");
+
+    fireEvent.click(within(screen.getByText("Fresh Meat").closest("tr")!).getByText("3-0"));
+
+    expect(await screen.findByText("other roster")).toBeTruthy();
   });
 
   it("renders an empty league without crashing", async () => {

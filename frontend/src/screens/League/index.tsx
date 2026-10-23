@@ -58,7 +58,7 @@ export default function League() {
         {league.season} · {rows.length} teams · {league.scoring_type.replace("_", " ")}
       </p>
 
-      <StandingsTable rows={rows} />
+      <StandingsTable rows={rows} viewingTeamId={teamId} />
     </>
   );
 }

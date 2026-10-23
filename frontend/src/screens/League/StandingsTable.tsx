@@ -12,17 +12,39 @@
 //   roster-col-actual  -> points against on desktop is redundant; used for PF delta-free
 //                         alignment of the record column instead. See below.
 
+import type { MouseEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
+
+import { IconChevR } from "../../components/primitives";
 import { TeamLogo } from "../../components/shared/TeamLogo";
+import { teamRoutePath } from "../../hooks/teamRoute";
 import type { LeagueStandingsRow } from "../../types/api";
 
 function recordText(record: { w: number; l: number; t: number }): string {
   return record.t > 0 ? `${record.w}-${record.l}-${record.t}` : `${record.w}-${record.l}`;
 }
 
-function StandingsRow({ row }: { row: LeagueStandingsRow }) {
+/** Where a standings row leads. Your own team goes to its Roster tab, where it can be
+ *  managed; anyone else's opens read-only under League, so the shell keeps your team as
+ *  the active one rather than switching context to an opponent. */
+function standingsRowHref(viewingTeamId: string, team: { id: string; is_user_team: boolean }) {
+  return team.is_user_team
+    ? teamRoutePath(team.id, "roster")
+    : `${teamRoutePath(viewingTeamId, "league")}/${team.id}`;
+}
+
+function StandingsRow({ row, viewingTeamId }: { row: LeagueStandingsRow; viewingTeamId: string }) {
   const { team } = row;
+  const navigate = useNavigate();
+  const href = standingsRowHref(viewingTeamId, team);
+  // The team name is the real link (keyboard, screen reader, cmd-click). The row click
+  // only widens the hit area, so it ignores clicks the link already handled.
+  const onRowClick = (e: MouseEvent<HTMLTableRowElement>) => {
+    if ((e.target as HTMLElement).closest("a, button")) return;
+    navigate(href);
+  };
   return (
-    <tr data-own={team.is_user_team || undefined}>
+    <tr className="row-link" data-own={team.is_user_team || undefined} onClick={onRowClick}>
       <td
         className="roster-col-slot"
         style={{
@@ -38,15 +60,19 @@ function StandingsRow({ row }: { row: LeagueStandingsRow }) {
           <TeamLogo team={team} size={32} />
           <div className="player-info">
             <div className="player-info-row">
-              <span
+              <Link
+                to={href}
                 className="player-name"
                 style={team.is_user_team ? { fontWeight: 700 } : undefined}
               >
                 {team.name}
-              </span>
+              </Link>
             </div>
             <div className="player-meta">{team.manager_name}</div>
           </div>
+          <span className="row-chevron" aria-hidden="true">
+            <IconChevR size={16} />
+          </span>
         </div>
       </td>
       <td className="roster-col-status">
@@ -60,9 +86,11 @@ function StandingsRow({ row }: { row: LeagueStandingsRow }) {
 
 export interface StandingsTableProps {
   rows: LeagueStandingsRow[];
+  /** The team whose League tab this is; other teams' rosters open beneath it. */
+  viewingTeamId: string;
 }
 
-export function StandingsTable({ rows }: StandingsTableProps) {
+export function StandingsTable({ rows, viewingTeamId }: StandingsTableProps) {
   if (rows.length === 0) {
     return (
       <div className="card" style={{ padding: 24, textAlign: "center" }}>
@@ -85,7 +113,7 @@ export function StandingsTable({ rows }: StandingsTableProps) {
         </thead>
         <tbody>
           {rows.map((row) => (
-            <StandingsRow key={row.team.id} row={row} />
+            <StandingsRow key={row.team.id} row={row} viewingTeamId={viewingTeamId} />
           ))}
         </tbody>
       </table>

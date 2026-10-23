@@ -6,6 +6,7 @@ import Draft from "./screens/Draft";
 import GameDay from "./screens/GameDay";
 import GameDayRedirect from "./screens/GameDay/GameDayRedirect";
 import LeagueScreen from "./screens/League";
+import LeagueTeam from "./screens/League/LeagueTeam";
 import HeadToHead from "./screens/HeadToHead";
 import MyTeam from "./screens/MyTeam";
 import Season from "./screens/Season";
@@ -26,6 +27,7 @@ export const routeChildren = [
   { path: "team/:teamId/season", element: <Season /> },
   { path: "team/:teamId/waivers", element: <Waivers /> },
   { path: "team/:teamId/league", element: <LeagueScreen /> },
+  { path: "team/:teamId/league/:rosterTeamId", element: <LeagueTeam /> },
   ...(DRAFT_ASSISTANT ? [{ path: "draft", element: <Draft /> }] : []),
   { path: "settings", element: <Settings /> },
 ];

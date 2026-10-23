@@ -541,6 +541,19 @@ button:not(:disabled):active,
   font-weight: 600;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
 }
+/* Equal-width segments that share the row, so a seven-way filter still fits a phone
+   (343px of content at 375px) without wrapping or scrolling. */
+.segmented-fill {
+  display: flex;
+  width: 100%;
+  max-width: 480px;
+  margin-bottom: var(--space-4);
+}
+.segmented-fill button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+}
 
 /* 3-column stat row */
 .three-stat {
@@ -618,6 +631,40 @@ button:not(:disabled):active,
 .roster tr[data-own] td { background: rgba(10, 132, 255, 0.1); }
 .roster tr.bench-row td { color: var(--text-secondary); }
 .roster tr.bench-row .player-name { color: var(--text-tertiary); }
+/* A row that drills into a detail screen: the whole row is the target, the chevron says so. */
+.roster tr.row-link { cursor: pointer; }
+.roster tr.row-link td { transition: background-color var(--dur-fade) ease; }
+.roster tr.row-link:hover td { background: var(--fill-4); }
+.roster tr.row-link:active td { background: var(--fill-3); }
+.roster tr.row-link[data-own]:hover td { background: rgba(10, 132, 255, 0.16); }
+.roster tr.row-link .player-info { flex: 1; }
+.roster tr.row-link .player-name,
+.roster tr.row-link .player-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-chevron { display: flex; flex: 0 0 auto; color: var(--text-tertiary); }
+
+/* Back to the parent screen from a drill-down, the way a navigation bar's back button reads. */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 0 var(--space-3) calc(-1 * var(--space-1));
+  padding: var(--space-1) var(--space-2) var(--space-1) 0;
+  color: var(--accent);
+  font: var(--type-body);
+  letter-spacing: var(--track-body);
+  border-radius: var(--radius-xs);
+}
+.back-link:hover { color: var(--accent-pressed); }
+
+.team-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+.team-header .large-title,
+.team-header .large-subtitle { margin: 0; }
+.team-header .large-title { overflow-wrap: anywhere; }
 
 .roster-col-slot { width: 64px; }
 .roster-col-opp { width: 90px; }

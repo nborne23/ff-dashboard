@@ -67,14 +67,12 @@ export default function Waivers() {
         {team ? `${team.name} · ` : ""}Ranked by upgrade over your weakest eligible starter
       </p>
 
-      <div
-        style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}
-        role="group"
-        aria-label="Filter by position"
-      >
+      {/* A segmented control, not a row of chips: the options are mutually exclusive
+          and exactly one is always selected, which is what a segmented control says. */}
+      <div className="segmented segmented-fill" role="group" aria-label="Filter by position">
         <button
           type="button"
-          className={"pill" + (position === undefined ? " active" : "")}
+          className={position === undefined ? "active" : ""}
           aria-pressed={position === undefined}
           onClick={() => setPosition(undefined)}
         >
@@ -84,7 +82,7 @@ export default function Waivers() {
           <button
             key={p}
             type="button"
-            className={"pill" + (position === p ? " active" : "")}
+            className={position === p ? "active" : ""}
             aria-pressed={position === p}
             onClick={() => setPosition(p)}
           >

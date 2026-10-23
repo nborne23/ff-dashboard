@@ -15,6 +15,13 @@ describe("parseTeamRoute", () => {
     expect(parseTeamRoute("/team/espn:l-1-t-2/season")?.section).toBe("season");
   });
 
+  it("keeps another team's roster under the League section", () => {
+    expect(parseTeamRoute("/team/espn:l-1-t-2/league/espn:l-1-t-5")).toEqual({
+      teamId: "espn:l-1-t-2",
+      section: "league",
+    });
+  });
+
   it("returns null for non-team routes", () => {
     for (const path of ["/", "/gameday", "/settings", "/draft", "/team", "/team/"]) {
       expect(parseTeamRoute(path)).toBeNull();

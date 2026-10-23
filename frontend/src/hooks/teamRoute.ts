@@ -44,6 +44,8 @@ export function parseTeamRoute(pathname: string): TeamRouteMatch | null {
     // Malformed escape sequence; fall through with the raw segment.
   }
 
+  // `/team/:teamId/league/:rosterTeamId` (another team's roster) still belongs to the
+  // League tab, so only the first sub-segment decides the section.
   const tail = segments[2];
   if (tail === undefined) return { teamId, section: "roster" };
   if (tail === "h2h" || tail === "season" || tail === "waivers" || tail === "league")
