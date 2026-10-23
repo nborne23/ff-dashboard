@@ -145,7 +145,7 @@ describe("TeamContextBar", () => {
   });
 });
 
-describe("Sidebar team scoping", () => {
+describe("Sidebar teams", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
@@ -163,37 +163,54 @@ describe("Sidebar team scoping", () => {
     );
   }
 
-  it("points Matchups and Season at the remembered team, not the first one", async () => {
+  it("lists every team directly, each opening its roster from Game Day", async () => {
     stubTeams();
-    useUiStore.setState({ activeTeamId: "yahoo:l-9-t-3" });
     renderSidebarAt("/");
 
     await waitFor(() =>
-      expect(screen.getByText("Matchups").closest("a")?.getAttribute("href")).toBe(
-        "/team/yahoo:l-9-t-3/h2h",
+      expect(screen.getByText("Highland Bombers").closest("a")?.getAttribute("href")).toBe(
+        "/team/espn:l-1-t-2",
       ),
     );
-    expect(screen.getByText("Season").closest("a")?.getAttribute("href")).toBe(
-      "/team/yahoo:l-9-t-3/season",
+    expect(screen.getByText("Rival Squad").closest("a")?.getAttribute("href")).toBe(
+      "/team/yahoo:l-9-t-3",
     );
   });
 
-  it("falls back to the first team when the remembered one is gone", async () => {
+  it("keeps the current view when moving between teams", async () => {
     stubTeams();
-    useUiStore.setState({ activeTeamId: "espn:disconnected-league" });
-    renderSidebarAt("/");
+    renderSidebarAt("/team/espn:l-1-t-2/season");
 
     await waitFor(() =>
-      expect(screen.getByText("Matchups").closest("a")?.getAttribute("href")).toBe(
-        "/team/espn:l-1-t-2/h2h",
+      expect(screen.getByText("Rival Squad").closest("a")?.getAttribute("href")).toBe(
+        "/team/yahoo:l-9-t-3/season",
       ),
     );
   });
 
-  it("expands the team list on a team route", async () => {
+  it("marks the team on screen as current", async () => {
     stubTeams();
-    renderSidebarAt("/team/yahoo:l-9-t-3/season");
+    renderSidebarAt("/team/yahoo:l-9-t-3/h2h");
+
+    await waitFor(() =>
+      expect(screen.getByText("Rival Squad").closest("a")?.getAttribute("aria-current")).toBe(
+        "page",
+      ),
+    );
+    expect(
+      screen.getByText("Highland Bombers").closest("a")?.getAttribute("aria-current"),
+    ).toBeNull();
+  });
+
+  it("has no team-scoped view links that would have to guess a team", async () => {
+    // Matchups / Season / Waivers / League used to sit here and silently resolve to the
+    // last team viewed. Views now live only in the team header's tabs.
+    stubTeams();
+    renderSidebarAt("/");
     await waitFor(() => expect(screen.getByText("Rival Squad")).toBeTruthy());
+    for (const label of ["Matchups", "Season", "Waivers", "League"]) {
+      expect(screen.queryByText(label)).toBeNull();
+    }
   });
 });
 
@@ -205,16 +222,23 @@ describe("route -> remembered team wiring", () => {
   });
 
   /**
-   * Renders the real shell, so `useActiveTeamSync` actually runs. The Sidebar tests
-   * above inject `activeTeamId` by hand — good isolation for `resolveTeamId`, but they
-   * would all still pass with the sync hook deleted, because nothing in them asserts
-   * that VISITING a team route writes the store. This is the test that fails if that
-   * one wire is cut, which is the wire the whole feature hangs on.
+   * Renders the real shell, so `useActiveTeamSync` actually runs. This is the test that
+   * fails if visiting a team route stops writing the remembered team — which the
+   * phone tab bar's Teams link depends on.
    */
   function renderShellAt(path: string) {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const router = createMemoryRouter(
-      [{ path: "/", element: <App />, children: [{ path: "team/:teamId/season", element: null }] }],
+      [
+        {
+          path: "/",
+          element: <App />,
+          children: [
+            { index: true, element: null },
+            { path: "team/:teamId/season", element: null },
+          ],
+        },
+      ],
       { initialEntries: [path] },
     );
     return render(
@@ -224,17 +248,25 @@ describe("route -> remembered team wiring", () => {
     );
   }
 
-  it("makes the sidebar's Matchups link follow the team the route is showing", async () => {
+  function teamsTab(): HTMLAnchorElement {
+    return document.querySelector(".tabbar a:nth-child(2)") as HTMLAnchorElement;
+  }
+
+  it("makes the tab bar's Teams link follow the team the route is showing", async () => {
     stubTeams();
-    // Nothing remembered yet, and the visited team is deliberately NOT teams[0] — so a
-    // pass cannot come from the fallback.
+    // The visited team is deliberately NOT teams[0], so a pass can't come from the
+    // fallback.
     renderShellAt("/team/yahoo:l-9-t-3/season");
 
-    await waitFor(() =>
-      expect(screen.getByText("Matchups").closest("a")?.getAttribute("href")).toBe(
-        "/team/yahoo:l-9-t-3/h2h",
-      ),
-    );
+    await waitFor(() => expect(teamsTab().getAttribute("href")).toBe("/team/yahoo:l-9-t-3"));
     expect(useUiStore.getState().activeTeamId).toBe("yahoo:l-9-t-3");
+  });
+
+  it("falls back to the first team when the remembered one is gone", async () => {
+    stubTeams();
+    useUiStore.setState({ activeTeamId: "espn:disconnected-league" });
+    renderShellAt("/");
+
+    await waitFor(() => expect(teamsTab().getAttribute("href")).toBe("/team/espn:l-1-t-2"));
   });
 });

@@ -59,11 +59,11 @@ describe("WeekHistory", () => {
     );
 
     const current = screen.getByTestId("week-history-current-row");
-    expect(current.style.background).toBe("rgba(255, 45, 85, 0.06)");
+    expect(current.style.background).toBe("var(--accent-tint)");
     expect(screen.getAllByTestId("week-history-current-row")).toHaveLength(1);
   });
 
-  it("colors the dot cyan for a win and pink for a loss", () => {
+  it("colors the dot by valence: green for a win, red for a loss", () => {
     const { container } = render(
       <WeekHistory
         weeks={[
@@ -76,8 +76,8 @@ describe("WeekHistory", () => {
     const dots = Array.from(container.querySelectorAll(".row-list > div > div:nth-child(2)")).map(
       (el) => (el as HTMLElement).style.background,
     );
-    // Reverse chronological: week 2 (loss, pink) first, then week 1 (win, cyan).
-    expect(dots).toEqual(["var(--move)", "var(--stand)"]);
+    // Reverse chronological: week 2 (loss) first, then week 1 (win).
+    expect(dots).toEqual(["var(--negative)", "var(--positive)"]);
   });
 
   it("shows an empty state when there are no weeks", () => {

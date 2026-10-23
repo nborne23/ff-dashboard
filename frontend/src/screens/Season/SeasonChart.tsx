@@ -85,7 +85,7 @@ export function SeasonChart({ weeks }: SeasonChartProps) {
         const y = PAD_TOP + INNER_H - h;
         const opH = (s.opp_score / max) * INNER_H;
         const opY = PAD_TOP + INNER_H - opH;
-        const color = s.is_win ? "var(--stand)" : "var(--move)";
+        const color = s.is_win ? "var(--positive)" : "var(--negative)";
         const opacity = s.is_current ? 1 : 0.85;
         return (
           <g key={s.week}>

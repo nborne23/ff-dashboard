@@ -33,7 +33,7 @@ export function RecordDonut({ weeks }: RecordDonutProps) {
           size={180}
           stroke={18}
           gap={4}
-          tracks={[{ value: total > 0 ? wins / total : 0, color: "var(--stand)" }]}
+          tracks={[{ value: total > 0 ? wins / total : 0, color: "var(--positive)" }]}
         />
         <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
           <div style={{ textAlign: "center" }}>
@@ -48,7 +48,7 @@ export function RecordDonut({ weeks }: RecordDonutProps) {
       </div>
       <div className="legend" style={{ marginTop: 8 }}>
         <span>
-          <span className="swatch" style={{ background: "var(--stand)" }} />
+          <span className="swatch" style={{ background: "var(--positive)" }} />
           Wins
         </span>
         <span>

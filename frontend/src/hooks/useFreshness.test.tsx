@@ -21,7 +21,7 @@ describe("useFreshness", () => {
 
     const { result } = renderHook(() => useFreshness(asOfSecondsAgo(12)));
 
-    expect(result.current.label).toBe("Last updated 12s ago");
+    expect(result.current.label).toBe("Updated 12s ago");
     expect(result.current.stale).toBe(false);
   });
 
@@ -31,7 +31,20 @@ describe("useFreshness", () => {
 
     const { result } = renderHook(() => useFreshness(asOfSecondsAgo(3 * 60)));
 
-    expect(result.current.label).toBe("Last updated 3m ago");
+    expect(result.current.label).toBe("Updated 3m ago");
+  });
+
+  it("moves to hours and then days instead of counting minutes forever", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+
+    // The old label read "Last updated 46292m ago" on a stale install.
+    expect(renderHook(() => useFreshness(asOfSecondsAgo(5 * 3600))).result.current.label).toBe(
+      "Updated 5h ago",
+    );
+    expect(renderHook(() => useFreshness(asOfSecondsAgo(46292 * 60))).result.current.label).toBe(
+      "Updated 32d ago",
+    );
   });
 
   it("is stale once 90 seconds have elapsed", () => {
@@ -57,13 +70,13 @@ describe("useFreshness", () => {
     vi.setSystemTime(NOW);
 
     const { result } = renderHook(() => useFreshness(NOW.toISOString()));
-    expect(result.current.label).toBe("Last updated 0s ago");
+    expect(result.current.label).toBe("Updated just now");
 
     act(() => {
-      vi.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(15_000);
     });
 
-    expect(result.current.label).toBe("Last updated 5s ago");
+    expect(result.current.label).toBe("Updated 15s ago");
   });
 
   it("crosses into staleness while mounted, without remounting", () => {

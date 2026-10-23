@@ -40,7 +40,7 @@ export function WeekHistory({ weeks }: WeekHistoryProps) {
               gap: 12,
               padding: "12px 16px",
               alignItems: "center",
-              background: s.is_current ? "rgba(255,45,85,0.06)" : "transparent",
+              background: s.is_current ? "var(--accent-tint)" : "transparent",
             }}
           >
             <div
@@ -53,7 +53,7 @@ export function WeekHistory({ weeks }: WeekHistoryProps) {
                 width: 8,
                 height: 8,
                 borderRadius: "50%",
-                background: s.is_win ? "var(--stand)" : "var(--move)",
+                background: s.is_win ? "var(--positive)" : "var(--negative)",
               }}
             />
             <div

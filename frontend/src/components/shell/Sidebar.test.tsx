@@ -1,6 +1,5 @@
-// Task 8.9: the disconnect fallback in the sidebar footer. The >30s timing itself is
-// owned and tested by useLiveEvents (api/events.test.tsx) — here we only check that the
-// footer renders the right thing for each `connectionLostLong` state.
+// The sidebar's scoreboard column: each team carries its current margin, colored by
+// valence, and a live marker while any of its players are playing.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
@@ -8,27 +7,30 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Sidebar } from "./Sidebar";
-import { useLiveConnectionStore } from "../../stores/live";
 
-function jsonResponse(status: number, body: unknown): Response {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    text: async () => (body === undefined ? "" : JSON.stringify(body)),
-  } as Response;
+function team(id: string, name: string, score: number, opp: number, isLive = false) {
+  return { id, name, current_score: score, current_opp_score: opp, is_live: isLive };
 }
 
-function resetLiveStore(): void {
-  useLiveConnectionStore.setState({
-    connected: false,
-    liveState: "off_day",
-    lastEventAt: null,
-    connectionLostLong: false,
-    liveTierSeconds: null,
-  });
-}
-
-function renderSidebar() {
+function renderWith(teams: ReturnType<typeof team>[]) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          data: { teams },
+          meta: {
+            live_state: "live",
+            as_of: new Date().toISOString(),
+            next_refresh_at: new Date().toISOString(),
+            current_week: 1,
+            platforms: {},
+          },
+        }),
+    })) as unknown as typeof fetch,
+  );
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
@@ -39,73 +41,33 @@ function renderSidebar() {
   );
 }
 
-describe("Sidebar footer", () => {
+describe("Sidebar scoreboard", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
-    resetLiveStore();
   });
 
-  it("shows a freshness label when the connection is fine", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        jsonResponse(200, {
-          data: { teams: [] },
-          meta: {
-            live_state: "off_day",
-            as_of: new Date().toISOString(),
-            next_refresh_at: new Date().toISOString(),
-            current_week: 1,
-            platforms: {},
-          },
-        }),
-      ),
-    );
+  it("shows each team's margin with its valence", async () => {
+    const { container } = renderWith([
+      team("espn:a", "Winning Team", 30, 20),
+      team("espn:b", "Losing Team", 10, 25.5),
+    ]);
 
-    renderSidebar();
-
-    await waitFor(() => {
-      expect(screen.getByText(/Last updated/)).toBeTruthy();
-    });
-    expect(screen.queryByText("Live connection lost — retrying")).toBeNull();
+    await waitFor(() => expect(screen.getByText("+10.0")).toBeTruthy());
+    expect(screen.getByText("+10.0").getAttribute("data-sign")).toBe("pos");
+    expect(screen.getByText("−15.5").getAttribute("data-sign")).toBe("neg");
+    expect(container.querySelectorAll(".team-item-margin")).toHaveLength(2);
   });
 
-  it("shows the disconnect message instead of freshness once connectionLostLong is true", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => jsonResponse(200, { ok: true })),
-    );
-    useLiveConnectionStore.setState({ connectionLostLong: true });
-
-    renderSidebar();
-
-    await waitFor(() => {
-      expect(screen.getByText("Live connection lost — retrying")).toBeTruthy();
-    });
-    expect(screen.queryByText(/Last updated/)).toBeNull();
+  it("shows no margin before kickoff, when both sides are at zero", async () => {
+    const { container } = renderWith([team("espn:a", "Not Started", 0, 0)]);
+    await waitFor(() => expect(screen.getByText("Not Started")).toBeTruthy());
+    expect(container.querySelector(".team-item-margin")).toBeNull();
   });
 
-  it("applies the .lost modifier to the pulse dot while disconnected", () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => jsonResponse(200, { ok: true })),
-    );
-    useLiveConnectionStore.setState({ connectionLostLong: true });
-
-    const { container } = renderSidebar();
-
-    expect(container.querySelector(".footer .pulse.lost")).toBeTruthy();
-  });
-
-  it("does not apply the .lost modifier while connected", () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => jsonResponse(200, { ok: true })),
-    );
-
-    const { container } = renderSidebar();
-
-    expect(container.querySelector(".footer .pulse.lost")).toBeNull();
+  it("marks a team live while its players are playing", async () => {
+    renderWith([team("espn:a", "Live Team", 5, 3, true), team("espn:b", "Idle Team", 5, 3)]);
+    await waitFor(() => expect(screen.getByText("Live Team")).toBeTruthy());
+    expect(screen.getAllByLabelText("Live")).toHaveLength(1);
   });
 });

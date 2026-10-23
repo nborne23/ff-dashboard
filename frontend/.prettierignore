@@ -2,8 +2,6 @@ dist
 node_modules
 coverage
 
-# Verbatim ports from design/ — must match the prototype byte-for-byte,
-# so they are exempt from formatting.
+# Hand-formatted: single-line rules and aligned columns that prettier would explode.
 src/styles/tokens.css
 src/styles/global.css
-src/components/shell/TweaksPanel.css

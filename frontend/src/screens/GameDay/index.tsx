@@ -11,7 +11,7 @@
 //
 // All data comes from ONE query (design D5). No panel fetches anything.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { useGameDay } from "../../api/teams";
@@ -24,6 +24,7 @@ import "../../styles/gameday.css";
 import { applySort, liveCount, reconcileOrder, reorder } from "./arrangement";
 import { GameDayPanel } from "./GameDayPanel";
 import { GameDaySkeleton } from "./GameDaySkeleton";
+import { animate, canAnimate, readSpring, rectTransform, useFlipChildren } from "./motion";
 
 const MODES: { id: GameDayMode; label: string }[] = [
   { id: "g2", label: "2-across" },
@@ -55,6 +56,12 @@ export default function GameDay() {
 
   const [spotlightId, setSpotlightId] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+
+  const stageRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const closingRef = useRef(false);
 
   const matchups = useMemo(() => gameDayQuery.data?.data.matchups ?? [], [gameDayQuery.data]);
   const byId = useMemo(
@@ -74,16 +81,88 @@ export default function GameDay() {
     return applySort(reconciled, byId, layout.sortMode);
   }, [layout.order, layout.sortMode, matchups, byId]);
 
+  // Panels glide to a new slot on any re-order: a drag, an auto-sort pass, an
+  // arrangement change (§7). Interruptible, so live re-sorts never make a panel jump.
+  useFlipChildren(
+    stageRef,
+    `${layout.mode}|${visibleIds.join(",")}|${JSON.stringify(layout.spans)}`,
+  );
+
+  const sourcePanel = useCallback(
+    (id: string) =>
+      Array.from(stageRef.current?.querySelectorAll<HTMLElement>("[data-flip-id]") ?? []).find(
+        (el) => el.dataset.flipId === id,
+      ) ?? null,
+    [],
+  );
+
+  // The spotlight grows out of the panel that opened it, and shrinks back into it (§7):
+  // enter and exit along the same path. Without animation support (or with reduced
+  // motion) it simply appears and disappears.
+  useLayoutEffect(() => {
+    if (spotlightId === null) return;
+    closingRef.current = false;
+    const frame = frameRef.current;
+    const source = sourcePanel(spotlightId);
+    const spring = readSpring("default");
+    if (!canAnimate(frame) || !source || spring.duration === 0) return;
+    const from = rectTransform(source.getBoundingClientRect(), frame.getBoundingClientRect());
+    animate(
+      frame,
+      [
+        { transform: from, opacity: 0.6 },
+        { transform: "none", opacity: 1 },
+      ],
+      spring,
+    );
+    if (canAnimate(backdropRef.current)) {
+      animate(backdropRef.current, [{ opacity: 0 }, { opacity: 1 }], spring);
+    }
+  }, [spotlightId, sourcePanel]);
+
+  const closeSpotlight = useCallback(() => {
+    if (spotlightId === null || closingRef.current) return;
+    const frame = frameRef.current;
+    const source = sourcePanel(spotlightId);
+    const spring = readSpring("snappy");
+    if (!canAnimate(frame) || !source || spring.duration === 0) {
+      setSpotlightId(null);
+      return;
+    }
+    closingRef.current = true;
+    // Animate from wherever the frame is right now, so a close during the opening
+    // animation reverses smoothly instead of snapping to full size first.
+    const now = getComputedStyle(frame).transform;
+    frame.getAnimations().forEach((a) => a.cancel());
+    const to = rectTransform(source.getBoundingClientRect(), frame.getBoundingClientRect());
+    const out = animate(
+      frame,
+      [
+        { transform: now === "none" ? "none" : now, opacity: 1 },
+        { transform: to, opacity: 0 },
+      ],
+      spring,
+      undefined,
+      // Hold the end state until React unmounts the overlay, or the frame snaps back
+      // to full size for a frame between the animation ending and the unmount.
+      "forwards",
+    );
+    if (canAnimate(backdropRef.current)) {
+      animate(backdropRef.current, [{ opacity: 1 }, { opacity: 0 }], spring, undefined, "forwards");
+    }
+    out.onfinish = () => setSpotlightId(null);
+  }, [spotlightId, sourcePanel]);
+
   // Escape closes the spotlight. Bound at the document so it works regardless of what
   // holds focus inside the overlay.
   useEffect(() => {
     if (spotlightId === null) return;
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setSpotlightId(null);
+      if (event.key === "Escape") closeSpotlight();
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [spotlightId]);
+  }, [spotlightId, closeSpotlight]);
 
   // The panel resolves the direction from the roster's real rendered visibility, so
   // this just records the choice — see GameDayPanel's handleToggleRoster.
@@ -101,6 +180,7 @@ export default function GameDay() {
       // sort pass undo the user's placement (design D8).
       setSortMode("manual");
       setDragId(null);
+      setDropTargetId(null);
     },
     [dragId, visibleIds, setOrder, setSortMode],
   );
@@ -165,7 +245,7 @@ export default function GameDay() {
       <GameDayHeader matchups={matchups} week={week} />
 
       <div className="gd-controls" data-testid="gameday-controls">
-        <div className="gd-seg" role="group" aria-label="Arrangement">
+        <div className="gd-seg segmented" role="group" aria-label="Arrangement">
           {MODES.map((m) => (
             <button
               key={m.id}
@@ -179,7 +259,7 @@ export default function GameDay() {
           ))}
         </div>
 
-        <div className="gd-seg" role="group" aria-label="Sort">
+        <div className="gd-seg segmented" role="group" aria-label="Sort">
           {SORTS.map((s) => (
             <button
               key={s.id}
@@ -197,7 +277,7 @@ export default function GameDay() {
 
         <button
           type="button"
-          className="gd-seg-btn"
+          className="gd-text-btn"
           onClick={() => {
             setOpenIds(matchups.map((m) => m.team_id));
             setShutIds([]);
@@ -207,7 +287,7 @@ export default function GameDay() {
         </button>
         <button
           type="button"
-          className="gd-seg-btn"
+          className="gd-text-btn"
           onClick={() => {
             // Collapse all is an explicit shut, not a clearing of preferences —
             // otherwise wide panels would fall back to the query and stay open.
@@ -219,7 +299,13 @@ export default function GameDay() {
         </button>
       </div>
 
-      <div className="gd-stage" data-layout={layout.mode} data-testid="gameday-stage">
+      <div
+        className="gd-stage"
+        data-layout={layout.mode}
+        data-dragging={dragId !== null ? "true" : undefined}
+        data-testid="gameday-stage"
+        ref={stageRef}
+      >
         {visibleIds.map((id) => {
           const matchup = byId[id];
           if (!matchup) return null;
@@ -231,9 +317,23 @@ export default function GameDay() {
               rosterOverride={rosterOverrideFor(id)}
               onToggleRoster={(next) => toggleRoster(id, next)}
               onSpotlight={() => setSpotlightId(id)}
+              dragRole={
+                dragId === id
+                  ? "source"
+                  : dropTargetId === id && dragId !== null
+                    ? "target"
+                    : undefined
+              }
               onHeaderDragStart={() => setDragId(id)}
-              onHeaderDragOver={(event) => event.preventDefault()}
+              onHeaderDragOver={(event) => {
+                event.preventDefault();
+                if (dropTargetId !== id) setDropTargetId(id);
+              }}
               onHeaderDrop={() => handleDrop(id)}
+              onHeaderDragEnd={() => {
+                setDragId(null);
+                setDropTargetId(null);
+              }}
               onResizePointerDown={() => cycleSpan(id)}
             />
           );
@@ -245,16 +345,24 @@ export default function GameDay() {
           className="gd-spotlight-backdrop"
           data-testid="gameday-spotlight"
           role="presentation"
-          onClick={() => setSpotlightId(null)}
+          ref={backdropRef}
+          onClick={closeSpotlight}
         >
-          <div className="gd-spotlight-frame" onClick={(event) => event.stopPropagation()}>
+          <div
+            className="gd-spotlight-frame"
+            ref={frameRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${spotlit.team_name} matchup`}
+            onClick={(event) => event.stopPropagation()}
+          >
             <GameDayPanel
               matchup={spotlit}
               isSpotlight
               // Spotlight always shows the roster, whatever the panel's own override was
               // on the stage — it is the one place with room for it unconditionally.
               rosterOverride="open"
-              onSpotlight={() => setSpotlightId(null)}
+              onSpotlight={closeSpotlight}
             />
           </div>
         </div>
@@ -272,7 +380,7 @@ function GameDayHeader({ matchups, week }: { matchups: GameDayMatchup[]; week: n
       <h1 className="large-title">Game Day</h1>
       <p className="large-subtitle">
         Week {week} · {matchups.length} {matchups.length === 1 ? "matchup" : "matchups"} ·{" "}
-        <span style={{ color: "var(--move)" }}>{leading} leading</span>
+        <span style={{ color: "var(--positive)" }}>{leading} leading</span>
         {live > 0 && (
           <>
             {" · "}

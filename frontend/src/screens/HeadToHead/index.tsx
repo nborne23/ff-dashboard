@@ -167,7 +167,7 @@ export default function HeadToHead() {
         <div style={{ borderTop: "0.5px solid var(--separator)", paddingTop: 24, marginTop: 8 }}>
           <div className="three-stat">
             <div>
-              <div className="stat-label" style={{ color: "var(--move)" }}>
+              <div className="stat-label" style={{ color: "var(--text-secondary)" }}>
                 Points
               </div>
               <div className="stat-val">
@@ -176,7 +176,7 @@ export default function HeadToHead() {
               </div>
             </div>
             <div>
-              <div className="stat-label" style={{ color: "var(--exercise)" }}>
+              <div className="stat-label" style={{ color: "var(--text-secondary)" }}>
                 Projected
               </div>
               <div className="stat-val">
@@ -185,7 +185,7 @@ export default function HeadToHead() {
               </div>
             </div>
             <div>
-              <div className="stat-label" style={{ color: "var(--stand)" }}>
+              <div className="stat-label" style={{ color: "var(--text-secondary)" }}>
                 Win Prob.
               </div>
               <div className="stat-val">

@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Topbar } from "./Topbar";
+import { useLiveConnectionStore } from "../../stores/live";
 
 function jsonResponse(status: number, body: unknown): Response {
   return {
@@ -90,9 +91,7 @@ describe("Topbar refresh button", () => {
   });
 });
 
-// P8-leftover: the "N LIVE" badge counts real `team.is_live` teams instead of the
-// hardcoded "3 LIVE" placeholder; DayRings renders from GET /api/teams/day-rings
-// (task 10.6) instead of static fixture data.
+// The live badge counts real `team.is_live` teams, and shows only when there are any.
 describe("Topbar real-data wiring", () => {
   afterEach(() => {
     cleanup();
@@ -169,17 +168,35 @@ describe("Topbar real-data wiring", () => {
     renderTopbar();
 
     await waitFor(() => {
-      expect(screen.getByText("1 LIVE")).toBeTruthy();
+      expect(screen.getByText("1 live")).toBeTruthy();
     });
   });
 
-  it("renders DayRings from the day-rings envelope, not placeholder fixture data", async () => {
-    installFetchMock();
-    const { container } = renderTopbar();
+  it("hides the live badge entirely when nothing is live", async () => {
+    // A permanent "0 live" trains the eye to skip the one badge meant to be noticed.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(200, { data: { teams: [makeTeam("yahoo:l1.t2", false)] }, meta }),
+      ),
+    );
+    renderTopbar();
 
     await waitFor(() => {
-      expect(container.querySelectorAll(".day-cell")).toHaveLength(2);
+      expect(screen.getByText(/^Updated /)).toBeTruthy();
     });
-    expect(container.querySelector(".day-cell.today")).toBeTruthy();
+    expect(screen.queryByTestId("live-badge")).toBeNull();
+  });
+
+  it("is the one home for freshness, and swaps it for the disconnect message", async () => {
+    installFetchMock();
+    useLiveConnectionStore.setState({ connectionLostLong: true });
+    renderTopbar();
+
+    await waitFor(() => {
+      expect(screen.getByText("Connection lost — retrying")).toBeTruthy();
+    });
+    expect(screen.queryByText(/^Updated /)).toBeNull();
+    useLiveConnectionStore.setState({ connectionLostLong: false });
   });
 });

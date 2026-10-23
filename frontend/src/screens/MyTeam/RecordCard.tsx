@@ -60,7 +60,7 @@ export function RecordCard({ recordHistory, team }: RecordCardProps) {
               width: 14,
               height: 14,
               borderRadius: 3,
-              background: w.is_win ? "rgba(100,210,255,0.85)" : "rgba(255,45,85,0.7)",
+              background: w.is_win ? "var(--positive)" : "var(--negative)",
               display: "grid",
               placeItems: "center",
               fontSize: 9,

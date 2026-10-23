@@ -36,9 +36,9 @@ export function ScoreCard({ starters, week }: ScoreCardProps) {
             {actual.toFixed(1)}
             <span className="unit">pts</span>
           </div>
-          <div style={{ fontSize: 13, color: "var(--exercise)", fontWeight: 600 }}>
+          <div style={{ font: "var(--type-subhead)", color: "var(--text-secondary)" }}>
             Projected{" "}
-            <span className="num" style={{ color: "var(--exercise)" }}>
+            <span className="num" style={{ color: "var(--text)" }}>
               {proj.toFixed(1)}
             </span>
           </div>
@@ -49,7 +49,7 @@ export function ScoreCard({ starters, week }: ScoreCardProps) {
         <ActivityRing
           size={88}
           stroke={9}
-          tracks={[{ value: pct, color: "#FF2D55" }]}
+          tracks={[{ value: pct, color: "var(--accent)" }]}
           label={`${Math.round(pct * 100)}%`}
         />
       </div>

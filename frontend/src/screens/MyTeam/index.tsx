@@ -101,7 +101,9 @@ export default function MyTeam() {
     <>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 8 }}>
         <div>
-          <h1 className="large-title">{data.team.name}</h1>
+          {/* The team header above already names the team; the title names the view, the
+              same way Matchup, Season and Waivers do. */}
+          <h1 className="large-title">Roster</h1>
           <p className="large-subtitle" style={{ marginBottom: 0 }}>
             <PlatformPill platform={platform} />
             &nbsp;&nbsp;{data.league.name} · {ordinal(data.team.rank.current)}
@@ -120,9 +122,6 @@ export default function MyTeam() {
       <div className="spacer-md" />
       <div className="dashboard-grid">
         <div>
-          <div className="section-label" style={{ marginBottom: 12 }}>
-            Roster
-          </div>
           <RosterTable starters={data.starters} bench={data.bench} />
         </div>
         <div className="rail">

@@ -15,7 +15,6 @@ export interface H2HRingsProps {
 
 export function H2HRings({ myScore, myProj, oppScore, oppProj, gamesLeft }: H2HRingsProps) {
   const diff = myScore - oppScore;
-  const leading = diff >= 0;
   return (
     <div style={{ position: "relative", display: "inline-grid", placeItems: "center" }}>
       <ActivityRing
@@ -53,7 +52,7 @@ export function H2HRings({ myScore, myProj, oppScore, oppProj, gamesLeft }: H2HR
               fontSize: 38,
               fontWeight: 700,
               letterSpacing: "-0.02em",
-              color: leading ? "var(--move)" : "var(--stand)",
+              color: diff > 0 ? "var(--positive)" : diff < 0 ? "var(--negative)" : "var(--text)",
             }}
           >
             {diff >= 0 ? "+" : ""}

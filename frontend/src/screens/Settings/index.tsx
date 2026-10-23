@@ -1,11 +1,10 @@
-// Screen 5: Settings — ported from design/screen-settings.jsx. All six prototype
-// groups are wired up (task 7.3-7.7): Connected Platforms, one Leagues group per
-// platform (Yahoo then ESPN, matching Connected Platforms' order), ESPN
-// Credentials, Preferences, Appearance, Data Management, in prototype order.
+// Settings: inset grouped lists in two columns. Left is accounts (platforms, ESPN
+// credentials, which leagues to follow); right is how the app behaves (refresh cadence,
+// data). Appearance is gone: the app is dark-only by design, and a theme switch that
+// never changed the theme was a control that lied.
 
 import { useRef } from "react";
 
-import { AppearanceCard } from "./AppearanceCard";
 import { ConnectionsCard } from "./ConnectionsCard";
 import { DataManagementCard } from "./DataManagementCard";
 import { EspnCredentialsCard } from "./EspnCredentialsCard";
@@ -17,25 +16,26 @@ export default function Settings() {
 
   return (
     <>
-      <h1 className="large-title" style={{ textAlign: "left" }}>
-        Settings
-      </h1>
-      <p className="large-subtitle">Account, leagues, and preferences</p>
+      <h1 className="large-title">Settings</h1>
+      <p className="large-subtitle">Accounts, leagues, and how GridIron refreshes</p>
 
       <div className="settings-page">
-        <ConnectionsCard
-          onEspnConnectRequested={() => {
-            const input = swidInputRef.current;
-            input?.focus();
-            input?.scrollIntoView?.({ behavior: "smooth", block: "center" });
-          }}
-        />
-        <LeaguesCard platform="yahoo" />
-        <LeaguesCard platform="espn" />
-        <EspnCredentialsCard ref={swidInputRef} />
-        <PreferencesCard />
-        <AppearanceCard />
-        <DataManagementCard />
+        <div className="settings-col">
+          <ConnectionsCard
+            onEspnConnectRequested={() => {
+              const input = swidInputRef.current;
+              input?.focus();
+              input?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+            }}
+          />
+          <EspnCredentialsCard ref={swidInputRef} />
+          <LeaguesCard platform="yahoo" />
+          <LeaguesCard platform="espn" />
+        </div>
+        <div className="settings-col">
+          <PreferencesCard />
+          <DataManagementCard />
+        </div>
       </div>
     </>
   );

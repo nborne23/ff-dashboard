@@ -222,7 +222,7 @@ describe("GameDay", () => {
     // stylesheet, so the roster reads as visible here and the first click therefore
     // SHUTS it — which is the direction that matters: it proves the override can beat
     // a roster the container query opened, not just one it closed.
-    fireEvent.click(within(panel()).getByRole("button", { name: /MATCHUP/ }));
+    fireEvent.click(within(panel()).getByRole("button", { name: /lineup/ }));
     expect(panel().getAttribute("data-roster")).toBe("shut");
     // Still mounted — the attribute overrides CSS, it does not gate the mount.
     expect(within(panel()).getByTestId("gd-roster")).toBeTruthy();
@@ -231,7 +231,7 @@ describe("GameDay", () => {
     // display:none now applies for real (the attribute rule is not container-scoped),
     // so the next click swings it back open.
     (within(panel()).getByTestId("gd-roster") as HTMLElement).style.display = "none";
-    fireEvent.click(within(panel()).getByRole("button", { name: /MATCHUP/ }));
+    fireEvent.click(within(panel()).getByRole("button", { name: /lineup/ }));
     expect(panel().getAttribute("data-roster")).toBe("open");
 
     const state = useUiStore.getState().gameDay;

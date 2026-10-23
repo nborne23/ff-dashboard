@@ -22,13 +22,13 @@ function recordText(record: { w: number; l: number; t: number }): string {
 function StandingsRow({ row }: { row: LeagueStandingsRow }) {
   const { team } = row;
   return (
-    <tr className={team.is_user_team ? "live-row" : ""} data-own={team.is_user_team || undefined}>
+    <tr data-own={team.is_user_team || undefined}>
       <td
         className="roster-col-slot"
         style={{
           fontWeight: 700,
           fontSize: 13,
-          color: team.is_user_team ? "var(--move)" : "var(--text-secondary)",
+          color: team.is_user_team ? "var(--accent)" : "var(--text-secondary)",
         }}
       >
         {row.position}
@@ -38,7 +38,10 @@ function StandingsRow({ row }: { row: LeagueStandingsRow }) {
           <TeamLogo team={team} size={32} />
           <div className="player-info">
             <div className="player-info-row">
-              <span className="player-name" style={team.is_user_team ? { fontWeight: 700 } : undefined}>
+              <span
+                className="player-name"
+                style={team.is_user_team ? { fontWeight: 700 } : undefined}
+              >
                 {team.name}
               </span>
             </div>

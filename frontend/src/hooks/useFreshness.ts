@@ -14,11 +14,17 @@ export interface FreshnessResult {
   stale: boolean;
 }
 
+// Each unit takes over once the one below it stops being readable at a glance:
+// "46292m ago" is technically correct and tells a person nothing.
 function formatLabel(deltaMs: number): string {
   const seconds = Math.max(0, Math.floor(deltaMs / 1000));
-  if (seconds < 60) return `Last updated ${seconds}s ago`;
+  if (seconds < 10) return "Updated just now";
+  if (seconds < 60) return `Updated ${seconds}s ago`;
   const minutes = Math.floor(seconds / 60);
-  return `Last updated ${minutes}m ago`;
+  if (minutes < 60) return `Updated ${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Updated ${hours}h ago`;
+  return `Updated ${Math.floor(hours / 24)}d ago`;
 }
 
 export function useFreshness(asOf: string | null | undefined): FreshnessResult {
@@ -30,12 +36,12 @@ export function useFreshness(asOf: string | null | undefined): FreshnessResult {
   }, []);
 
   if (!asOf) {
-    return { label: "Last updated —", stale: false };
+    return { label: "Not updated yet", stale: false };
   }
 
   const asOfMs = new Date(asOf).getTime();
   if (Number.isNaN(asOfMs)) {
-    return { label: "Last updated —", stale: false };
+    return { label: "Not updated yet", stale: false };
   }
 
   const delta = now - asOfMs;

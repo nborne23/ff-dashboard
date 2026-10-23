@@ -1,41 +1,179 @@
+/* GridIron design tokens.
+ *
+ * Every color has exactly ONE job. The old palette came from Apple Fitness, where pink,
+ * green and cyan name data categories, and the app then reused the same pink and green
+ * to mean losing and winning. Pink ended up meaning both "points" and "you're losing".
+ * The roles are now separate and never share a hue:
+ *
+ *   accent    blue    interactive and selected things, and "you" in a two-series chart
+ *   positive  green   winning, gaining, on (switches)
+ *   negative  red     losing, falling, errors, destructive actions
+ *   live      orange  a game in progress, and nothing else
+ *   opponent  gray    the other side in a two-series chart
+ *
+ * Platform (ESPN / Yahoo) is metadata, not signal, so it gets no color at all. A red
+ * ESPN pill next to a red margin chip was a third reading of red.
+ */
 :root {
-  /* Foundation */
+  color-scheme: dark;
+
+  /* ---- Backgrounds: Apple's dark system grouped layers ---- */
   --bg: #000000;
-  --surface: #1C1C1E;
-  --surface-hover: #2C2C2E;
-  --surface-2: #2C2C2E;
-  --separator: #38383A;
-  --pill: #636366;
+  --surface: #1c1c1e;          /* secondarySystemBackground */
+  --surface-2: #2c2c2e;        /* tertiarySystemBackground */
+  --surface-hover: #242426;
+  --surface-pressed: #2c2c2e;
 
-  /* Text */
-  --text: #FFFFFF;
-  --text-secondary: #8E8E93;
-  --text-tertiary: #AEAEB2;
+  /* Fills: translucent, so they work on any layer */
+  --fill: rgba(120, 120, 128, 0.36);
+  --fill-2: rgba(120, 120, 128, 0.24);
+  --fill-3: rgba(118, 118, 128, 0.18);
+  --fill-4: rgba(118, 118, 128, 0.12);
 
-  /* Category colors (Apple Fitness rings) */
-  --move: #FF2D55;      /* Pink — points/scoring */
-  --exercise: #30D158;  /* Green — projections */
-  --stand: #64D2FF;     /* Cyan — record/standings */
-  --live: #FF9F0A;      /* Orange — live games */
-  --yahoo: #BF5AF2;     /* Purple */
-  --espn: #FF453A;      /* Red */
-  --bench: #636366;     /* Dim */
+  --separator: rgba(84, 84, 88, 0.65);
+  --separator-opaque: #38383a;
 
-  /* Tinted dashed-line versions for chart reference lines */
-  --move-tint: rgba(255, 45, 85, 0.35);
+  /* ---- Labels ---- */
+  --text: #ffffff;
+  --text-secondary: rgba(235, 235, 245, 0.6);
+  --text-tertiary: rgba(235, 235, 245, 0.38);
+  --text-quaternary: rgba(235, 235, 245, 0.18);
+
+  /* ---- Semantic color ---- */
+  --accent: #0a84ff;
+  --accent-pressed: #409cff;
+  --positive: #30d158;
+  --negative: #ff453a;
+  --live: #ff9f0a;
+  --opponent: #98989d;
+
+  --accent-tint: rgba(10, 132, 255, 0.18);
+  --positive-tint: rgba(48, 209, 88, 0.16);
+  --negative-tint: rgba(255, 69, 58, 0.16);
+  --live-tint: rgba(255, 159, 10, 0.16);
+  --live-row-bg: rgba(255, 159, 10, 0.06);
+
+  /* ---- Legacy names, remapped onto the roles above ----
+   * Kept so the long tail of screen CSS picks up the new meanings without a rename
+   * across every file. New code uses the semantic names. */
+  --move: var(--accent);
+  --exercise: var(--positive);
+  --stand: var(--opponent);
+  --espn: var(--negative);       /* every remaining use is an error message */
+  --yahoo: var(--text-secondary);
+  --bench: #636366;
+  --pill: var(--fill);
+  --move-tint: rgba(10, 132, 255, 0.35);
   --exercise-tint: rgba(48, 209, 88, 0.35);
-  --stand-tint: rgba(100, 210, 255, 0.35);
+  --stand-tint: rgba(152, 152, 157, 0.35);
 
-  /* Live row tint */
-  --live-row-bg: rgba(255, 45, 85, 0.06);
+  /* ---- Materials (§12): translucent chrome that content scrolls under ---- */
+  --material-chrome: rgba(18, 18, 20, 0.72);
+  --material-thick: rgba(28, 28, 30, 0.86);
+  --material-blur: blur(24px) saturate(180%);
+  --scrim: rgba(0, 0, 0, 0.6);
+  --shadow-raised: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lifted: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 24px 60px rgba(0, 0, 0, 0.6);
 
-  /* Type — SF Pro Display fallback to system */
-  --font-system: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  /* ---- Type (§15) ----
+   * One scale, in rem, so the browser's text-size setting scales the layout with it.
+   * Tracking is size-specific: negative as type grows, ~0 at body, slightly positive on
+   * small caps. Leading tightens as size grows. 15px is the floor for anything that
+   * carries meaning (the wall display is read from across a room); 13px and below are
+   * reserved for labels whose meaning is also carried by position or by another cue.
+   */
+  --font-system: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  --font-rounded: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, sans-serif;
 
-  /* Layout (overridable via tweaks) */
-  --sidebar-w: 240px;
-  --topbar-h: 56px;
-  --content-max: 1440px;
+  --type-score: 600 3rem/1 var(--font-rounded);           /* 48 */
+  --type-large-title: 700 2.125rem/1.12 var(--font-system); /* 34 */
+  --type-title1: 700 1.75rem/1.15 var(--font-system);     /* 28 */
+  --type-title2: 700 1.375rem/1.2 var(--font-system);     /* 22 */
+  --type-title3: 600 1.25rem/1.25 var(--font-system);     /* 20 */
+  --type-headline: 600 1.0625rem/1.3 var(--font-system);  /* 17 */
+  --type-body: 400 1.0625rem/1.45 var(--font-system);     /* 17 */
+  --type-callout: 400 1rem/1.4 var(--font-system);        /* 16 */
+  --type-subhead: 400 0.9375rem/1.35 var(--font-system);  /* 15 — the floor */
+  --type-footnote: 400 0.8125rem/1.35 var(--font-system); /* 13 */
+  --type-caption: 500 0.75rem/1.3 var(--font-system);     /* 12 */
+
+  --track-score: -0.035em;
+  --track-large-title: -0.025em;
+  --track-title: -0.02em;
+  --track-headline: -0.01em;
+  --track-body: -0.005em;
+  --track-subhead: 0;
+  --track-footnote: 0.005em;
+  --track-caps: 0.06em;
+
+  /* ---- Space: 4pt grid, in rem ---- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+
+  /* ---- Motion (§4) ----
+   * Springs expressed as CSS `linear()` curves, sampled from Apple's damping/response
+   * model. Critically damped (no overshoot) is the default for everything; the bouncy
+   * curve is only for things that arrive with momentum. Press feedback is a fast
+   * ease-out so it lands on pointer-down, before the click resolves.
+   */
+  --spring-default: linear(0, 0.043, 0.14, 0.258, 0.376, 0.487, 0.584, 0.667, 0.736, 0.793, 0.838, 0.874, 0.903, 0.925, 0.943, 0.956, 0.967, 0.975, 0.981, 0.986, 0.989, 0.992, 0.994, 0.995, 1);
+  --spring-default-dur: 500ms;   /* damping 1.0, response 0.4 */
+  --spring-snappy: linear(0, 0.061, 0.19, 0.335, 0.472, 0.591, 0.689, 0.766, 0.827, 0.872, 0.907, 0.932, 0.951, 0.965, 0.975, 0.982, 0.987, 0.991, 0.994, 0.996, 1);
+  --spring-snappy-dur: 380ms;    /* damping 1.0, response 0.3 */
+  --spring-bouncy: linear(0, 0.037, 0.126, 0.242, 0.366, 0.487, 0.598, 0.695, 0.776, 0.842, 0.895, 0.934, 0.964, 0.984, 0.999, 1.007, 1.012, 1.015, 1.015, 1.014, 1.013, 1.011, 1.009, 1.007, 1.006, 1.004, 1.003, 1.002, 1.001, 1.001, 1, 1, 1);
+  --spring-bouncy-dur: 600ms;    /* damping 0.8, response 0.4 */
+  --ease-press: cubic-bezier(0.2, 0, 0, 1);
+  --dur-press: 100ms;
+  --dur-fade: 200ms;
+
+  /* ---- Layout ---- */
+  --sidebar-w: 248px;
+  --sidebar-w-collapsed: 64px;
+  --topbar-h: 52px;
+  --tabbar-h: 56px;
+  --content-max: 1600px;
   --row-h: 56px;
   --spark-thick: 1.5px;
+}
+
+/* Reduced transparency: frosted chrome becomes solid (§14). */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --material-chrome: #121214;
+    --material-thick: #1c1c1e;
+    --material-blur: none;
+  }
+}
+
+/* Increased contrast: stronger labels and visible separators. */
+@media (prefers-contrast: more) {
+  :root {
+    --text-secondary: rgba(235, 235, 245, 0.8);
+    --text-tertiary: rgba(235, 235, 245, 0.62);
+    --separator: rgba(160, 160, 168, 0.9);
+    --material-chrome: #121214;
+    --material-blur: none;
+  }
+}
+
+/* Reduced motion: springs collapse to short cross-fades. Components key off
+   --spring-*-dur, so zeroing them removes travel everywhere at once. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --spring-default-dur: 0ms;
+    --spring-snappy-dur: 0ms;
+    --spring-bouncy-dur: 0ms;
+  }
 }

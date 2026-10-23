@@ -1,164 +1,200 @@
+/* ==========================================================================
+   Foundation
+   ========================================================================== */
+
 * { box-sizing: border-box; }
+
+html {
+  /* Root stays at the browser's size, so the user's text-size setting scales every rem
+     in the type scale and spacing (§15). */
+  font-size: 100%;
+  -webkit-text-size-adjust: 100%;
+}
 
 html, body {
   margin: 0;
   padding: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-system);
+  font: var(--type-body);
+  letter-spacing: var(--track-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: "tnum" 1, "ss01" 1;
-  letter-spacing: -0.01em;
+  font-optical-sizing: auto;
 }
 
-#root { min-height: 100vh; }
+#root { min-height: 100vh; min-height: 100dvh; }
 
-/* ==== App shell ==== */
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; letter-spacing: inherit; }
+
+/* Numbers that move should not jitter as their digits change width. */
+.num, [class*="score"], [class*="pts"], [class*="diff"], [class*="margin"] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* One focus ring everywhere, keyboard only. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+:focus:not(:focus-visible) { outline: none; }
+
+/* Press feedback lands on pointer-down (§1), for every control that doesn't define its
+   own. Fast in, and released at the same speed, so it never feels like it lags. */
+button:not(:disabled),
+[role="button"],
+.nav-item,
+.team-item,
+.tab {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition:
+    transform var(--dur-press) var(--ease-press),
+    background-color var(--dur-fade) ease,
+    color var(--dur-fade) ease,
+    opacity var(--dur-fade) ease;
+}
+button:not(:disabled):active,
+[role="button"]:active {
+  transform: scale(0.97);
+}
+
+/* ==========================================================================
+   App shell
+   ========================================================================== */
+
 .app {
   display: grid;
-  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg);
 }
+.app[data-sidebar="collapsed"] { grid-template-columns: var(--sidebar-w-collapsed) minmax(0, 1fr); }
 
-/* ==== Sidebar ==== */
+/* ---- Sidebar: the heavier, structural material (§12) ---- */
 .sidebar {
-  background: var(--bg);
-  border-right: 0.5px solid var(--separator);
-  padding: 20px 0 16px;
-  display: flex;
-  flex-direction: column;
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-3);
+  background: #0b0b0c;
+  border-right: 0.5px solid var(--separator);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .sidebar .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 4px 20px 24px;
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-4);
+  font: var(--type-title3);
+  letter-spacing: var(--track-headline);
 }
-.sidebar .brand .logo {
-  width: 26px;
-  height: 26px;
+.sidebar .brand .logo { display: grid; place-items: center; width: 28px; height: 28px; }
+.sidebar-toggle {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
   display: grid;
   place-items: center;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
 }
-.sidebar .nav-group { padding: 4px 0; }
-.sidebar .nav-group + .nav-group {
-  border-top: 0.5px solid var(--separator);
-  margin-top: 8px;
-  padding-top: 12px;
-}
-.sidebar .nav-label {
-  padding: 0 20px 6px;
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
+.sidebar-toggle svg { transform: rotate(180deg); transition: transform var(--spring-default-dur) var(--spring-default); }
+.app[data-sidebar="collapsed"] .sidebar-toggle svg { transform: none; }
+.sidebar-toggle:hover { color: var(--text); background: var(--fill-4); }
+
+.nav-group { display: flex; flex-direction: column; gap: 2px; }
+.nav-teams { margin-top: var(--space-3); }
+.nav-footer { margin-top: auto; padding-top: var(--space-3); }
+
+.nav-label {
+  padding: 0 var(--space-3) var(--space-2);
+  font: var(--type-footnote);
   font-weight: 600;
+  color: var(--text-tertiary);
 }
-.sidebar .nav-item {
+
+.nav-item,
+.team-item {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 20px;
+  gap: var(--space-3);
+  min-height: 40px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  font-size: 14px;
+  font: var(--type-subhead);
   font-weight: 500;
   cursor: pointer;
   user-select: none;
-  border: none;
-  background: none;
-  width: 100%;
-  text-align: left;
 }
-.sidebar .nav-item:hover { color: var(--text); }
-.sidebar .nav-item.active {
+.nav-item:hover,
+.team-item:hover { background: var(--fill-4); color: var(--text); }
+.nav-item:active,
+.team-item:active { background: var(--fill-3); transform: scale(0.98); }
+.nav-item.active,
+.team-item.active {
+  background: var(--fill-3);
   color: var(--text);
   font-weight: 600;
 }
-.sidebar .nav-item.active::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 3px;
-  background: var(--move);
-  border-radius: 0 2px 2px 0;
-}
-.sidebar .nav-item .icon {
-  width: 18px;
-  height: 18px;
-  display: grid;
-  place-items: center;
-  color: currentColor;
-  flex-shrink: 0;
-}
-.sidebar .nav-item .chev {
-  margin-left: auto;
-  opacity: 0.5;
-  transition: transform 120ms;
-  font-size: 12px;
-}
-.sidebar .nav-item .chev.open { transform: rotate(90deg); }
-.sidebar .sub-item {
-  padding: 6px 20px 6px 50px;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  border: none;
-  background: none;
-  appearance: none;
-  width: 100%;
-  text-align: left;
-  font-family: inherit;
-  font-weight: 500;
-}
-.sidebar .sub-item.active {
-  color: var(--text);
-  font-weight: 600;
-}
-.sidebar .sub-item:hover { color: var(--text); }
-.sidebar .sub-item .platform-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-.sidebar .footer {
-  margin-top: auto;
-  padding: 12px 20px;
-  font-size: 11px;
-  color: var(--text-secondary);
-  border-top: 0.5px solid var(--separator);
-}
-.sidebar .footer .pulse {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--exercise);
-  margin-right: 6px;
-  vertical-align: middle;
-  box-shadow: 0 0 8px var(--exercise);
-}
-/* Disconnect fallback (task 8.9) — SSE down for >30s. */
-.sidebar .footer .pulse.lost {
-  background: var(--move);
-  box-shadow: 0 0 8px var(--move);
-  animation: pulse 1.6s ease-in-out infinite;
+.nav-item .icon { display: grid; place-items: center; width: 28px; flex: none; }
+.nav-item.active .icon { color: var(--accent); }
+.nav-item .label,
+.team-item .label {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* ==== Main column ==== */
+.team-item-logo { position: relative; display: grid; flex: none; }
+.team-item-live {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--live);
+  box-shadow: 0 0 0 2px #0b0b0c;
+}
+.team-item-margin {
+  flex: none;
+  font: var(--type-footnote);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+.team-item-margin[data-sign="pos"] { color: var(--positive); }
+.team-item-margin[data-sign="neg"] { color: var(--negative); }
+
+/* Collapsed rail: icons and logos only. Desktop-only; the phone has no sidebar. */
+.app[data-sidebar="collapsed"] .sidebar { padding-inline: var(--space-2); align-items: stretch; }
+.app[data-sidebar="collapsed"] .sidebar .brand { flex-direction: column; padding-inline: 0; }
+.app[data-sidebar="collapsed"] .sidebar-toggle { margin-left: 0; }
+.app[data-sidebar="collapsed"] .sidebar .brand .name,
+.app[data-sidebar="collapsed"] .sidebar .label,
+.app[data-sidebar="collapsed"] .sidebar .nav-label,
+.app[data-sidebar="collapsed"] .sidebar .team-item-margin { display: none; }
+.app[data-sidebar="collapsed"] .nav-item,
+.app[data-sidebar="collapsed"] .team-item { justify-content: center; padding-inline: 0; }
+
+/* ---- Main column ---- */
 .main {
   min-width: 0;
   display: flex;
@@ -166,463 +202,344 @@ html, body {
   position: relative;
 }
 
-/* Ambient aurora */
-.aurora {
-  position: absolute;
+/* ---- Top bar: translucent chrome over scrolling content ---- */
+.topbar {
+  position: sticky;
   top: 0;
+  z-index: 40;
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 0 var(--space-6);
+  background: var(--material-chrome);
+  -webkit-backdrop-filter: var(--material-blur);
+  backdrop-filter: var(--material-blur);
+}
+/* Scroll-edge effect instead of a hard rule: a soft fade where content meets chrome. */
+.topbar::after {
+  content: "";
+  position: absolute;
   left: 0;
   right: 0;
-  height: 240px;
+  top: 100%;
+  height: 16px;
   pointer-events: none;
-  z-index: 0;
-  background:
-    radial-gradient(ellipse 60% 100% at 50% 0%, var(--aurora-color, rgba(255, 45, 85, 0.18)), transparent 70%);
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.35), transparent);
 }
-
-/* Top bar */
-.topbar {
-  position: relative;
-  z-index: 2;
-  height: var(--topbar-h);
-  background: var(--surface);
-  display: grid;
-  /* minmax(0, 1fr), not 1fr: a bare `1fr` is minmax(AUTO, 1fr), and that auto minimum
-     is the children's intrinsic width — so the topbar could not shrink below
-     week-nav + week-days + right-cluster and overflowed every route by 240px on a
-     390px screen. Hiding children alone would not have fixed it. */
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  padding: 0 24px;
-  gap: 24px;
-  border-bottom: 0.5px solid var(--separator);
-}
-.topbar .week-nav {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.topbar .icon-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  transition: background 120ms, color 120ms;
-}
-.topbar .icon-btn:disabled {
-  cursor: default;
-  opacity: 0.6;
-}
-/* Refresh-button spin state (Phase 4.7 — not in the static prototype). */
-.icon-spin {
-  animation: icon-spin-rotate 0.8s linear infinite;
-}
-@keyframes icon-spin-rotate {
-  to { transform: rotate(360deg); }
-}
-.topbar .icon-btn:hover {
-  background: rgba(255,255,255,0.06);
-  color: var(--text);
-}
+.topbar .week-nav { display: flex; align-items: center; gap: var(--space-1); }
 .topbar .week-label {
-  font-weight: 700;
-  font-size: 17px;
-  letter-spacing: -0.01em;
-  min-width: 80px;
+  font: var(--type-headline);
+  letter-spacing: var(--track-headline);
+  min-width: 5.5em;
   text-align: center;
+  font-variant-numeric: tabular-nums;
 }
-.topbar .week-days, .week-days {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-}
-.topbar .day-cell, .day-cell {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  padding: 0 2px;
-}
-.topbar .day-cell .letter, .day-cell .letter {
-  font-size: 11px;
-  font-weight: 600;
+.icon-btn {
+  appearance: none;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
   color: var(--text-secondary);
-  width: 20px;
-  height: 20px;
   display: grid;
   place-items: center;
-  border-radius: 50%;
-  letter-spacing: 0;
+  cursor: pointer;
 }
-.topbar .day-cell.today .letter, .day-cell.today .letter {
-  background: var(--move);
-  color: var(--text);
-}
-.topbar .right-cluster {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-}
-.topbar .live-badge {
+.icon-btn:hover { background: var(--fill-4); color: var(--text); }
+.icon-btn:active { background: var(--fill-3); }
+.icon-btn:disabled { cursor: default; opacity: 0.5; }
+.icon-spin { animation: icon-spin-rotate 0.8s linear infinite; }
+@keyframes icon-spin-rotate { to { transform: rotate(360deg); } }
+
+.topbar .right-cluster { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.live-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(255, 159, 10, 0.16);
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--live-tint);
   color: var(--live);
-  font-size: 12px;
+  font: var(--type-subhead);
   font-weight: 600;
+  white-space: nowrap;
 }
-.topbar .live-badge .dot {
-  width: 6px;
-  height: 6px;
+.live-badge .dot {
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--live);
-  box-shadow: 0 0 8px var(--live);
-  animation: pulse 1.6s ease-in-out infinite;
+  animation: pulse 2s ease-in-out infinite;
 }
 @keyframes pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  50% { opacity: 0.35; }
 }
-/* Freshness caption next to the refresh button (hooks/useFreshness, task 8.8). */
 .topbar .freshness {
-  font-size: 12px;
-  color: var(--text-secondary);
+  font: var(--type-subhead);
+  color: var(--text-tertiary);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.topbar .freshness.stale {
-  color: var(--live);
-}
+/* Not orange: orange means a game is in progress. Stale data is just stated; a lost
+   connection is an error. */
+.topbar .freshness.stale { color: var(--text-secondary); }
+.topbar .freshness.lost { color: var(--negative); }
 
-/* Content area */
+/* ---- Content ---- */
 .content {
   position: relative;
-  z-index: 1;
   flex: 1;
-  padding: 32px;
-  background: var(--bg);
-  overflow-y: auto;
+  padding: var(--space-8) var(--space-8) var(--space-10);
 }
-.content-inner {
-  max-width: var(--content-max);
-  margin: 0 auto;
-}
+.content-inner { max-width: var(--content-max); margin: 0 auto; }
+/* Game Day is the wall display: on a 27" screen every pixel the cap would waste is panel
+   width, and panel width is type size. Every other screen stays capped for reading. */
+.content-inner:has(> .gd-stage) { max-width: none; }
 
-/* Large title */
 .large-title {
-  font-size: 34px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  margin: 0 0 4px;
-  line-height: 1.1;
+  font: var(--type-large-title);
+  letter-spacing: var(--track-large-title);
+  margin: 0 0 var(--space-1);
 }
 .large-subtitle {
-  font-size: 15px;
+  font: var(--type-subhead);
   color: var(--text-secondary);
-  margin: 0 0 24px;
+  margin: 0 0 var(--space-6);
 }
-
-/* Section label (Apple Health style: colored category text) */
 .section-label {
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  margin: 0 0 12px;
+  font: var(--type-title2);
+  letter-spacing: var(--track-title);
+  margin: 0 0 var(--space-3);
 }
 
+/* ---- Phone tab bar ---- */
+.tabbar { display: none; }
 
-/* ==== Team context bar ==== */
-/* Sits above the routed screen on /team/:teamId/... and answers the two questions the
-   URL used to be the only answer to: which team is this, and what else can I see about
-   it. Rendered by the shell (App.tsx), so it survives a team/section switch. */
+/* ==========================================================================
+   Team header
+   ========================================================================== */
+
 .team-context {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 20px;
-  padding-bottom: 14px;
-  border-bottom: 0.5px solid var(--separator);
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
 }
-
-.team-switcher {
-  position: relative;
-}
-/* The sidebar's dot rule is scoped to `.sidebar .sub-item`, so the bar needs its own
-   sizing or the span renders at zero width and the platform cue silently disappears. */
-.team-context .platform-dot {
-  flex: none;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
+.team-switcher { position: relative; min-width: 0; }
 .team-switcher-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   max-width: 100%;
-  padding: 7px 12px;
-  border-radius: 9px;
-  border: 0.5px solid var(--separator);
-  background: var(--surface);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-1);
+  border-radius: var(--radius-pill);
+  border: none;
+  background: var(--fill-4);
   color: var(--text);
-  font-size: 13px;
-  font-weight: 600;
+  font: var(--type-headline);
+  letter-spacing: var(--track-headline);
   cursor: pointer;
-  transition: background 140ms ease;
 }
-.team-switcher-btn:hover:not(:disabled) { background: var(--surface-hover); }
+.team-switcher-btn:hover:not(:disabled) { background: var(--fill-3); }
 .team-switcher-btn:disabled { opacity: 0.5; cursor: default; }
-.team-switcher-btn .chev { display: flex; transition: transform 160ms ease; }
-.team-switcher-btn .chev.open { transform: rotate(90deg); }
-/* The name is the only elastic part: the dot and chevron keep their size and the name
-   ellipses, rather than the whole control overflowing a 390px screen. */
-.team-switcher-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.team-switcher-btn .chev {
+  display: flex;
+  color: var(--text-tertiary);
+  transform: rotate(90deg);
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
 }
+.team-switcher-btn .chev.open { transform: rotate(-90deg); }
+.team-switcher-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .team-switcher-menu {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + var(--space-2));
   left: 0;
   z-index: 60;
   min-width: 100%;
-  max-width: min(88vw, 320px);
-  max-height: 320px;
+  width: max-content;
+  max-width: min(88vw, 340px);
+  max-height: 60vh;
   overflow-y: auto;
   margin: 0;
-  padding: 6px;
+  padding: var(--space-1);
   list-style: none;
-  border-radius: 12px;
-  border: 0.5px solid var(--separator);
-  background: var(--surface);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  border-radius: var(--radius-md);
+  background: var(--material-thick);
+  -webkit-backdrop-filter: var(--material-blur);
+  backdrop-filter: var(--material-blur);
+  box-shadow: var(--shadow-lifted);
+  /* Grows out of the button that opened it (§7). */
+  transform-origin: top left;
+  animation: popover-in var(--spring-snappy-dur) var(--spring-snappy);
+}
+@keyframes popover-in {
+  from { opacity: 0; transform: scale(0.92) translateY(-4px); }
 }
 .team-switcher-option {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   width: 100%;
-  padding: 8px 10px;
+  min-height: 44px;
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-2);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: none;
-  color: var(--text-secondary);
-  font-size: 13px;
+  color: var(--text);
+  font: var(--type-subhead);
   text-align: left;
   cursor: pointer;
 }
-.team-switcher-option:hover { background: var(--surface-hover); color: var(--text); }
-.team-switcher-option.active { color: var(--text); font-weight: 600; }
+.team-switcher-option:hover { background: var(--fill-4); }
+.team-switcher-option.active { font-weight: 600; background: var(--accent-tint); }
 
-.team-tabs {
-  display: flex;
-  gap: 2px;
-  padding: 2px;
-  border-radius: 9px;
-  background: var(--surface);
-}
-.team-tab {
-  padding: 6px 14px;
-  border: none;
-  border-radius: 7px;
-  background: none;
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: background 140ms ease, color 140ms ease;
-}
-.team-tab:hover { color: var(--text); }
-.team-tab.active {
-  background: var(--surface-hover);
-  color: var(--text);
-  font-weight: 600;
-}
+/* ==========================================================================
+   Shared components
+   ========================================================================== */
 
-/* ==== Card ==== */
+/* ---- Card: an inset-grouped surface on the black background ---- */
 .card {
   background: var(--surface);
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
 }
-.card.hoverable { transition: background 140ms ease; cursor: pointer; }
+.card.hoverable { cursor: pointer; }
 .card.hoverable:hover { background: var(--surface-hover); }
-.card.tight { padding: 14px 16px; }
+.card.hoverable:active { transform: scale(0.99); }
+.card.tight { padding: var(--space-3) var(--space-4); }
 
 .card-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
+  gap: var(--space-2);
+  font: var(--type-subhead);
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
 }
-.card-header .cat-dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-}
-.card-header .cat-dot svg { width: 9px; height: 9px; color: #000; }
-.card-header .cat-label { letter-spacing: -0.005em; }
+/* Category dots are retired: color now means valence, not category. Kept as a quiet
+   glyph slot so existing markup still aligns. */
+.card-header .cat-dot { display: none; }
+.card-header .cat-label { color: var(--text-secondary) !important; }
 .card-header .ts {
   margin-left: auto;
-  color: var(--text-secondary);
-  font-weight: 400;
-  font-size: 12px;
+  color: var(--text-tertiary);
+  font: var(--type-footnote);
 }
-.card-header .chev {
-  margin-left: 8px;
-  color: var(--text-secondary);
-  font-size: 14px;
-}
+.card-header .chev { margin-left: var(--space-2); color: var(--text-tertiary); }
 
-/* Big metric (Health card body) */
 .metric {
-  font-size: 34px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.05;
+  font: var(--type-score);
+  font-size: 2.25rem;
+  letter-spacing: var(--track-score);
+  font-variant-numeric: tabular-nums;
 }
 .metric .unit {
-  font-size: 16px;
-  font-weight: 500;
+  font: var(--type-callout);
   color: var(--text-secondary);
-  margin-left: 4px;
+  margin-left: var(--space-1);
 }
 
-/* Score line */
 .score-line {
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+  font: var(--type-title1);
+  letter-spacing: var(--track-title);
+  font-variant-numeric: tabular-nums;
 }
-.score-line .vs {
-  color: var(--text-secondary);
-  font-weight: 500;
-  margin: 0 8px;
-}
+.score-line .vs { color: var(--text-secondary); font-weight: 500; margin: 0 var(--space-2); }
 
-/* Shared loading-skeleton block (components/primitives/Skeleton.tsx, task 10.1) — the
-   same soft pulse used elsewhere (.footer .pulse, .live-dot) so a loading screen reads
-   as part of the same visual language rather than a bolted-on shimmer effect. */
 .skeleton {
-  background: var(--pill);
-  opacity: 0.5;
+  background: var(--fill-3);
   animation: pulse 1.6s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .skeleton {
-    animation: none;
-  }
+  .skeleton { animation: none; }
 }
 
-/* Value-changed flash (hooks/useChangedValuePulse, task 8.7) — briefly glows a score
-   number after an SSE-driven refetch changes it. Only animates `text-shadow`, never
-   `color` itself, so it composes cleanly with whatever inline/win-loss color a call
-   site already applies (TeamCard's winning/losing white-vs-secondary text, etc.). */
-[data-just-changed="true"] {
-  animation: value-flash 900ms ease-out;
-}
+/* Value-changed flash (useChangedValuePulse): a brief glow on a number an SSE refetch
+   just changed. Only text-shadow, so it composes with any valence color. */
+[data-just-changed="true"] { animation: value-flash 900ms ease-out; }
 @keyframes value-flash {
-  0% {
-    text-shadow: 0 0 12px var(--live);
-  }
-  100% {
-    text-shadow: 0 0 0 transparent;
-  }
+  0% { text-shadow: 0 0 14px var(--live); }
+  100% { text-shadow: 0 0 0 transparent; }
 }
 @media (prefers-reduced-motion: reduce) {
-  [data-just-changed="true"] {
-    animation: none;
-  }
+  [data-just-changed="true"] { animation: none; }
 }
 
-/* Inset separators (cards rows) */
 .row-list { display: flex; flex-direction: column; }
-.row-list > * + * {
-  border-top: 0.5px solid var(--separator);
-}
-/* Inset (left padding 16) — reset on first child obviously not needed */
-.inset > * + * {
-  margin-left: 16px;
-  margin-right: 0;
-}
+.row-list > * + * { border-top: 0.5px solid var(--separator); }
+.inset > * + * { margin-left: var(--space-4); margin-right: 0; }
 
-/* Pills/chips */
+/* ---- Pills ---- */
 .pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11px;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  font: var(--type-caption);
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
-.pill.yahoo { background: rgba(191,90,242,0.16); color: var(--yahoo); }
-.pill.espn  { background: rgba(255,69,58,0.16); color: var(--espn); }
-.pill.live  { background: rgba(255,159,10,0.16); color: var(--live); }
-.pill.win   { background: rgba(48,209,88,0.16); color: var(--exercise); }
-.pill.loss  { background: rgba(255,45,85,0.16); color: var(--move); }
-.pill.bench { background: rgba(99,99,102,0.24); color: var(--text-tertiary); }
-.pill.pos   { background: rgba(142,142,147,0.18); color: var(--text-secondary); }
+/* Platform is metadata, so both platform pills are the same neutral fill. */
+.pill.yahoo,
+.pill.espn  { background: var(--fill-3); color: var(--text-secondary); }
+.pill.live  { background: var(--live-tint); color: var(--live); }
+.pill.win   { background: var(--positive-tint); color: var(--positive); }
+.pill.loss  { background: var(--negative-tint); color: var(--negative); }
+.pill.bench { background: var(--fill-3); color: var(--text-tertiary); }
+.pill.pos   { background: var(--fill-3); color: var(--text-secondary); }
 
-/* Differential chips (Head-to-Head) */
+/* Differential chips: valence only. */
 .diff-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 12px;
+  gap: var(--space-1);
+  padding: 2px var(--space-3);
+  border-radius: var(--radius-pill);
+  font: var(--type-subhead);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
-.diff-chip.pos { background: rgba(255,45,85,0.16); color: var(--move); }
-.diff-chip.neg { background: rgba(100,210,255,0.16); color: var(--stand); }
-.diff-chip.tie { background: rgba(142,142,147,0.18); color: var(--text-secondary); }
+.diff-chip.pos { background: var(--positive-tint); color: var(--positive); }
+.diff-chip.neg { background: var(--negative-tint); color: var(--negative); }
+.diff-chip.tie { background: var(--fill-3); color: var(--text-secondary); }
 
-/* Segmented control (D|W|M|Y) */
+/* ---- Segmented control ---- */
 .segmented {
   display: inline-flex;
-  background: var(--surface);
-  border-radius: 9px;
+  background: var(--fill-4);
+  border-radius: var(--radius-sm);
   padding: 2px;
-  gap: 0;
+  gap: 2px;
 }
 .segmented button {
   appearance: none;
   background: transparent;
   border: none;
   color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 5px 14px;
-  border-radius: 7px;
+  font: var(--type-subhead);
+  font-weight: 500;
+  padding: var(--space-1) var(--space-4);
+  min-height: 32px;
+  border-radius: calc(var(--radius-sm) - 2px);
   cursor: pointer;
-  letter-spacing: 0.01em;
-  font-family: inherit;
+  white-space: nowrap;
 }
+.segmented button:hover { color: var(--text); }
 .segmented button.active {
-  background: var(--pill);
+  background: #636366;
   color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
 }
 
 /* 3-column stat row */
@@ -697,6 +614,8 @@ html, body {
   border-bottom: 0.5px solid var(--separator);
 }
 .roster tr.live-row td { background: var(--live-row-bg); }
+/* Your own team in a standings table: "you", so the accent, never "live". */
+.roster tr[data-own] td { background: rgba(10, 132, 255, 0.1); }
 .roster tr.bench-row td { color: var(--text-secondary); }
 .roster tr.bench-row .player-name { color: var(--text-tertiary); }
 
@@ -734,8 +653,8 @@ html, body {
 .player-info-row { display: flex; align-items: center; gap: 6px; }
 
 .delta { font-variant-numeric: tabular-nums; font-weight: 600; }
-.delta.pos { color: var(--stand); }
-.delta.neg { color: var(--move); }
+.delta.pos { color: var(--positive); }
+.delta.neg { color: var(--negative); }
 .delta.zero { color: var(--text-secondary); }
 
 .num { font-variant-numeric: tabular-nums; font-weight: 600; }
@@ -748,9 +667,9 @@ html, body {
 
 /* Toggle switch */
 .switch {
-  width: 44px;
-  height: 26px;
-  background: var(--pill);
+  width: 51px;
+  height: 31px;
+  background: var(--fill);
   border-radius: 999px;
   position: relative;
   cursor: pointer;
@@ -762,15 +681,18 @@ html, body {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 22px;
-  height: 22px;
+  width: 27px;
+  height: 27px;
   border-radius: 50%;
   background: #fff;
-  transition: transform 160ms ease;
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
   box-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 .switch.on { background: var(--exercise); }
-.switch.on::after { transform: translateX(18px); }
+.switch.on::after { transform: translateX(20px); }
+.switch:active::after { width: 32px; }
+.switch.on:active::after { transform: translateX(15px); }
+.switch[aria-disabled="true"] { opacity: 0.5; cursor: default; }
 
 /* Inputs */
 .field-row {
@@ -808,10 +730,11 @@ html, body {
   font-family: inherit;
   transition: background 120ms;
 }
-.btn:hover { background: #7c7c80; }
+.btn:hover { background: var(--fill-2); }
+.btn:active { transform: scale(0.97); }
 .btn.primary { background: var(--move); }
-.btn.primary:hover { background: #ff4566; }
-.btn.danger { color: var(--espn); background: rgba(255,69,58,0.12); }
+.btn.primary:hover { background: var(--accent-pressed); }
+.btn.danger { color: var(--negative); background: var(--negative-tint); }
 .btn.danger:hover { background: rgba(255,69,58,0.2); }
 
 /* Dashboard grid */
@@ -991,44 +914,47 @@ html, body {
 }
 .legend .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; vertical-align: middle; margin-right: 6px; }
 
-/* Settings layout */
+/* Settings: inset grouped lists, iOS style. The section header sits OUTSIDE the
+   rounded group, in small secondary text, and the group is just its rows. Two columns
+   on a wide screen: accounts on the left, how the app behaves on the right. */
 .settings-page {
-  max-width: 720px;
-  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0 var(--space-8);
+  max-width: 1120px;
 }
-.settings-group {
-  background: var(--surface);
-  border-radius: 12px;
-  margin-bottom: 24px;
-  overflow: hidden;
+@media (min-width: 1100px) {
+  .settings-page { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
 }
+.settings-col { min-width: 0; }
+.settings-group { margin-bottom: var(--space-8); }
+.settings-group h3,
 .settings-group .group-header {
-  font-size: 11px;
+  margin: 0 var(--space-4) var(--space-2);
+  font: var(--type-footnote);
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  padding: 0 16px 8px;
-}
-.settings-group h3 {
-  margin: 32px 16px 8px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--text-secondary);
 }
+.settings-group > :not(h3) { background: var(--surface); }
+.settings-group > h3 + * { border-top-left-radius: var(--radius-md); border-top-right-radius: var(--radius-md); }
+.settings-group > :last-child { border-bottom-left-radius: var(--radius-md); border-bottom-right-radius: var(--radius-md); }
 .settings-group .row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: var(--space-3) var(--space-4);
   border-bottom: 0.5px solid var(--separator);
-  font-size: 14px;
+  font: var(--type-callout);
 }
 .settings-group .row:last-child { border-bottom: none; }
-.settings-group .row .label { flex: 1; }
-.settings-group .row .sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+.settings-group .row .label { flex: 1; min-width: 0; }
+.settings-group .row .sub { font: var(--type-footnote); color: var(--text-secondary); margin-top: 2px; }
+.settings-footnote {
+  margin: var(--space-2) var(--space-4) 0;
+  font: var(--type-footnote);
+  color: var(--text-tertiary);
+}
 
 /* Misc */
 .spacer-md { height: 24px; }
@@ -1036,202 +962,89 @@ html, body {
 .muted { color: var(--text-secondary); }
 .tnum { font-variant-numeric: tabular-nums; }
 
-/* ==== Manual sidebar collapse ====
-   Same icon-only geometry as the <1024px responsive rule below, driven by
-   `data-sidebar="collapsed"` on `.app` instead of by viewport width. Hands ~184px back
-   to the content column — which on Game Day goes straight into panel width, and
-   therefore into the container-query density band each panel lands in. */
-.sidebar .brand {
-  position: relative;
-}
-.sidebar-toggle {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  color: var(--text-secondary);
-  padding: 4px;
-  margin-left: auto;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: color 140ms ease, background 140ms ease, transform 180ms ease;
-}
-.sidebar-toggle:hover {
-  color: var(--text);
-  background: var(--surface-hover);
-}
-.app[data-sidebar="collapsed"] .sidebar-toggle {
-  transform: rotate(180deg);
-}
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
 
-/* Everything below is DESKTOP-ONLY. `sidebarCollapsed` is persisted, so without this
-   guard a sidebar collapsed on the desktop would also strip the labels out of the
-   phone's drawer — leaving an icon-only drawer with no way to tell the items apart. */
-@media (min-width: 768px) {
-
-.app[data-sidebar="collapsed"] .sidebar .brand .name,
-.app[data-sidebar="collapsed"] .sidebar .nav-item .label,
-.app[data-sidebar="collapsed"] .sidebar .nav-label,
-.app[data-sidebar="collapsed"] .sidebar .nav-item .chev,
-.app[data-sidebar="collapsed"] .sidebar .footer .label,
-.app[data-sidebar="collapsed"] .sidebar .sub-item {
-  display: none;
-}
-.app[data-sidebar="collapsed"] .sidebar .brand {
-  /* Stack logo over toggle: side by side there is no room for both at 56px. */
-  flex-direction: column;
-  gap: 6px;
-  padding: 4px 0 16px;
-  justify-content: center;
-}
-.app[data-sidebar="collapsed"] .sidebar-toggle {
-  margin-left: 0;
-}
-.app[data-sidebar="collapsed"] .sidebar .nav-item {
-  justify-content: center;
-  padding: 10px 0;
-}
-.app[data-sidebar="collapsed"] .sidebar .nav-item.active::before {
-  left: 0;
-}
-.app[data-sidebar="collapsed"] .sidebar .footer {
-  justify-content: center;
-  padding: 12px 0;
-}
-
-}
-
-/* Responsive (>1440 caps content; 768-1023 collapses the sidebar to an icon rail) */
-/* Lower-bounded at 768px on purpose: below that the sidebar is an off-canvas drawer
-   with room for full labels, and this block's icon-rail treatment (hiding .label,
-   .brand .name, .sub-item and centring the items) would otherwise strip the drawer
-   down to unlabelled icons. */
+/* Tablet: the sidebar becomes the icon rail automatically. */
 @media (min-width: 768px) and (max-width: 1023px) {
-  .app { grid-template-columns: 56px 1fr; }
+  .app,
+  .app[data-sidebar="collapsed"] { grid-template-columns: var(--sidebar-w-collapsed) minmax(0, 1fr); }
+  .sidebar { padding-inline: var(--space-2); }
+  .sidebar .brand { flex-direction: column; padding-inline: 0; }
+  .sidebar-toggle { display: none; }
   .sidebar .brand .name,
-  .sidebar .nav-item .label,
+  .sidebar .label,
   .sidebar .nav-label,
-  .sidebar .footer,
-  .sidebar .sub-item { display: none; }
-  .sidebar .nav-item { justify-content: center; padding: 10px 0; }
-  .sidebar .nav-item.active::before { left: 0; }
-}
-/* Topbar hamburger — phone only (the media block below reveals it). */
-.nav-toggle {
-  display: none;
-  appearance: none;
-  border: 0;
-  background: transparent;
-  color: var(--text-secondary);
-  place-items: center;
-  padding: 6px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.nav-toggle:hover {
-  color: var(--text);
-  background: var(--surface-hover);
+  .sidebar .team-item-margin { display: none; }
+  .nav-item,
+  .team-item { justify-content: center; padding-inline: 0; }
+  .content { padding: var(--space-6); }
 }
 
-/* ==== Phone (<=767px) ====
-   The sidebar previously became `display: none` here with nothing replacing it, so a
-   phone had NO navigation at all — seven nav links sat in the DOM, unreachable. It is
-   now an off-canvas drawer opened by the topbar's hamburger, which reuses the one
-   existing nav implementation rather than introducing a second (a bottom tab bar would
-   also contradict gridiron-ui's "reachable from the persistent sidebar"). */
+/* Phone: no sidebar; a tab bar carries the three destinations. */
 @media (max-width: 767px) {
-  .app {
-    grid-template-columns: 1fr;
-  }
+  .app,
+  .app[data-sidebar="collapsed"] { grid-template-columns: minmax(0, 1fr); }
+  .sidebar { display: none; }
 
-  /* Drawer: always rendered and off-screen, so it animates and stays reachable by
-     assistive tech, rather than being mounted/unmounted. */
-  .sidebar {
-    display: flex;
+  .topbar { padding: 0 var(--space-2) 0 var(--space-1); gap: var(--space-2); }
+  .topbar .freshness { display: none; }
+  .topbar .freshness.lost { display: inline; max-width: 12rem; }
+
+  .content { padding: var(--space-4) var(--space-4) calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-6)); }
+
+  .tabbar {
     position: fixed;
-    top: 0;
     left: 0;
+    right: 0;
     bottom: 0;
-    width: min(82vw, 300px);
-    z-index: 70;
-    transform: translateX(-100%);
-    transition: transform 220ms ease;
-    box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
-    overflow-y: auto;
-  }
-  .app[data-nav="open"] .sidebar {
-    transform: translateX(0);
-  }
-  .nav-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 65;
-    background: rgba(0, 0, 0, 0.55);
-  }
-  /* The desktop collapse control is meaningless in a drawer that is already either
-     fully open or fully closed. */
-  .sidebar-toggle {
-    display: none;
-  }
-
-  .nav-toggle {
+    z-index: 50;
     display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--material-chrome);
+    -webkit-backdrop-filter: var(--material-blur);
+    backdrop-filter: var(--material-blur);
+    border-top: 0.5px solid var(--separator);
   }
-
-  /* Topbar: at 390px there is room for the hamburger, the week stepper, and refresh —
-     and nothing else. The day rings and the freshness caption are the two things that
-     can go without losing a control. */
-  .topbar {
-    padding: 0 12px;
-    gap: 8px;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-  }
-  .topbar .week-days,
-  .topbar .freshness {
-    display: none;
-  }
-  .topbar .right-cluster {
-    gap: 8px;
-  }
-
-  /* 32px each side spent 64px of a 390px screen on nothing. */
-  .content {
-    padding: 16px;
-  }
-
-  /* Stack the switcher over the tabs and let each take the full width: side by side,
-     a long team name and three tabs do not both fit at 390px. */
-  .team-context {
+  .tab {
+    display: flex;
     flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    color: var(--text-tertiary);
+    font: var(--type-caption);
+    font-weight: 600;
   }
-  .team-tabs { justify-content: space-between; }
-  .team-tab { flex: 1; padding: 8px 6px; text-align: center; }
+  .tab:active { transform: scale(0.94); }
+  .tab.active { color: var(--accent); }
+
+  /* nowrap matters: a wrapping column sizes its line to the widest child, so the tabs'
+     max-content width would push the whole header past the screen edge. */
+  .team-context { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: var(--space-3); }
+  .team-switcher-btn { align-self: flex-start; }
+  .team-tabs { display: flex; overflow-x: auto; scrollbar-width: none; }
+  .team-tabs::-webkit-scrollbar { display: none; }
+  .team-tab { flex: 1 0 auto; padding-inline: var(--space-3); }
 
   .dashboard-grid { grid-template-columns: 1fr; }
   .team-grid { grid-template-columns: 1fr; }
   .season-grid { grid-template-columns: 1fr; }
   .h2h-bottom-grid { grid-template-columns: 1fr; }
 
-  /* The 200px ring plus two unbreakable name/record columns measured 575px in a
-     375px viewport (.h2h-side floors at its own min-content since text doesn't
-     wrap). Put the ring on its own row and shrink the score so both sides fit
-     the remaining two columns. */
+  /* The ring and two unbreakable name/record columns don't fit 375px side by side;
+     the ring takes its own row. */
   .h2h-top {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto auto;
-    gap: 16px 12px;
+    gap: var(--space-4) var(--space-3);
   }
-  .h2h-top > *:nth-child(2) {
-    grid-column: 1 / -1;
-    justify-self: center;
-  }
-  .h2h-side .score-big { font-size: 36px; }
+  .h2h-top > *:nth-child(2) { grid-column: 1 / -1; justify-self: center; }
+  .h2h-side .score-big { font-size: 2.25rem; }
 
-  /* Wide tabular content scrolls inside its own container rather than pushing the
-     whole page sideways (the roster measured 551px in a 390px viewport). */
   .h2h-table {
     display: block;
     width: 100%;
@@ -1239,28 +1052,12 @@ html, body {
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Unlike h2h-table, roster is narrowed to fit instead of scrolled: `display:
-     block` (needed to make a table independently scrollable) also disables the
-     table-layout algorithm, so the column widths below would be ignored while
-     it stays a scroll container. Opp is near-always "—" until kickoff;
-     dropping it (rather than shrinking everything a little) is what actually
-     gets Proj/Actual on-screen. Status keeps a narrow column since OUT and the
-     live dot are exactly what someone checks this table for mid-game. */
-  .roster {
-    table-layout: fixed;
-  }
-  /* table-layout:fixed still banks a hidden cell's declared width against the
-     column budget unless the width itself is zeroed, not just display:none. */
+  /* The roster narrows to fit rather than scrolling. table-layout: fixed needs every
+     hidden column's width zeroed, and the visible ones summed to 100%. */
+  .roster { table-layout: fixed; }
   .roster-col-opp,
   .roster-col-proj-ext,
   .roster-col-delta { display: none; width: 0; }
-  /* Percent, not px: table-layout:fixed derives column widths from these at
-     whatever width the phone actually has, and they're pinned to sum to
-     100% of the table so nothing is left for the browser to guess about — a
-     calc(100% - Npx) mix on a table-cell was silently ignored (fixed layout
-     likely resolves column widths before the table's own pixel width exists
-     to subtract from). Ratios mirror the desktop px widths (40/56/42/58 of
-     a ~343px table). */
   .roster-col-slot { width: 12%; }
   .roster-col-status { width: 16%; }
   .roster-col-proj { width: 12%; }
@@ -1277,14 +1074,7 @@ html, body {
   .roster .player-cell { gap: 8px; }
   .roster .player-info-row { flex-wrap: wrap; row-gap: 2px; }
 
-  /* The Tweaks panel is a design-time affordance for tuning layout on a desktop. On a
-     phone it is a floating target over the content with sliders too small to use. */
-  .twk-gear,
-  .twk-panel {
-    display: none !important;
-  }
-
-  .large-title { font-size: 28px; }
+  .large-title { font: var(--type-title1); letter-spacing: var(--track-title); }
 }
 
 /* ==== Draft Assistant (Phase 3) ====
@@ -1343,12 +1133,12 @@ html, body {
   font-weight: 600;
 }
 .bye-warning {
-  background: rgba(255, 45, 85, 0.12);
-  border: 1px solid rgba(255, 45, 85, 0.3);
+  background: var(--negative-tint);
+  border: 1px solid rgba(255, 69, 58, 0.3);
   border-radius: 10px;
   padding: 10px 14px;
   font-size: 13px;
-  color: var(--move);
+  color: var(--negative);
 }
 
 /* Task 6.6 -- settings-conflict banner. Persistent (not dismissible, not collapsible)
@@ -1573,8 +1363,8 @@ html, body {
 .proj-ext { font-variant-numeric: tabular-nums; color: var(--text-tertiary); font-size: 13px; }
 .proj-ext.muted { color: var(--text-secondary); }
 .proj-ext-diverges { font-weight: 600; }
-.proj-ext-diverges.pos { color: var(--stand); }
-.proj-ext-diverges.neg { color: var(--move); }
+.proj-ext-diverges.pos { color: var(--positive); }
+.proj-ext-diverges.neg { color: var(--negative); }
 
 /* add-lineup-optimizer -- start/sit advice card.
    Deliberately quiet: most weeks a lineup is already optimal, and a card that

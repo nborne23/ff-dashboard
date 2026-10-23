@@ -4,6 +4,8 @@
 // Everything below the meta row is a function of the envelope entry alone; the panel
 // issues no request of its own.
 
+import { IconChevR } from "../../components/primitives";
+import { ordinal } from "../../components/shared/ordinal";
 import { TeamLogo } from "../../components/shared/TeamLogo";
 import { useRef, type PointerEvent as ReactPointerEvent } from "react";
 
@@ -36,6 +38,9 @@ export interface GameDayPanelProps {
   onHeaderDragStart?: () => void;
   onHeaderDragOver?: (event: React.DragEvent) => void;
   onHeaderDrop?: () => void;
+  onHeaderDragEnd?: () => void;
+  /** This panel's part in a reorder drag in progress: lifted, or the drop target. */
+  dragRole?: "source" | "target";
   /** Resize is bound to the corner handle only. */
   onResizePointerDown?: (event: ReactPointerEvent) => void;
 }
@@ -54,6 +59,8 @@ export function GameDayPanel({
   onHeaderDragStart,
   onHeaderDragOver,
   onHeaderDrop,
+  onHeaderDragEnd,
+  dragRole,
   onResizePointerDown,
 }: GameDayPanelProps) {
   const rosterRef = useRef<HTMLDivElement>(null);
@@ -108,6 +115,8 @@ export function GameDayPanel({
     <section
       className="gd-panel"
       data-testid={`gd-panel-${matchup.team_id}`}
+      data-flip-id={isSpotlight ? undefined : matchup.team_id}
+      data-drag={dragRole}
       data-live={isLive ? "true" : undefined}
       data-settled={isSettled ? "true" : undefined}
       data-spotlight={isSpotlight ? "true" : undefined}
@@ -127,6 +136,7 @@ export function GameDayPanel({
         onDragStart={onHeaderDragStart}
         onDragOver={onHeaderDragOver}
         onDrop={onHeaderDrop}
+        onDragEnd={onHeaderDragEnd}
         // Double-click, not click: a single click on the header is the start of a
         // reorder drag, and binding both to one gesture makes each unreliable.
         onDoubleClick={onSpotlight}
@@ -139,20 +149,18 @@ export function GameDayPanel({
         {/* Ring, not a pill — the same trade the Dashboard card makes. Measured: the
             pill costs 46px in a 281px header and the team name was truncating at 49px
             when it needs 78. The ring carries the platform at zero width. */}
-        <TeamLogo
-          team={{ name: matchup.team_name, logo_url: matchup.team_logo_url }}
-          size={24}
-          ringColor="var(--text)"
-        />
-        <span className="gd-team-name">{matchup.team_name}</span>
-        <span className="gd-league-name">{matchup.league_name}</span>
+        <TeamLogo team={{ name: matchup.team_name, logo_url: matchup.team_logo_url }} size={32} />
+        <span className="gd-titles">
+          <span className="gd-team-name">{matchup.team_name}</span>
+          <span className="gd-league-name">{matchup.league_name}</span>
+        </span>
         {live > 0 && (
           <span className="pill live gd-live-pill">
             <span className="gd-live-dot" aria-hidden="true" />
-            {live}
+            {live} live
           </span>
         )}
-        {isSettled && <span className="pill bench gd-final-pill">FINAL</span>}
+        {isSettled && <span className="pill bench gd-final-pill">Final</span>}
         {onSpotlight && (
           <button
             type="button"
@@ -160,20 +168,30 @@ export function GameDayPanel({
             aria-label={`Spotlight ${matchup.team_name}`}
             onClick={onSpotlight}
           >
-            ⤢
+            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+              <path
+                d="M8.5 1.5h4v4M5.5 12.5h-4v-4M12.5 1.5 8 6M1.5 12.5 6 8"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </button>
         )}
       </header>
 
       <div className="gd-scores">
-        {/* Only the LABELS carry color; the values stay white and the trailing side
-            drops to --text-secondary, so "who is winning" reads as a brightness
-            difference from across the room before any number is read (design D1). */}
+        {/* The trailing side drops to secondary text, so who is winning reads as a
+            brightness difference from across the room before any number is read. The
+            header already names the user's team, so the sub-lines carry what it doesn't:
+            the record for "mine", the opponent's name for "theirs". */}
         <div className="gd-score-side" data-side="mine" data-trailing={!tied && margin < 0}>
-          <div className="gd-score-label">{matchup.team_name.toUpperCase()}</div>
           <div className="gd-score-value">{matchup.score.toFixed(1)}</div>
           <div className="gd-score-sub">
-            {matchup.record.w}–{matchup.record.l} · {matchup.rank.current} of {matchup.rank.total}
+            {matchup.record.w}–{matchup.record.l} · {ordinal(matchup.rank.current)} of{" "}
+            {matchup.rank.total}
           </div>
         </div>
 
@@ -182,25 +200,41 @@ export function GameDayPanel({
         </div>
 
         <div className="gd-score-side" data-side="theirs" data-trailing={!tied && margin > 0}>
-          <div className="gd-score-label">{matchup.opp_team_name.toUpperCase()}</div>
           <div className="gd-score-value">{matchup.opp_score.toFixed(1)}</div>
-          <div className="gd-score-sub">&nbsp;</div>
+          <div className="gd-score-sub" title={matchup.opp_team_name}>
+            {matchup.opp_team_name}
+          </div>
         </div>
       </div>
 
+      {/* Win probability leads: it is the answer to "am I winning?" that the score alone
+          can't give mid-game. The other two support it at a smaller size. */}
       <div className="gd-stats">
-        <div className="gd-stat">
-          <div className="gd-stat-label">Projected</div>
-          <div className="gd-stat-value">
-            {matchup.proj.toFixed(2)}
-            <span className="gd-stat-unit">vs {matchup.opp_proj.toFixed(2)}</span>
+        <div className="gd-stat" data-primary="true">
+          <div className="gd-stat-label">Win prob</div>
+          <div
+            className="gd-stat-value"
+            data-sign={winProb > 50 ? "pos" : winProb < 50 ? "neg" : "even"}
+          >
+            {winProb}
+            <span className="gd-stat-unit">%</span>
+          </div>
+          <div
+            className="gd-meter"
+            role="meter"
+            aria-label="Win probability"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={winProb}
+          >
+            <span style={{ width: `${winProb}%` }} />
           </div>
         </div>
         <div className="gd-stat">
-          <div className="gd-stat-label">Win prob</div>
+          <div className="gd-stat-label">Projected</div>
           <div className="gd-stat-value">
-            {winProb}
-            <span className="gd-stat-unit">%</span>
+            {matchup.proj.toFixed(1)}
+            <span className="gd-stat-unit">vs {matchup.opp_proj.toFixed(1)}</span>
           </div>
         </div>
         <div className="gd-stat">
@@ -217,11 +251,13 @@ export function GameDayPanel({
           type="button"
           className="gd-disclosure"
           onClick={handleToggleRoster}
-          // Absent means OPEN now — the roster shows at every width unless explicitly
-          // shut — so both the state and the label key off "shut", not off "open".
+          // Absent means OPEN — the roster shows at every width unless explicitly shut.
           aria-expanded={rosterOverride !== "shut"}
         >
-          {rosterOverride === "shut" ? "⌄ FULL MATCHUP" : "⌃ HIDE MATCHUP"}
+          <span className="gd-disclosure-chev" aria-hidden="true">
+            <IconChevR size={11} />
+          </span>
+          {rosterOverride === "shut" ? "Show lineup" : "Hide lineup"}
         </button>
       )}
 

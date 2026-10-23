@@ -88,7 +88,7 @@ export function ProjectedFinalCard({
               top: 0,
               bottom: 0,
               background:
-                "linear-gradient(90deg, rgba(255,45,85,0.15), var(--move) 50%, rgba(255,45,85,0.15))",
+                "linear-gradient(90deg, var(--accent-tint), var(--accent) 50%, var(--accent-tint))",
               borderRadius: 999,
             }}
           />

@@ -5,6 +5,7 @@
 // an <img> and fall back to the initials div on load failure (missing local
 // cache file) via onError.
 
+import { displaySlot } from "../../components/shared/slotLabel";
 import { useState } from "react";
 
 import { PlayerHealth } from "../../components/shared/PlayerHealth";
@@ -55,7 +56,7 @@ function RosterRow({ slot, isBench }: { slot: RosterSlot; isBench?: boolean }) {
           letterSpacing: "0.05em",
         }}
       >
-        {slot.slot}
+        {displaySlot(slot.slot)}
       </td>
       <td className="roster-col-player">
         <div className="player-cell">

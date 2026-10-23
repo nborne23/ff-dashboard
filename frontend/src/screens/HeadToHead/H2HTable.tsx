@@ -3,6 +3,7 @@
 // (see ./orientation.ts) resolves which side is mine per row, so this
 // component is correct whether the route's teamId is the home or away team.
 
+import { displaySlot } from "../../components/shared/slotLabel";
 import { PlayerHealth } from "../../components/shared/PlayerHealth";
 import type { MatchupSlot } from "../../types/api";
 import { orientSlot } from "./orientation";
@@ -58,7 +59,7 @@ export function H2HTable({ slots, iAmHome, myTeamName, oppTeamName }: H2HTablePr
                   </div>
                 </td>
                 <td className="center">
-                  <div className="pos-label">{row.slot}</div>
+                  <div className="pos-label">{displaySlot(row.slot)}</div>
                   <span className={"diff-chip " + (tie ? "tie" : diff > 0 ? "pos" : "neg")}>
                     {tie ? "TIE" : (diff > 0 ? "+" : "") + diff.toFixed(1)}
                   </span>

@@ -1,47 +1,30 @@
-// Ported from design/shell.jsx's Topbar. Week state now comes from the
-// zustand ui store instead of local App state. The refresh button (Phase 4.7)
-// POSTs /api/admin/refresh and invalidates the `teams` query on success. The
-// freshness caption next to it (task 8.8) reads `meta.as_of` off the same
-// `teams` query Dashboard already populates, so mounting it here doesn't cost
-// an extra fetch when Dashboard is also on screen. DayRings (task 10.6) and the
-// live-team count (P8 leftover) are both now real, backed by `team.is_live`
-// (backend/gridiron/services/fantasy_service.py) and GET /api/teams/day-rings.
+// The top bar: a translucent material the content scrolls under (§12), holding the
+// week stepper and the data's status. It is the ONE place freshness is shown; the
+// sidebar footer used to repeat it.
+//
+// The live count appears only when something is live. A permanent "0 LIVE" taught the
+// eye to ignore the one badge whose job is to be noticed.
 
 import { useRefresh } from "../../api/admin";
-import { useDayRings } from "../../api/dayRings";
 import { useTeams } from "../../api/teams";
 import { useFreshness } from "../../hooks/useFreshness";
+import { useLiveConnectionStore } from "../../stores/live";
 import { useUiStore } from "../../stores/ui";
-import { DayRings, IconArrowL, IconArrowR, IconMenu, IconRefresh } from "../primitives";
+import { IconArrowL, IconArrowR, IconRefresh } from "../primitives";
 
 export function Topbar() {
   const week = useUiStore((s) => s.week);
   const setWeek = useUiStore((s) => s.setWeek);
-  const mobileNavOpen = useUiStore((s) => s.mobileNavOpen);
-  const setMobileNavOpen = useUiStore((s) => s.setMobileNavOpen);
   const refresh = useRefresh();
   const teamsQuery = useTeams(week);
-  const dayRingsQuery = useDayRings(week);
   const freshness = useFreshness(teamsQuery.data?.meta?.as_of);
+  const connectionLostLong = useLiveConnectionStore((s) => s.connectionLostLong);
 
   const liveCount = teamsQuery.data?.data?.teams?.filter((t) => t.is_live).length ?? 0;
-  const dayRingsData = dayRingsQuery.data?.data;
 
   return (
     <header className="topbar">
-      {/* Phone-only: the sidebar is an off-canvas drawer below 768px, and this is the
-          only way to open it. Hidden by CSS at desktop widths, where the sidebar is
-          always on screen. */}
-      <button
-        type="button"
-        className="nav-toggle"
-        aria-label="Open navigation"
-        aria-expanded={mobileNavOpen}
-        onClick={() => setMobileNavOpen(!mobileNavOpen)}
-      >
-        <IconMenu size={18} />
-      </button>
-      <div className="week-nav">
+      <div className="week-nav" role="group" aria-label="Week">
         <button
           type="button"
           className="icon-btn"
@@ -50,7 +33,9 @@ export function Topbar() {
         >
           <IconArrowL size={16} />
         </button>
-        <span className="week-label">Week {week}</span>
+        <span className="week-label" aria-live="polite">
+          Week {week}
+        </span>
         <button
           type="button"
           className="icon-btn"
@@ -60,13 +45,23 @@ export function Topbar() {
           <IconArrowR size={16} />
         </button>
       </div>
-      <DayRings days={dayRingsData?.days ?? []} today={dayRingsData?.today_index ?? -1} />
+
       <div className="right-cluster">
-        <span className="live-badge">
-          <span className="dot" />
-          {liveCount} LIVE
-        </span>
-        <span className={"freshness" + (freshness.stale ? " stale" : "")}>{freshness.label}</span>
+        {liveCount > 0 && (
+          <span className="live-badge" data-testid="live-badge">
+            <span className="dot" aria-hidden="true" />
+            {liveCount} live
+          </span>
+        )}
+        {/* Only the rare connection-lost message is announced; the freshness label ticks
+            every second and would talk over everything else. */}
+        {connectionLostLong ? (
+          <span className="freshness lost" role="status">
+            Connection lost — retrying
+          </span>
+        ) : (
+          <span className={"freshness" + (freshness.stale ? " stale" : "")}>{freshness.label}</span>
+        )}
         <button
           type="button"
           className="icon-btn"

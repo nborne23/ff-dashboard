@@ -114,7 +114,7 @@ export default function Season() {
           <span className="cat-label" style={{ color: "var(--move)" }}>
             Weekly Scores
           </span>
-          <span className="ts">All weeks · cyan = win, pink = loss</span>
+          <span className="ts">All weeks · green won, red lost</span>
         </div>
         <SeasonChart weeks={weeks} />
       </div>

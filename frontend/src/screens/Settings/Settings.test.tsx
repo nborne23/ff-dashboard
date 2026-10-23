@@ -309,30 +309,14 @@ describe("Settings", () => {
     expect(fetchMock.mock.calls.some(([input]) => String(input).includes("notif"))).toBe(false);
   });
 
-  // --- AppearanceCard (task 7.5) -------------------------------------------------------
+  // --- Appearance: removed (dark-only by design) -------------------------------------
 
-  it("switches the active theme segment client-side", async () => {
+  it("offers no theme switch, since the app is dark-only", async () => {
     renderSettings();
 
-    await screen.findByText("Appearance");
-    const lightButton = screen.getByRole("button", { name: "Light" });
-    expect(lightButton.className).not.toContain("active");
-
-    fireEvent.click(lightButton);
-
-    expect(lightButton.className).toContain("active");
-  });
-
-  it("selects an accent color swatch", async () => {
-    renderSettings();
-
-    await screen.findByText("Accent color");
-    const greenSwatch = screen.getByRole("button", { name: "Accent color #30D158" });
-    expect(greenSwatch.getAttribute("aria-pressed")).toBe("false");
-
-    fireEvent.click(greenSwatch);
-
-    expect(greenSwatch.getAttribute("aria-pressed")).toBe("true");
+    await screen.findByText("Data Management");
+    expect(screen.queryByText("Appearance")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Light" })).toBeNull();
   });
 
   // --- DataManagementCard (task 7.6) ---------------------------------------------------

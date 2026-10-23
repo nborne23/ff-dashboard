@@ -147,10 +147,11 @@ describe("MyTeam", () => {
     useUiStore.setState({ week: 1 });
   });
 
-  it("renders the team header and roster once loaded", async () => {
+  it("renders the view title, league and roster once loaded", async () => {
     renderMyTeam();
 
-    expect(await screen.findByText("Highland Bombers")).toBeTruthy();
+    // The team is named by the shell's team header; the screen titles its view.
+    expect(await screen.findByRole("heading", { name: "Roster" })).toBeTruthy();
     expect(screen.getByText(/Highland Bros Dynasty/)).toBeTruthy();
     expect(screen.getByText("Patrick Mahomes")).toBeTruthy();
   });
@@ -159,7 +160,7 @@ describe("MyTeam", () => {
     useUiStore.setState({ week: 1 });
     const fetchMock = renderMyTeam();
 
-    await screen.findByText("Highland Bombers");
+    await screen.findByRole("heading", { name: "Roster" });
 
     const initialUrl = String(fetchMock.mock.calls[0][0]);
     expect(initialUrl).toContain("week=1");

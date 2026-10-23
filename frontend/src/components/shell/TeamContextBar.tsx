@@ -1,11 +1,10 @@
-// The bar that makes team scope visible.
+// The team header on `/team/:teamId/...`: which team this is, and which of its views
+// you are on.
 //
-// Before this existed, "which team am I looking at?" was answerable only by reading the
-// URL, and moving between a team's three views (Roster / Matchup / Season) meant going
-// back out to the sidebar — where Matchups and Season pointed at an arbitrary team
-// anyway. This renders only on `/team/:teamId/...` routes and does two things: names
-// the team on screen (with a switcher), and offers its sibling views as tabs. Switching
-// teams preserves the section, so comparing two teams' matchups is one click, not three.
+// It is the ONLY control for a team's views. The sidebar used to repeat them as
+// top-level links. The switcher keeps the section, so comparing two teams' Season
+// views is one tap. It opens as a popover anchored to its button and grows out of it
+// (§7), rather than appearing from nowhere.
 
 import { TeamLogo } from "../shared/TeamLogo";
 import { useEffect, useRef, useState } from "react";
@@ -31,8 +30,7 @@ export function TeamContextBar({ teamId, section }: TeamContextBarProps) {
   const teams = teamsQuery.data?.data.teams ?? [];
   const current = teams.find((t) => t.id === teamId);
 
-  // Close on an outside click or Escape. Bound only while open so the listeners aren't
-  // live on every screen for a menu nobody has opened.
+  // Close on an outside press or Escape. Bound only while open.
   useEffect(() => {
     if (!menuOpen) return;
     const onPointerDown = (event: MouseEvent) => {
@@ -49,8 +47,7 @@ export function TeamContextBar({ teamId, section }: TeamContextBarProps) {
     };
   }, [menuOpen]);
 
-  // A team id from the URL that isn't in the list yet (still loading, or a stale link)
-  // still gets a label rather than an empty button.
+  // A team id from the URL that isn't in the list yet still gets a label.
   const label = current?.name ?? "Select a team";
 
   return (
@@ -64,16 +61,9 @@ export function TeamContextBar({ teamId, section }: TeamContextBarProps) {
           disabled={teams.length === 0}
           onClick={() => setMenuOpen((v) => !v)}
         >
-          {current && (
-            <span
-              className="platform-dot"
-              style={{
-                background: current.id.startsWith("yahoo") ? "var(--yahoo)" : "var(--espn)",
-              }}
-            />
-          )}
+          {current && <TeamLogo team={current} size={28} />}
           <span className="team-switcher-name">{label}</span>
-          <span className={"chev" + (menuOpen ? " open" : "")}>
+          <span className={"chev" + (menuOpen ? " open" : "")} aria-hidden="true">
             <IconChevR size={12} />
           </span>
         </button>
@@ -88,12 +78,10 @@ export function TeamContextBar({ teamId, section }: TeamContextBarProps) {
                   className={"team-switcher-option" + (t.id === teamId ? " active" : "")}
                   onClick={() => {
                     setMenuOpen(false);
-                    // Keep the section: switching teams from the Season view lands on
-                    // the other team's Season view, not back at its roster.
                     navigate(teamRoutePath(t.id, section));
                   }}
                 >
-                  <TeamLogo team={t} size={24} />
+                  <TeamLogo team={t} size={28} />
                   <span className="team-switcher-name">{t.name}</span>
                 </button>
               </li>
@@ -102,7 +90,7 @@ export function TeamContextBar({ teamId, section }: TeamContextBarProps) {
         )}
       </div>
 
-      <nav className="team-tabs" aria-label="Team views">
+      <nav className="team-tabs segmented" aria-label="Team views">
         {TEAM_SECTIONS.map((s) => (
           <button
             key={s.id}

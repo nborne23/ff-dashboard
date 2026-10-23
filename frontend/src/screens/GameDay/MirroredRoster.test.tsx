@@ -120,7 +120,8 @@ describe("MirroredRoster orientation", () => {
     const labels = Array.from(document.querySelectorAll(".gd-slot-label")).map(
       (el) => el.textContent,
     );
-    expect(labels).toEqual(["QB", "RB1", "K"]);
+    // Backend numbering is stripped: row order already tells two RBs apart.
+    expect(labels).toEqual(["QB", "RB", "K"]);
   });
 });
 

@@ -13,6 +13,7 @@ import { InjuryBadge } from "../../components/shared/InjuryBadge";
 import { useChangedValuePulse } from "../../hooks/useChangedValuePulse";
 import type { GameState, InjuryStatus, MatchupSlot } from "../../types/api";
 import { orientSlot } from "../HeadToHead/orientation";
+import { displaySlot } from "../../components/shared/slotLabel";
 import type { BigPlay } from "./useBigPlay";
 import { TIE_EPSILON } from "./useLeadFlip";
 
@@ -109,7 +110,7 @@ function MirroredRow({ slot, iAmHome, bigPlay }: RowProps) {
         injuryStatus={myPlayer.injury_status}
       />
       <div className="gd-center">
-        <span className="gd-slot-label">{slot.slot}</span>
+        <span className="gd-slot-label">{displaySlot(slot.slot)}</span>
         <span
           className="gd-slot-diff"
           data-sign={tied ? "tied" : diff > 0 ? "pos" : "neg"}

@@ -1,103 +1,42 @@
-import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 
 import { useLiveEvents } from "./api/events";
-import { Aurora } from "./components/shell/Aurora";
 import { Sidebar } from "./components/shell/Sidebar";
+import { TabBar } from "./components/shell/TabBar";
 import { TeamContextBar } from "./components/shell/TeamContextBar";
 import { Topbar } from "./components/shell/Topbar";
-import { TweaksPanel } from "./components/shell/TweaksPanel";
 import { useActiveTeamSync } from "./hooks/useActiveTeam";
 import { parseTeamRoute } from "./hooks/teamRoute";
 import { useCurrentWeekDefault } from "./hooks/useCurrentWeekDefault";
-import { COLLAPSED_SIDEBAR_W, useUiStore } from "./stores/ui";
+import { useUiStore } from "./stores/ui";
 
-// Per-route aurora tint, matching design/app.jsx's SCREEN_AURORAS table.
-// MyTeam ("/team/:teamId") keeps the pink aurora the removed Dashboard used to share
-// with it, and is now the only route that falls through to it; H2H, Season, Settings,
-// and Game Day each get their own.
-function auroraColorForPath(pathname: string, intensity: number): string {
-  // Game Day gets the live orange, the one screen whose whole point is games in
-  // progress; every other screen keeps the tint it already had.
-  if (pathname === "/") return `rgba(255, 159, 10, ${intensity})`;
-  if (pathname.endsWith("/h2h")) return `rgba(191, 90, 242, ${intensity})`;
-  if (pathname.endsWith("/season")) return `rgba(100, 210, 255, ${intensity})`;
-  if (pathname === "/settings") return `rgba(142, 142, 147, ${intensity})`;
-  return `rgba(255, 45, 85, ${intensity})`;
-}
-
+// The shell. Layout comes from CSS tokens alone: the developer tweaks panel and the
+// per-route aurora tint are gone (design/apple-audit.md, M4 and C2). Persisted tweak
+// values are still tolerated in storage and simply no longer applied.
 export default function App() {
   const location = useLocation();
-  const tweaks = useUiStore((s) => s.tweaks);
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
-  const mobileNavOpen = useUiStore((s) => s.mobileNavOpen);
-  const setMobileNavOpen = useUiStore((s) => s.setMobileNavOpen);
   useCurrentWeekDefault();
   useLiveEvents();
   useActiveTeamSync();
 
-  useEffect(() => {
-    const root = document.documentElement;
-    // One source of truth for the grid column: collapsing overrides the tweak's width
-    // rather than the two fighting over `--sidebar-w`.
-    root.style.setProperty(
-      "--sidebar-w",
-      `${sidebarCollapsed ? COLLAPSED_SIDEBAR_W : tweaks.sidebarWidth}px`,
-    );
-    root.style.setProperty("--row-h", `${tweaks.rowHeight}px`);
-    root.style.setProperty("--spark-thick", `${tweaks.sparkThickness}px`);
-  }, [tweaks.sidebarWidth, tweaks.rowHeight, tweaks.sparkThickness, sidebarCollapsed]);
-
-  // Close the drawer whenever the route changes. Without this, tapping a nav item
-  // navigates but leaves the drawer covering the screen you just asked for.
-  useEffect(() => {
-    setMobileNavOpen(false);
-  }, [location.pathname, setMobileNavOpen]);
-
-  // Escape closes it too, for the keyboard case (and for a phone with a keyboard).
-  useEffect(() => {
-    if (!mobileNavOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMobileNavOpen(false);
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [mobileNavOpen, setMobileNavOpen]);
-
   const teamRoute = parseTeamRoute(location.pathname);
-  const auroraColor = auroraColorForPath(location.pathname, tweaks.auroraIntensity);
 
   return (
-    <div
-      className="app"
-      data-sidebar={sidebarCollapsed ? "collapsed" : undefined}
-      data-nav={mobileNavOpen ? "open" : undefined}
-    >
+    <div className="app" data-sidebar={sidebarCollapsed ? "collapsed" : undefined}>
       <Sidebar />
-      {/* Backdrop is rendered only while open so it can never intercept taps on
-          desktop, where the drawer does not exist. */}
-      {mobileNavOpen && (
-        <div
-          className="nav-backdrop"
-          data-testid="nav-backdrop"
-          role="presentation"
-          onClick={() => setMobileNavOpen(false)}
-        />
-      )}
       <div className="main">
-        <Aurora color={auroraColor} />
         <Topbar />
-        <div className="content">
+        <main className="content">
           <div className="content-inner" data-testid="content-inner">
-            {/* Rendered by the shell rather than by each of the three team screens, so
-                the bar keeps its identity across a team/section switch instead of
-                unmounting and remounting with the screen under it. */}
+            {/* Rendered by the shell rather than by each team screen, so the bar keeps
+                its identity across a team/section switch. */}
             {teamRoute && <TeamContextBar teamId={teamRoute.teamId} section={teamRoute.section} />}
             <Outlet />
           </div>
-        </div>
+        </main>
       </div>
-      <TweaksPanel />
+      <TabBar />
     </div>
   );
 }

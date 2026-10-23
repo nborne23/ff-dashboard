@@ -1,62 +1,56 @@
-/* Game Day (add-game-day-view).
+/* Game Day.
  *
- * Authored from design.md D1–D4 and specs/game-day/spec.md rather than ported: the
- * `design/gameday.css` prototype the change's task 5.1 names does not exist in this
- * repo or its git history. Every color is a token from tokens.css — no hex outside
- * that file, per gridiron-ui's pixel-fidelity requirement.
+ * DENSITY IS A FUNCTION OF THE PANEL'S OWN WIDTH, not of the viewport and not of a
+ * React prop (design D3). The panel declares `container-type: inline-size`, and every
+ * size below is chosen by a container query. A widened panel adopts the next density
+ * band with no width-measuring JavaScript.
  *
- * The organizing idea is that DENSITY IS A FUNCTION OF THE PANEL'S OWN WIDTH, not of
- * the viewport and not of a React prop (design D3). The panel declares
- * `container-type: inline-size`; every size below is chosen by a container query. That
- * is what lets a manually widened panel adopt the next density band with no
- * width-measuring JavaScript, and what lets the roster reveal itself by width alone.
+ * Color follows tokens.css roles strictly: green/red are valence (winning/losing),
+ * orange is live, blue is never used here except for focus.
+ *
+ * The five cues keep their ranking, from least to most interrupting:
+ *   settled dim < live border < row flash < lead-flip pulse < big-play flare.
  */
 
-/* ==== Control bar ==== */
+/* ==== Control bar: setup affordances, so deliberately quiet ==== */
 .gd-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
   flex-wrap: wrap;
 }
 .gd-controls-spacer {
   flex: 1;
 }
-.gd-seg {
-  display: inline-flex;
-  background: var(--surface);
-  border-radius: 8px;
-  padding: 2px;
-  gap: 2px;
+.gd-seg.segmented {
+  background: var(--fill-4);
 }
-.gd-seg-btn {
+.gd-seg-btn.active {
+  background: #636366;
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+}
+.gd-text-btn {
   appearance: none;
   border: 0;
   background: transparent;
-  color: var(--text-secondary);
-  font-family: var(--font-system);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 6px 12px;
-  border-radius: 6px;
+  color: var(--accent);
+  font: var(--type-subhead);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition:
-    background 140ms ease,
-    color 140ms ease;
 }
-.gd-seg-btn:hover {
-  color: var(--text);
-}
-.gd-seg-btn.active {
-  background: var(--surface-hover);
-  color: var(--text);
+.gd-text-btn:hover {
+  background: var(--accent-tint);
 }
 
 /* ==== Stage ==== */
 .gd-stage {
+  position: relative; /* offset parent for the FLIP measurements in motion.ts */
   display: grid;
-  gap: 16px;
+  gap: var(--space-4);
   align-items: start;
 }
 .gd-stage[data-layout="g2"] {
@@ -76,37 +70,32 @@
   grid-row: span 3;
 }
 
-/* ==== Phone ====
-   The arrangement grids use minmax(0, 1fr), so on a phone they SHRINK rather than
-   overflow — which means no horizontal-overflow check catches this. At 390px, `g3`
-   gives ~98px panels and `c4` less; measured 155px at `g2`. All are far below the
-   360px narrowest container band, so scores and names would render below the 15px
-   floor the game-day spec sets.
-
-   Below 768px every arrangement collapses to one column. `mode` is left untouched in
-   the persisted layout, so the desktop arrangement is exactly as the user left it when
-   they open the same install on a large screen. The arrangement and sort controls are
-   hidden too: four arrangements are meaningless at one column. */
-@media (max-width: 767px) {
-  .gd-stage[data-layout="g2"],
+/* ==== Tablet: 3- and 4-across become 2-across ====
+   At 768–1179px a third column leaves ~240px panels, too narrow for two scores and a
+   margin side by side. Like the phone rule below, this never rewrites the persisted
+   mode, so the wall display keeps its arrangement. */
+@media (min-width: 768px) and (max-width: 1179px) {
   .gd-stage[data-layout="g3"],
-  .gd-stage[data-layout="c4"],
-  .gd-stage[data-layout="spot"] {
-    grid-template-columns: minmax(0, 1fr);
+  .gd-stage[data-layout="c4"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  /* A persisted per-panel span would otherwise ask for 2 columns of a 1-column grid. */
+}
+
+/* ==== Phone: every arrangement is one column ====
+   `mode` stays untouched in the persisted layout, so the wall display keeps its
+   arrangement. Arrangement and sort controls hide: they mean nothing at one column. */
+@media (max-width: 767px) {
+  .gd-stage[data-layout] {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+  }
   .gd-stage .gd-panel {
     grid-column: span 1 !important;
     grid-row: span 1 !important;
   }
-  .gd-stage[data-layout="spot"] > .gd-panel:first-child {
-    grid-row: span 1;
-  }
   .gd-controls {
     display: none;
   }
-  /* Reorder and resize are pointer gestures with no touch equivalent here, and a
-     single column has no ordering to speak of. */
   .gd-resize-handle {
     display: none;
   }
@@ -114,86 +103,99 @@
 
 /* ==== Panel ==== */
 .gd-panel {
-  /* The whole density ladder hangs off this one declaration. */
   container-type: inline-size;
   container-name: gdpanel;
 
   position: relative;
-  background: var(--surface);
-  border-radius: 12px;
-  border: 1px solid transparent;
-  padding: 14px 16px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  min-width: 0;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  /* An inset ring rather than a border, so a cue that colors it never shifts layout. */
+  box-shadow: inset 0 0 0 1px transparent;
   transition:
-    opacity 200ms ease,
-    border-color 200ms ease,
-    box-shadow 200ms ease;
+    opacity 400ms ease,
+    box-shadow 300ms ease,
+    transform var(--spring-snappy-dur) var(--spring-snappy);
 }
 
-/* --- Cue 3: any player in the panel is live (persistent) ---------------------------
- * Bound to `home_is_live || away_is_live` across the slots — never to a game_state
- * comparison (design D4). */
-.gd-panel[data-live="true"] {
-  border-color: color-mix(in srgb, var(--live) 45%, transparent);
-  box-shadow: 0 0 18px color-mix(in srgb, var(--live) 14%, transparent);
-}
-
-/* --- Cue 4: the panel is settled (persistent) --------------------------------------
- * The load-bearing cue. By late Sunday most panels are done; dropping them back lets
- * the two still in play own the screen without anything moving. Bound to
- * `matchup.is_complete`, which is populated and authoritative — deriving it from
- * game_state would make it permanently false for discovery-written rows. */
+/* --- Cue: settled (persistent, quietest) ---
+ * By late Sunday most panels are done; dropping them back lets the ones still in play
+ * own the screen without anything moving. Bound to `matchup.is_complete`. */
 .gd-panel[data-settled="true"] {
-  opacity: 0.52;
+  opacity: 0.5;
 }
 .gd-panel[data-settled="true"]:hover {
   opacity: 1;
 }
 
-/* --- Cue 2: a lead flipped (1.4s double-pulse) ------------------------------------- */
+/* --- Cue: live (persistent) --- */
+.gd-panel[data-live="true"] {
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--live) 55%, transparent),
+    0 0 28px color-mix(in srgb, var(--live) 10%, transparent);
+}
+
+/* --- Reorder drag feedback ---
+ * The lifted panel recedes; the panel it would land on rises to meet it. */
+.gd-panel[data-drag="source"] {
+  opacity: 0.4;
+  transform: scale(0.97);
+}
+.gd-panel[data-drag="target"] {
+  transform: scale(1.015);
+  box-shadow:
+    inset 0 0 0 2px var(--accent),
+    var(--shadow-raised);
+}
+
+/* --- Cue: lead flipped (1.4s double pulse) --- */
 .gd-panel[data-lead-flip="true"] {
   animation: gd-lead-flip 1400ms ease-out;
 }
 @keyframes gd-lead-flip {
   0%,
+  40%,
+  90%,
   100% {
     background: var(--surface);
   }
   15%,
   65% {
-    background: color-mix(in srgb, var(--move) 22%, var(--surface));
-  }
-  40%,
-  90% {
-    background: var(--surface);
+    background: color-mix(in srgb, var(--live) 18%, var(--surface));
   }
 }
 
-/* ==== Meta row ==== */
+/* ==== Header ==== */
 .gd-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   min-width: 0;
   cursor: grab;
 }
 .gd-meta:active {
   cursor: grabbing;
 }
+.gd-titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
 .gd-team-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
+  font: var(--type-headline);
+  letter-spacing: var(--track-headline);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .gd-league-name {
-  font-size: 12px;
-  color: var(--text-secondary);
+  font: var(--type-footnote);
+  color: var(--text-tertiary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -201,240 +203,239 @@
 .gd-live-pill,
 .gd-final-pill {
   flex: none;
-  margin-left: auto;
-}
-.gd-final-pill {
-  margin-left: 0;
+  font: var(--type-footnote);
+  font-weight: 600;
+  padding: 2px var(--space-2);
 }
 .gd-spotlight-btn {
   appearance: none;
-  border: 0;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 14px;
-  line-height: 1;
-  padding: 4px;
-  cursor: pointer;
   flex: none;
+  width: 32px;
+  height: 32px;
+  margin-right: calc(var(--space-2) * -1);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-tertiary);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
 }
 .gd-spotlight-btn:hover {
   color: var(--text);
+  background: var(--fill-4);
 }
 
-/* ==== Score row ====
- * Only the LABELS carry color; values stay white and the trailing side drops to
- * --text-secondary, so the leader is a brightness difference before it is a number
- * (design D1). */
+/* ==== Scores ==== */
 .gd-scores {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 .gd-score-side {
   min-width: 0;
   text-align: center;
 }
-.gd-score-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+.gd-score-value {
+  font: var(--type-score);
+  font-size: 2.25rem;
+  letter-spacing: var(--track-score);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  transition: color 400ms ease;
+}
+.gd-score-side[data-trailing="true"] .gd-score-value {
+  color: var(--text-tertiary);
+}
+.gd-score-sub {
+  margin-top: var(--space-1);
+  font: var(--type-subhead);
+  color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 4px;
-}
-.gd-score-side[data-side="mine"] .gd-score-label {
-  color: var(--move);
-}
-.gd-score-side[data-side="theirs"] .gd-score-label {
-  color: var(--stand);
-}
-.gd-score-value {
-  /* Overridden per density band below; this is the < 360px floor. */
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--text);
-  line-height: 1.05;
-  font-variant-numeric: tabular-nums;
-}
-.gd-score-side[data-trailing="true"] .gd-score-value {
-  color: var(--text-secondary);
-}
-.gd-score-sub {
-  font-size: 11px;
-  color: var(--text-secondary);
-  margin-top: 2px;
-  white-space: nowrap;
 }
 
 /* The one place lead/deficit is stated outright. */
 .gd-margin-chip {
   flex: none;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 13px;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  font: var(--type-subhead);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .gd-margin-chip[data-sign="pos"] {
-  background: color-mix(in srgb, var(--exercise) 16%, transparent);
-  color: var(--exercise);
+  background: var(--positive-tint);
+  color: var(--positive);
 }
 .gd-margin-chip[data-sign="neg"] {
-  background: color-mix(in srgb, var(--move) 16%, transparent);
-  color: var(--move);
+  background: var(--negative-tint);
+  color: var(--negative);
 }
 .gd-margin-chip[data-sign="tied"] {
-  background: color-mix(in srgb, var(--pill) 24%, transparent);
-  color: var(--text-tertiary);
+  background: var(--fill-3);
+  color: var(--text-secondary);
 }
 
-/* ==== Stat strip ==== */
+/* ==== Stats: win probability leads ==== */
 .gd-stats {
   display: grid;
-  /* Content-sized rather than three equal columns. Projected carries two full
-     values at two decimals ("134.42 vs 125.82") while Win prob carries three
-     characters, so an even split starves the widest column and lets its `vs`
-     figure run under its neighbour — `.gd-stat-value` is `nowrap`, so it
-     overflows rather than truncating. `space-between` keeps the strip spanning
-     the panel at every width the container query steps through. */
-  grid-template-columns: repeat(3, minmax(0, auto));
-  justify-content: space-between;
-  gap: 8px;
-  border-top: 0.5px solid var(--separator);
-  padding-top: 10px;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: end;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--fill-4);
 }
 .gd-stat {
   min-width: 0;
 }
 .gd-stat-label {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
+  font: var(--type-footnote);
+  color: var(--text-tertiary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .gd-stat-value {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text);
+  font: var(--type-headline);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .gd-stat-unit {
-  font-size: 11px;
-  font-weight: 500;
+  font: var(--type-footnote);
   color: var(--text-secondary);
-  margin-left: 4px;
+  margin-left: var(--space-1);
+}
+.gd-stat[data-primary] .gd-stat-value {
+  font: var(--type-title2);
+  font-family: var(--font-rounded);
+  letter-spacing: var(--track-title);
+}
+.gd-stat[data-primary] .gd-stat-unit {
+  margin-left: 1px;
+}
+.gd-stat-value[data-sign="pos"] {
+  color: var(--positive);
+}
+.gd-stat-value[data-sign="neg"] {
+  color: var(--negative);
+}
+.gd-meter {
+  height: 4px;
+  margin-top: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--fill-3);
+  overflow: hidden;
+}
+.gd-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+  color: var(--text-secondary);
+  transition: width var(--spring-default-dur) var(--spring-default);
+}
+.gd-stat-value[data-sign="pos"] + .gd-meter > span {
+  color: var(--positive);
+}
+.gd-stat-value[data-sign="neg"] + .gd-meter > span {
+  color: var(--negative);
 }
 
 /* ==== Disclosure ==== */
 .gd-disclosure {
   appearance: none;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   border: 0;
-  border-top: 0.5px solid var(--separator);
   background: transparent;
   color: var(--text-secondary);
-  font-family: var(--font-system);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  padding: 8px 0 0;
+  font: var(--type-footnote);
+  font-weight: 600;
+  padding: var(--space-1) var(--space-3);
+  margin: calc(var(--space-2) * -1) 0;
+  border-radius: var(--radius-pill);
   cursor: pointer;
-  width: 100%;
 }
 .gd-disclosure:hover {
   color: var(--text);
+  background: var(--fill-4);
+}
+.gd-disclosure-chev {
+  display: flex;
+  transform: rotate(-90deg);
+  transition: transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.gd-disclosure[aria-expanded="false"] .gd-disclosure-chev {
+  transform: rotate(90deg);
 }
 
 /* ==== Mirrored roster ====
- * ALWAYS in the DOM at every width and arrangement (design D3). CSS cannot set React
- * state, so "open by default at >= 540px" cannot be a useState initializer; the
- * container query below hides it under 540px instead, and [data-roster] overrides that
- * query in both directions. */
+ * Always in the DOM (design D3). Open at every width by default; [data-roster]
+ * overrides that in either direction. */
 .gd-roster {
   display: flex;
   flex-direction: column;
-  border-top: 0.5px solid var(--separator);
-  padding-top: 8px;
 }
 .gd-row {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: 6px;
-  padding: 3px 0;
-  border-radius: 4px;
+  gap: var(--space-1);
+  min-height: 2rem;
+  padding: 2px 0;
+  border-radius: var(--radius-xs);
+}
+.gd-row + .gd-row {
+  border-top: 0.5px solid var(--separator);
 }
 
-/* --- Cue 1: a player's points changed (1.2s row flash) -----------------------------
- * Driven by the existing useChangedValuePulse, so it reuses that hook's
- * [data-just-changed] attribute but overrides global.css's text-shadow flash with a
- * whole-row background wash — at this density the row is the unit that changed. */
+/* --- Cue: a player's points changed (row flash, 900ms — the hook owns the timing) --- */
 .gd-row[data-just-changed="true"] {
-  /* 900ms, matching useChangedValuePulse's PULSE_ANIMATION_MS — that hook owns the
-     duration. It removes [data-just-changed] on its own 900ms timer, so a longer
-     animation declared here would simply be cut off mid-cycle rather than running to
-     completion; the design table's "1.2s" is not achievable without changing the hook,
-     which Head-to-Head and Dashboard also depend on. */
   animation: gd-row-flash 900ms ease-out;
 }
 @keyframes gd-row-flash {
   0% {
-    background: color-mix(in srgb, var(--live) 26%, transparent);
+    background: color-mix(in srgb, var(--live) 24%, transparent);
   }
   100% {
     background: transparent;
   }
 }
 
-/* --- Cue 5: a big play (2.4s) ------------------------------------------------------
- * The loudest thing on the screen, and the only cue meant to be caught from across the
- * room by peripheral vision. Three layers fire together: the row washes in the scoring
- * side's color, a burst chip flies up out of the row naming the player and the points,
- * and the whole panel gets an outward flare so the right panel draws the eye first.
- *
- * Colored by SIDE, never by size: a 22-point touchdown against you is not a
- * celebration, and green-for-mine / pink-for-theirs is the same mapping the margin chip
- * and the slot differential already use.
- *
- * These rules sit AFTER the plain row flash deliberately. Both selectors have the same
- * specificity and `animation` does not compose — a row with both attributes must run
- * the big-play animation, so the big-play rule has to be the later one. */
-.gd-row {
-  position: relative;
-}
+/* --- Cue: big play (2.4s, loudest) ---
+ * Colored by SIDE, never by size: a 22-point touchdown against you is not a celebration.
+ * Declared after the row flash so a row with both runs this one. */
 .gd-row[data-big-play] {
   animation: gd-big-play-row 2400ms ease-out;
 }
 .gd-row[data-big-play="mine"] {
-  --gd-big: var(--exercise);
+  --gd-big: var(--positive);
 }
 .gd-row[data-big-play="theirs"] {
-  --gd-big: var(--move);
+  --gd-big: var(--negative);
 }
 @keyframes gd-big-play-row {
-  0% {
-    background: color-mix(in srgb, var(--gd-big) 70%, transparent);
-  }
+  0%,
   12% {
-    background: color-mix(in srgb, var(--gd-big) 70%, transparent);
+    background: color-mix(in srgb, var(--gd-big) 55%, transparent);
   }
   100% {
     background: transparent;
   }
 }
-
-/* The chip is absolutely positioned so it can leave the row's grid without reflowing
- * the nine rows under it — a cue that pushes the lineup around is a cue that makes the
- * screen unreadable for the 2.4s it is up. `pointer-events: none` keeps it clear of the
- * disclosure and the drag handle it flies over. */
+/* The chip leaves the row without reflowing it: absolutely positioned, no pointer
+   events, so it flies over the lineup instead of pushing it around. It springs in with
+   a little overshoot (it arrives with momentum), then drifts up and fades. */
 .gd-big-play {
   position: absolute;
   left: 50%;
@@ -442,15 +443,14 @@
   z-index: 2;
   pointer-events: none;
   white-space: nowrap;
-  padding: 3px 9px;
-  border-radius: 999px;
-  font-size: 12px;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  font: var(--type-subhead);
   font-weight: 700;
-  letter-spacing: 0.4px;
   font-variant-numeric: tabular-nums;
   color: #000;
   background: var(--gd-big);
-  box-shadow: 0 0 18px color-mix(in srgb, var(--gd-big) 60%, transparent);
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--gd-big) 50%, transparent);
   animation: gd-big-play-chip 2400ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 @keyframes gd-big-play-chip {
@@ -460,7 +460,7 @@
   }
   12% {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1.15);
+    transform: translate(-50%, -50%) scale(1.08);
   }
   22% {
     transform: translate(-50%, -50%) scale(1);
@@ -474,93 +474,74 @@
     transform: translate(-50%, -220%) scale(1);
   }
 }
-
-/* The panel flare: a border and glow in the same side color, so which panel to look at
- * is legible before any text is.
- *
- * A big play that also flips the lead renders as the flare ALONE — this rule and
- * `[data-lead-flip]` both set `animation` on the panel at equal specificity, so the
- * later one replaces the earlier rather than composing with it. That is the intended
- * order: two loud full-panel cues at once read as neither. */
 .gd-panel[data-big-play="mine"] {
-  --gd-big: var(--exercise);
+  --gd-big: var(--positive);
 }
 .gd-panel[data-big-play="theirs"] {
-  --gd-big: var(--move);
+  --gd-big: var(--negative);
 }
-/* Both sides scored big in the same refresh — orange, the screen's "something is
- * happening" color, rather than arbitrarily picking one team's. */
 .gd-panel[data-big-play="both"] {
   --gd-big: var(--live);
 }
+/* Declared after lead-flip: a big play that also flips the lead renders as the flare
+   alone. Two loud full-panel cues at once read as neither. */
 .gd-panel[data-big-play] {
   animation: gd-big-play-flare 2400ms ease-out;
 }
-/* A settled panel is dimmed to 0.52; a big play on it (a stat correction, a late
- * scoring change) still has to be visible, so the flare brings it back to full. */
 .gd-panel[data-big-play][data-settled="true"] {
   opacity: 1;
 }
 @keyframes gd-big-play-flare {
   0%,
   100% {
-    /* Back to the panel's own transparent border, not to a color — a live panel sets
-       its own border and must get it back when the flare ends. */
-    border-color: transparent;
-    box-shadow: none;
+    outline: 0 solid transparent;
   }
   10%,
   55% {
-    border-color: var(--gd-big);
-    box-shadow:
-      0 0 0 2px color-mix(in srgb, var(--gd-big) 55%, transparent),
-      0 0 46px color-mix(in srgb, var(--gd-big) 40%, transparent);
+    outline: 2px solid var(--gd-big);
+    outline-offset: 0;
+    filter: drop-shadow(0 0 22px color-mix(in srgb, var(--gd-big) 45%, transparent));
   }
 }
 
 .gd-side {
   display: flex;
   align-items: baseline;
-  gap: 5px;
+  gap: var(--space-1);
   min-width: 0;
 }
 .gd-side[data-side="mine"] {
   justify-content: flex-end;
-  flex-direction: row;
 }
+/* row-reverse swaps "start", so flex-end pins the points against the center column
+   on both sides, wherever the name ends. */
 .gd-side[data-side="theirs"] {
-  /* row-reverse swaps which edge is "start", so flex-end (not flex-start) is what
-     pins the score against the center divider — mirroring how "mine" pins its
-     score there via flex-end in normal row direction. flex-start here packed the
-     [score, name] cluster against the outer edge instead, so the score's x
-     position tracked the opponent's name length instead of staying put. */
   justify-content: flex-end;
   flex-direction: row-reverse;
 }
-/* A player whose game has not kicked off renders dimmed, so a 0.0 that means "hasn't
- * played" never reads as a 0.0 that means "was shut out". */
-.gd-side[data-state="pre"] {
-  opacity: 0.45;
+/* Hasn't kicked off: dimmed, so a 0.0 that means "hasn't played" never reads as a 0.0
+   that means "was shut out". */
+.gd-side[data-state="pre"] .gd-player-name,
+.gd-side[data-state="pre"] .gd-pts {
+  color: var(--text-tertiary);
 }
 .gd-player-name {
-  font-size: 12px;
-  color: var(--text);
+  font: var(--type-footnote);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .gd-nfl-team {
-  font-size: 10px;
-  color: var(--text-secondary);
   flex: none;
+  font: var(--type-caption);
+  color: var(--text-tertiary);
 }
 .gd-pts {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
   flex: none;
-  min-width: 34px;
+  min-width: 2.25em;
+  font: var(--type-footnote);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   text-align: right;
 }
 .gd-side[data-side="theirs"] .gd-pts {
@@ -571,175 +552,204 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
   flex: none;
-  min-width: 46px;
-  padding: 0 4px;
-  border-left: 1px dashed var(--separator);
-  border-right: 1px dashed var(--separator);
+  min-width: 2.75rem;
+  padding: 1px 2px;
+  border-radius: var(--radius-xs);
+  background: var(--fill-4);
 }
 .gd-slot-label {
-  font-size: 9px;
+  font: var(--type-caption);
   font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--text-secondary);
+  letter-spacing: var(--track-caps);
+  color: var(--text-tertiary);
 }
 .gd-slot-diff {
-  font-size: 10px;
+  font: var(--type-footnote);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 .gd-slot-diff[data-sign="pos"] {
-  color: var(--exercise);
+  color: var(--positive);
 }
 .gd-slot-diff[data-sign="neg"] {
-  color: var(--move);
+  color: var(--negative);
 }
 .gd-slot-diff[data-sign="tied"] {
-  color: var(--text-tertiary);
+  color: var(--text-quaternary);
 }
 
-/* The live dot is the ONLY continuously-animating element in the view (design D4). */
+/* The live dot is the only continuously animating element in the view (design D4). */
 .gd-live-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 999px;
-  background: var(--live);
   flex: none;
-  animation: pulse 1.6s ease-in-out infinite;
+  align-self: center;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--live);
+  animation: pulse 2s ease-in-out infinite;
 }
 
-/* ==== Resize handle ====
- * A corner target disjoint from the header's reorder drag, so the two gestures never
- * compete for the same pointerdown. */
+/* ==== Resize handle: a corner target disjoint from the header's drag ==== */
 .gd-resize-handle {
   position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 14px;
-  height: 14px;
-  border-right: 2px solid var(--separator);
-  border-bottom: 2px solid var(--separator);
-  border-bottom-right-radius: 4px;
+  right: 6px;
+  bottom: 6px;
+  width: 16px;
+  height: 16px;
+  border-right: 2px solid var(--text-quaternary);
+  border-bottom: 2px solid var(--text-quaternary);
+  border-bottom-right-radius: 6px;
   cursor: nwse-resize;
   opacity: 0;
-  transition: opacity 140ms ease;
+  transition: opacity var(--dur-fade) ease;
 }
 .gd-panel:hover .gd-resize-handle {
   opacity: 1;
 }
 
-/* ==== Spotlight overlay ==== */
+/* ==== Spotlight: a modal task, so it dims and blurs what's behind it (§12) ==== */
 .gd-spotlight-backdrop {
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: color-mix(in srgb, var(--bg) 82%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px;
+  padding: var(--space-10);
+  background: var(--scrim);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 .gd-spotlight-frame {
   width: min(1100px, 92vw);
   max-height: 90vh;
   overflow: auto;
+  border-radius: var(--radius-lg);
+  transform-origin: 0 0;
+  box-shadow: var(--shadow-lifted);
 }
 .gd-panel[data-spotlight="true"] {
-  /* Never dimmed while spotlit — the user is deliberately staring at it. */
   opacity: 1;
+  background: var(--surface);
+}
+@media (max-width: 767px) {
+  .gd-spotlight-backdrop {
+    padding: var(--space-3);
+  }
+  .gd-spotlight-frame {
+    width: 100%;
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .gd-spotlight-backdrop {
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: none;
+  }
 }
 
-/* ==== Density ladder (design D3) ==================================================
- * Four bands, driven by the PANEL's inline size. Score runs 26 -> 64px; no value that
- * carries meaning drops below 15px, per the across-the-room reading constraint — which
- * is why the sub-15px sizes above belong only to labels and units, never to a number.
- */
+/* ==== Density ladder (design D3) ====
+ * Four bands by the PANEL's inline size. Below 540px the roster rows are dense by
+ * necessity; from 540px up every value that carries meaning is at least 15px, the
+ * across-the-room floor. */
 
-/* Band 1, < 360px (4-column): the base rules above already apply. The NFL team code is
- * the first thing to go — it is the least load-bearing token in a row. */
+/* < 360px (4-column): the NFL team code goes first, the least load-bearing token. */
 @container gdpanel (max-width: 359px) {
   .gd-nfl-team {
     display: none;
   }
+  .gd-score-value {
+    font-size: 1.875rem;
+  }
+  .gd-margin-chip {
+    padding-inline: var(--space-2);
+  }
+  .gd-stats {
+    grid-template-columns: 1fr 1fr;
+    padding: var(--space-3);
+  }
+  .gd-stat[data-primary] {
+    grid-column: 1 / -1;
+  }
 }
 
-/* Band 2, 360–539px (3-across). */
+/* 360–539px (3-across). */
 @container gdpanel (min-width: 360px) {
   .gd-score-value {
-    font-size: 32px;
+    font-size: 2.75rem;
   }
-  .gd-player-name,
-  .gd-pts {
-    font-size: 13px;
+  .gd-row {
+    gap: var(--space-2);
+  }
+  .gd-side {
+    gap: var(--space-2);
   }
 }
 
-/* Band 3, >= 540px (2-across) — wide enough to read a roster, so it appears. */
+/* >= 540px (2-across). */
 @container gdpanel (min-width: 540px) {
+  .gd-panel {
+    padding: var(--space-5) var(--space-6) var(--space-6);
+  }
   .gd-score-value {
-    font-size: 46px;
+    font-size: 3.5rem;
   }
   .gd-player-name,
   .gd-pts {
-    font-size: 15px;
+    font-size: 0.9375rem;
   }
   .gd-stat-value {
-    font-size: 20px;
+    font: var(--type-title3);
   }
-  .gd-stat-label,
-  .gd-nfl-team,
+  .gd-stat[data-primary] .gd-stat-value {
+    font-size: 1.75rem;
+  }
   .gd-slot-diff {
-    font-size: 11px;
+    font-size: 0.9375rem;
+  }
+  .gd-row {
+    min-height: 2.375rem;
   }
 }
 
-/* Band 4, >= 900px (spotlight). */
+/* >= 900px (spotlight). */
 @container gdpanel (min-width: 900px) {
   .gd-score-value {
-    font-size: 64px;
+    font-size: 5rem;
+  }
+  .gd-team-name {
+    font: var(--type-title3);
   }
   .gd-player-name,
   .gd-pts {
-    font-size: 17px;
+    font-size: 1.0625rem;
   }
-  .gd-team-name {
-    font-size: 15px;
+  .gd-stat[data-primary] .gd-stat-value {
+    font-size: 2.25rem;
   }
-  .gd-stat-value {
-    font-size: 24px;
+  .gd-row {
+    min-height: 2.75rem;
   }
 }
 
-/* The roster is open at EVERY width by default. It used to be hidden under 540px by a
- * container query, on the theory that a narrow panel had no room to read one — but the
- * lineup is the reason this screen exists, and a panel that has to be clicked open on
- * every restart is a panel nobody sees on Sunday. Below 360px the row sheds its NFL
- * team code (band 1) and gets tight; that is the accepted cost of the default.
- *
- * [data-roster] still overrides in both directions, and still lives outside any
- * @container block: an attribute on the panel has to win at any width. A panel with no
- * data-roster attribute at all falls through to the default above — which is why the
- * attribute is omitted rather than set to "auto" when the user has no preference. */
+/* Attribute overrides live outside any @container block, so they win at any width.
+   A panel with no data-roster falls through to the default (open). */
 .gd-panel[data-roster="open"] .gd-roster {
   display: flex;
 }
 .gd-panel[data-roster="shut"] .gd-roster {
   display: none;
 }
-/* The disclosure control is never hidden — it is the only way to open a roster the
- * query has closed, so hiding it at exactly the widths where the roster is hidden
- * would make the override unreachable in the direction that needs it most. */
 
 /* ==== Skeleton ==== */
 .gd-panel-skeleton {
-  gap: 12px;
+  gap: var(--space-4);
 }
 
 /* ==== Reduced motion ====
- * The three transient cues stop entirely; the live dot stops pulsing. The persistent
- * cues (live border, settled dim) are unaffected — they carry state, not motion, and
- * are the ones the screen actually depends on. */
+ * The transient cues stop; the persistent ones (live ring, settled dim) carry state, not
+ * motion, and stay. The big-play chip keeps its place and text, because it is the only
+ * cue that says who scored and how much. */
 @media (prefers-reduced-motion: reduce) {
   .gd-panel[data-lead-flip="true"],
   .gd-row[data-just-changed="true"],
@@ -747,9 +757,6 @@
   .gd-panel[data-big-play] {
     animation: none;
   }
-  /* The big-play chip keeps its color and position but stops flying: it is the only
-     transient cue that also carries TEXT (who, how many), so silencing it entirely
-     would lose information the other cues never had. */
   .gd-big-play {
     animation: none;
     transform: translate(-50%, -50%);
@@ -758,6 +765,6 @@
     animation: none;
   }
   .gd-panel {
-    transition: none;
+    transition: opacity 200ms ease;
   }
 }
