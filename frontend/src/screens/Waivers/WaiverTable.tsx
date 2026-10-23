@@ -17,6 +17,7 @@ import { useState } from "react";
 import { PlayerHealth } from "../../components/shared/PlayerHealth";
 import { ProjectionCompare } from "../../components/shared/ProjectionCompare";
 import type { WaiverCandidate } from "../../types/api";
+import { PlayerAvatarButton, PlayerName } from "../../components/shared/PlayerName";
 
 /** An absent value renders as an em dash, never as a number.
  *
@@ -91,10 +92,12 @@ function WaiverRow({ candidate, rank }: { candidate: WaiverCandidate; rank: numb
       </td>
       <td className="roster-col-player">
         <div className="player-cell">
-          <Headshot name={player.name} url={player.headshot_url} />
+          <PlayerAvatarButton player={player}>
+            <Headshot name={player.name} url={player.headshot_url} />
+          </PlayerAvatarButton>
           <div className="player-info">
             <div className="player-info-row">
-              <span className="player-name">{player.name}</span>
+              <PlayerName player={player} />
               <span className="pill pos">{player.position}</span>
               {/* The most expensive place to miss a designation: an IR stash looks like
                   a bargain on projection alone. */}

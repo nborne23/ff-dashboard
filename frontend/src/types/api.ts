@@ -361,6 +361,77 @@ export interface PlayerInjuryData {
   detail_supported: boolean;
 }
 
+/** `GET /api/players/{id}/stats` — mirrors `backend/gridiron/schemas/player_stats.py`. */
+export interface StatColumn {
+  key: string;
+  label: string;
+  /** How a season row totals the column — a long field goal is a max, not a sum. */
+  agg: "sum" | "max";
+}
+
+export interface GameLogRow {
+  season: number;
+  week: number;
+  date: string | null;
+  /** The team he played FOR that week. */
+  team: string | null;
+  opponent: string | null;
+  fantasy_points: number | null;
+  stats: Record<string, number>;
+}
+
+export interface SeasonSummary {
+  season: number;
+  team: string | null;
+  games: number;
+  fantasy_points: number | null;
+  ppg: number | null;
+  stats: Record<string, number>;
+}
+
+export interface BreakdownLine {
+  label: string;
+  /** null for tier awards ("7-13 points allowed"), whose value is a flag. */
+  stat_value: number | null;
+  points: number;
+}
+
+export interface ThisWeekStats {
+  season: number;
+  week: number;
+  /** false while the week is in progress — the line can still move. */
+  final: boolean;
+  opponent: string | null;
+  is_live: boolean;
+  status_text: string | null;
+  /** The platform's own numbers from the roster slot — the authority. */
+  league_points: number | null;
+  league_proj: number | null;
+  stats: Record<string, number> | null;
+  stats_source: "espn" | "sleeper" | null;
+  breakdown: BreakdownLine[];
+  /** `league`: ESPN's exact per-stat scoring. `estimated`: standard rules, reconciled. */
+  breakdown_source: "league" | "estimated" | null;
+  breakdown_total: number | null;
+}
+
+export type PointsFormat = "ppr" | "half_ppr" | "standard";
+
+export interface PlayerStatsData {
+  player_id: string;
+  sleeper_id: string | null;
+  position_group: Position;
+  points_format: PointsFormat;
+  /** true when the league scores `custom` and history is shown in PPR instead. */
+  points_format_fallback: boolean;
+  columns: StatColumn[];
+  this_week: ThisWeekStats;
+  /** Newest first. */
+  seasons: SeasonSummary[];
+  /** Newest season first, weeks ascending within a season. */
+  game_log: GameLogRow[];
+}
+
 /** Which projection the lineup advice was computed from. Never a blend. */
 export type ProjectionSource = "platform" | "rotowire";
 

@@ -4,7 +4,12 @@
     {
       "name": "frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "frontend"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "frontend"
+      ],
       "port": 5173
     },
     {
@@ -15,6 +20,24 @@
         "GRIDIRON_SCHEDULER_ENABLED=false uv run uvicorn backend.main:app --port 8000"
       ],
       "port": 8000
+    },
+    {
+      "name": "backend-alt",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "GRIDIRON_SCHEDULER_ENABLED=false uv run uvicorn backend.main:app --port 8001"
+      ],
+      "port": 8001
+    },
+    {
+      "name": "frontend-alt",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "GRIDIRON_API_TARGET=http://localhost:8001 npm run dev --prefix frontend -- --port 5175"
+      ],
+      "port": 5175
     }
   ]
 }

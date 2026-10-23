@@ -11,6 +11,7 @@ import { useState } from "react";
 import { PlayerHealth } from "../../components/shared/PlayerHealth";
 import { ProjectionCompare } from "../../components/shared/ProjectionCompare";
 import type { RosterSlot } from "../../types/api";
+import { PlayerAvatarButton, PlayerName } from "../../components/shared/PlayerName";
 
 function initialsFor(name: string): string {
   return name
@@ -60,10 +61,12 @@ function RosterRow({ slot, isBench }: { slot: RosterSlot; isBench?: boolean }) {
       </td>
       <td className="roster-col-player">
         <div className="player-cell">
-          <Headshot name={slot.player.name} url={slot.player.headshot_url} />
+          <PlayerAvatarButton player={slot.player} week={slot.week}>
+            <Headshot name={slot.player.name} url={slot.player.headshot_url} />
+          </PlayerAvatarButton>
           <div className="player-info">
             <div className="player-info-row">
-              <span className="player-name">{slot.player.name}</span>
+              <PlayerName player={slot.player} week={slot.week} />
               <PositionPill pos={slot.player.position} />
               {/* Beside the position pill, NOT in the Status column: that column is an
                   `is_live ? … : isOut ? … : status_text` chain, so putting Q/D/IR there

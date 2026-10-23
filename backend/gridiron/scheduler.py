@@ -33,7 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.gridiron.db import async_session_factory, resolve_db_path
 from backend.gridiron.errors import GridironError
 from backend.gridiron.models import RefreshRun
-from backend.gridiron.platforms import espn_injuries, nfl_scoreboard, sleeper
+from backend.gridiron.platforms import espn_injuries, nfl_scoreboard, sleeper, sleeper_stats
 from backend.gridiron.schemas.events import LiveStateChangedEvent
 from backend.gridiron.services import backup as backup_service
 from backend.gridiron.services import (
@@ -81,6 +81,12 @@ INJURIES_INTERVAL_SECONDS = 30 * 60
 # thirty minutes because Rotowire revises on news, not on snaps; the injury sweep is
 # what carries the fast-moving half of that story.
 PROJECTIONS_INTERVAL_SECONDS = 3 * 60 * 60
+
+
+# `refresh_player_stats` tick (add-player-stats). The job decides per tick whether to do
+# anything: the live week while games are on, a full pass every 30 minutes otherwise —
+# see `platforms/sleeper_stats.py`.
+PLAYER_STATS_INTERVAL_SECONDS = int(sleeper_stats.LIVE_INTERVAL.total_seconds())
 
 
 class UnknownJobError(GridironError):
@@ -220,6 +226,15 @@ async def _refresh_projections(session: AsyncSession) -> str | None:
     return await sleeper.fetch_and_upsert(session)
 
 
+async def _refresh_player_stats(session: AsyncSession) -> str | None:
+    """Weekly stat lines for every fantasy-relevant player, current season plus nine back
+    (Sportradar, via Sleeper's public feed). The only writer of `player_weekly_stats` —
+    `GET /api/players/{id}/stats` reads it and never fetches (design.md D7)."""
+    return await sleeper_stats.fetch_and_upsert(
+        session, live=live_state.get_current_live_state() == "live"
+    )
+
+
 async def _backup_db(session: AsyncSession) -> str | None:
     """Nightly SQLite backup + prune (task 11.4). Doesn't touch `session` — the backup
     runs against the on-disk file directly via `sqlite3`'s own online-backup API — but
@@ -238,6 +253,7 @@ JOBS: dict[str, Callable[[AsyncSession], Awaitable[str | None]]] = {
     "refresh_player_pool": _refresh_player_pool,
     "refresh_injuries": _refresh_injuries,
     "refresh_projections": _refresh_projections,
+    "refresh_player_stats": _refresh_player_stats,
     "backup_db": _backup_db,
 }
 
@@ -341,6 +357,13 @@ def start_scheduler() -> AsyncIOScheduler:
         IntervalTrigger(seconds=PROJECTIONS_INTERVAL_SECONDS),
         args=["refresh_projections"],
         id="refresh_projections",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        _scheduled,
+        IntervalTrigger(seconds=PLAYER_STATS_INTERVAL_SECONDS),
+        args=["refresh_player_stats"],
+        id="refresh_player_stats",
         replace_existing=True,
     )
     scheduler.add_job(

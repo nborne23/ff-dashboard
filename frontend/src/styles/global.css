@@ -1444,3 +1444,113 @@ button:not(:disabled):active,
   color: var(--text-tertiary);
   flex: none;
 }
+
+/* ==== add-player-stats -- the player card behind every clickable name ==== */
+
+/* The name stays text-styled: a button for keyboard/AT reachability, not for chrome. */
+.player-name-button {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.player-name-button.player-name { color: var(--text); }
+.roster tr.bench-row .player-name-button.player-name { color: var(--text-tertiary); }
+.player-name-button:hover { text-decoration: underline; text-underline-offset: 3px; }
+.player-name-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+/* Wider than the 560px health sheet: the stat tables need the room. */
+.pstats-panel { max-width: 760px; }
+.pstats-identity { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.pstats-headshot { width: 52px; height: 52px; font-size: 16px; overflow: hidden; }
+.pstats-headshot img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.pstats-name { font: var(--type-title3); letter-spacing: var(--track-title); }
+
+.pstats-section { padding-top: 16px; margin-top: 16px; border-top: 0.5px solid var(--separator); }
+.pstats-section:first-of-type { margin-top: 0; }
+.pstats-section .section-label { font: var(--type-headline); letter-spacing: var(--track-headline); margin: 0 0 8px; }
+.pstats-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.pstats-section-head .section-label { margin: 0; }
+
+.pstats-week-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.pstats-week-points { display: flex; align-items: baseline; gap: 6px; }
+.pstats-score { font: var(--type-score); letter-spacing: var(--track-score); font-variant-numeric: tabular-nums; }
+.pstats-status {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: var(--type-caption); color: var(--text-secondary);
+  background: var(--fill-4); border-radius: 999px; padding: 4px 10px; white-space: nowrap;
+}
+.pstats-status.live { color: var(--live); background: var(--live-tint); }
+.pstats-live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--live); box-shadow: 0 0 6px var(--live); }
+
+.pstats-statline {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px; margin: 12px 0 0;
+}
+.pstats-statline > div { background: var(--fill-4); border-radius: 10px; padding: 8px 10px; }
+.pstats-statline dt { font: var(--type-caption); color: var(--text-secondary); }
+.pstats-statline dd { margin: 2px 0 0; font: var(--type-headline); font-variant-numeric: tabular-nums; }
+
+.pstats-breakdown { margin-top: 16px; }
+.pstats-breakdown .section-label { font: var(--type-footnote); font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+.pstats-breakdown ul { list-style: none; margin: 0; padding: 0; }
+.pstats-breakdown li {
+  display: grid; grid-template-columns: 1fr auto 64px; gap: 12px; align-items: baseline;
+  padding: 7px 0; border-bottom: 0.5px solid var(--separator); font: var(--type-subhead);
+}
+.pstats-bd-value, .pstats-bd-points { text-align: right; font-variant-numeric: tabular-nums; }
+.pstats-bd-points { font-weight: 600; color: var(--positive); }
+.pstats-breakdown li.neg .pstats-bd-points { color: var(--negative); }
+.pstats-breakdown li.pstats-bd-total { border-bottom: 0; font-weight: 700; }
+.pstats-breakdown li.pstats-bd-total .pstats-bd-points { color: var(--text); }
+
+.pstats-footnote { margin: 8px 0 0; font: var(--type-footnote); color: var(--text-tertiary); }
+.pstats-empty { margin: 12px 0 0; font: var(--type-subhead); }
+
+/* Ten seasons don't fit a phone: the control scrolls sideways instead of wrapping. */
+.pstats-seasons { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.pstats-seasons button { padding: 4px 10px; min-height: 28px; font: var(--type-footnote); font-weight: 500; }
+
+.pstats-table-scroll { overflow-x: auto; margin: 0 -4px; padding: 0 4px; }
+.pstats-table { width: 100%; border-collapse: collapse; font: var(--type-footnote); font-variant-numeric: tabular-nums; }
+.pstats-table th {
+  font: var(--type-caption); color: var(--text-secondary); text-align: right;
+  padding: 6px 8px; border-bottom: 0.5px solid var(--separator); white-space: nowrap;
+}
+.pstats-table td { text-align: right; padding: 6px 8px; white-space: nowrap; border-bottom: 0.5px solid var(--separator); }
+.pstats-table .left { text-align: left; }
+.pstats-table .pstats-fpts { font-weight: 600; color: var(--text); }
+.pstats-table tbody tr.in-progress td { color: var(--live); }
+.pstats-table tfoot td { font-weight: 600; border-bottom: 0; color: var(--text-secondary); }
+
+/* The headshot as a second target for the same card -- no chrome, just a pointer and a
+   press response, so the row looks exactly as it did. */
+.player-avatar-button {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 0;
+  transition: transform 120ms ease-out, filter 120ms ease-out;
+}
+.player-avatar-button:hover { filter: brightness(1.12); }
+.player-avatar-button:active { transform: scale(0.94); }
+@media (prefers-reduced-motion: reduce) {
+  .player-avatar-button { transition: none; }
+  .player-avatar-button:active { transform: none; }
+}

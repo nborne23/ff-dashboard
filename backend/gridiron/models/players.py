@@ -43,6 +43,11 @@ class Player(Base):
     # has no injury report to fetch.
     espn_athlete_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
+    # Sleeper's player id — the key `player_weekly_stats` is stored under (add-player-stats).
+    # Filled by the Sleeper refresh for BOTH platforms, D/ST included: Sleeper keys a team
+    # defense by its abbreviation (`SF`), so a defense gets one too.
+    sleeper_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )

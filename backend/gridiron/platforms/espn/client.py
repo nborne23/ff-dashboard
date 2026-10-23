@@ -33,6 +33,20 @@ PLAYER_POOL_TTL = timedelta(hours=6)
 PLAYER_POOL_LIMIT = 1500
 
 
+ROSTER_MATCHUP_ENDPOINT = "roster_matchup"
+
+
+def roster_matchup_params(scoring_period: int) -> dict:
+    """HTTP params of the roster+matchup fetch. A function rather than inline so the
+    player stats read path can rebuild the exact `http_cache` key and read the payload
+    the live refresh already stored, instead of fetching (design.md D7)."""
+    return {
+        "view": ["mRoster", "mMatchupScore", "mBoxscore"],
+        "scoringPeriodId": scoring_period,
+        "matchupPeriodId": scoring_period,
+    }
+
+
 class EspnClient:
     def __init__(
         self,
@@ -216,12 +230,8 @@ class EspnClient:
         return await self._cached_league_fetch(
             league_id,
             year,
-            "roster_matchup",
-            {
-                "view": ["mRoster", "mMatchupScore", "mBoxscore"],
-                "scoringPeriodId": scoring_period,
-                "matchupPeriodId": scoring_period,
-            },
+            ROSTER_MATCHUP_ENDPOINT,
+            roster_matchup_params(scoring_period),
             cache.select_ttl(scoring_period, current_week, ROSTER_TTL),
         )
 

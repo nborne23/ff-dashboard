@@ -159,6 +159,50 @@ def bridge_espn_athlete_ids(dump: dict, players: list[Player]) -> int:
     return changed
 
 
+def bridge_sleeper_ids(dump: dict, players: list[Player]) -> int:
+    """Fill in `players.sleeper_id`, the key `player_weekly_stats` is stored under.
+
+    Same tier order as `PlayerIndex`, run against the dump instead of a projection feed:
+    the platform's own id first (`espn_id` / `yahoo_id`), then (normalized name, NFL team)
+    with ambiguous keys dropped, and for a defense the team abbreviation itself — Sleeper
+    keys every DEF record by it. Returns the number of rows changed.
+    """
+    by_espn_id: dict[str, str] = {}
+    by_yahoo_id: dict[str, str] = {}
+    by_name_team: dict[tuple[str, str], str | None] = {}
+    for sleeper_id, entry in dump.items():
+        if entry.get("espn_id"):
+            by_espn_id[str(entry["espn_id"])] = sleeper_id
+        if entry.get("yahoo_id"):
+            by_yahoo_id[str(entry["yahoo_id"])] = sleeper_id
+        team = entry.get("team")
+        if team and entry.get("position") != SLEEPER_DST_POSITION:
+            key = (
+                normalize_name(f"{entry.get('first_name', '')} {entry.get('last_name', '')}"),
+                team,
+            )
+            by_name_team[key] = None if key in by_name_team else sleeper_id
+
+    changed = 0
+    for player in players:
+        if player.position == "DST":
+            sleeper_id = player.nfl_team if player.nfl_team in dump else None
+        else:
+            if player.platform == "espn":
+                sleeper_id = by_espn_id.get(player.platform_id.removeprefix("p-"))
+            else:
+                # The bare trailing id, as in `bridge_espn_athlete_ids`.
+                sleeper_id = by_yahoo_id.get(
+                    player.platform_id.rsplit(".", 1)[-1].removeprefix("p-")
+                )
+            if sleeper_id is None and player.nfl_team and player.nfl_team != "FA":
+                sleeper_id = by_name_team.get((normalize_name(player.name), player.nfl_team))
+        if sleeper_id and player.sleeper_id != sleeper_id:
+            player.sleeper_id = sleeper_id
+            changed += 1
+    return changed
+
+
 class PlayerIndex:
     """The three lookup tables the matcher consults, in tier order."""
 

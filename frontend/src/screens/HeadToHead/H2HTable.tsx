@@ -7,6 +7,7 @@ import { displaySlot } from "../../components/shared/slotLabel";
 import { PlayerHealth } from "../../components/shared/PlayerHealth";
 import type { MatchupSlot } from "../../types/api";
 import { orientSlot } from "./orientation";
+import { PlayerAvatarButton, PlayerName } from "../../components/shared/PlayerName";
 
 function initialsFor(name: string): string {
   return name
@@ -44,10 +45,12 @@ export function H2HTable({ slots, iAmHome, myTeamName, oppTeamName }: H2HTablePr
               <tr key={`${row.slot}-${myPlayer.id}`}>
                 <td>
                   <div className="me-cell">
-                    <div className="headshot">{initialsFor(myPlayer.name)}</div>
+                    <PlayerAvatarButton player={myPlayer}>
+                      <div className="headshot">{initialsFor(myPlayer.name)}</div>
+                    </PlayerAvatarButton>
                     <div className="player-info">
                       <div className="player-info-row">
-                        <span className="player-name">{myPlayer.name}</span>
+                        <PlayerName player={myPlayer} />
                         <PlayerHealth
                           playerId={myPlayer.id}
                           playerName={myPlayer.name}
@@ -66,10 +69,12 @@ export function H2HTable({ slots, iAmHome, myTeamName, oppTeamName }: H2HTablePr
                 </td>
                 <td>
                   <div className="opp-cell">
-                    <div className="headshot">{initialsFor(oppPlayer.name)}</div>
+                    <PlayerAvatarButton player={oppPlayer}>
+                      <div className="headshot">{initialsFor(oppPlayer.name)}</div>
+                    </PlayerAvatarButton>
                     <div className="player-info">
                       <div className="player-info-row">
-                        <span className="player-name">{oppPlayer.name}</span>
+                        <PlayerName player={oppPlayer} />
                         <PlayerHealth
                           playerId={oppPlayer.id}
                           playerName={oppPlayer.name}

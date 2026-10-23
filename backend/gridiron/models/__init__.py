@@ -19,6 +19,7 @@ from backend.gridiron.models.matchups import Matchup, MatchupSlot
 from backend.gridiron.models.player_injuries import PlayerInjury
 from backend.gridiron.models.player_pool import PlayerPoolEntry
 from backend.gridiron.models.player_projections import PlayerProjection
+from backend.gridiron.models.player_stats import PlayerStatSeason, PlayerWeeklyStat
 from backend.gridiron.models.players import Player
 from backend.gridiron.models.refresh_runs import RefreshRun
 from backend.gridiron.models.roster_slots import RosterSlot
@@ -46,6 +47,8 @@ __all__ = [
     "PlayerInjury",
     "PlayerPoolEntry",
     "PlayerProjection",
+    "PlayerStatSeason",
+    "PlayerWeeklyStat",
     "RefreshRun",
     "RosterSlot",
     "SeasonWeek",

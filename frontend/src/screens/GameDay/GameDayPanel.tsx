@@ -269,6 +269,7 @@ export function GameDayPanel({
         rosterRef={rosterRef}
         slots={matchup.slots}
         iAmHome={matchup.i_am_home}
+        teamId={matchup.team_id}
         bigPlays={bigPlays.bySlot}
       />
 

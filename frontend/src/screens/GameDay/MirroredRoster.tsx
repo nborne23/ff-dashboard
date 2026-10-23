@@ -10,8 +10,9 @@
 // re-derive the home/away ternary — one source of truth for "which side is mine".
 
 import { InjuryBadge } from "../../components/shared/InjuryBadge";
+import { PlayerName } from "../../components/shared/PlayerName";
 import { useChangedValuePulse } from "../../hooks/useChangedValuePulse";
-import type { GameState, InjuryStatus, MatchupSlot } from "../../types/api";
+import type { GameState, MatchupSlot, Player } from "../../types/api";
 import { orientSlot } from "../HeadToHead/orientation";
 import { displaySlot } from "../../components/shared/slotLabel";
 import type { BigPlay } from "./useBigPlay";
@@ -20,6 +21,11 @@ import { TIE_EPSILON } from "./useLeadFlip";
 export interface MirroredRosterProps {
   slots: MatchupSlot[];
   iAmHome: boolean;
+  /**
+   * The user's team in this panel. Game Day has no `:teamId` route, so the stats card a
+   * name opens needs it passed explicitly to pick the league's scoring and slot.
+   */
+  teamId?: string;
   /**
    * Lets the panel read this element's computed `display` when toggling disclosure.
    * A plainly-named prop rather than `ref`: this project is on React 18, where `ref`
@@ -32,13 +38,12 @@ export interface MirroredRosterProps {
 }
 
 interface SideProps {
-  name: string;
-  nflTeam: string;
+  player: Player;
+  teamId?: string;
   points: number;
   state: GameState | null;
   isLive: boolean;
   side: "mine" | "theirs";
-  injuryStatus: InjuryStatus | null;
 }
 
 /**
@@ -47,16 +52,17 @@ interface SideProps {
  * brightness 0.0 reads as "was shut out". Without the distinction every pre-kickoff
  * panel would look like a blowout.
  */
-function Side({ name, nflTeam, points, state, isLive, side, injuryStatus }: SideProps) {
+function Side({ player, teamId, points, state, isLive, side }: SideProps) {
   return (
     <div className="gd-side" data-side={side} data-state={state ?? "unknown"}>
       {isLive && <span className="gd-live-dot" aria-hidden="true" />}
-      <span className="gd-player-name">{name}</span>
-      {/* Static, not clickable: Game Day is a glanceable wall display and opening a
-          modal over a live scoreboard is the wrong affordance for it. The full detail
-          lives one screen away on MyTeam. */}
-      <InjuryBadge status={injuryStatus} />
-      <span className="gd-nfl-team">{nflTeam}</span>
+      {/* The name opens the stats card (add-player-stats) — on a wall display nobody
+          clicks it, and at a desk it is the fastest way to a live stat line. */}
+      <PlayerName player={player} teamId={teamId} className="gd-player-name" />
+      {/* The injury badge stays static: the health detail is one screen away on MyTeam,
+          and a second dialog trigger per side would crowd a 340px panel. */}
+      <InjuryBadge status={player.injury_status} />
+      <span className="gd-nfl-team">{player.nfl_team}</span>
       <span className="gd-pts">{points.toFixed(1)}</span>
     </div>
   );
@@ -65,10 +71,11 @@ function Side({ name, nflTeam, points, state, isLive, side, injuryStatus }: Side
 interface RowProps {
   slot: MatchupSlot;
   iAmHome: boolean;
+  teamId?: string;
   bigPlay?: BigPlay;
 }
 
-function MirroredRow({ slot, iAmHome, bigPlay }: RowProps) {
+function MirroredRow({ slot, iAmHome, teamId, bigPlay }: RowProps) {
   const { myPlayer, oppPlayer, myPts, oppPts } = orientSlot(slot, iAmHome);
   const myState = iAmHome ? slot.home_state : slot.away_state;
   const oppState = iAmHome ? slot.away_state : slot.home_state;
@@ -101,13 +108,12 @@ function MirroredRow({ slot, iAmHome, bigPlay }: RowProps) {
         </span>
       )}
       <Side
-        name={myPlayer.name}
-        nflTeam={myPlayer.nfl_team}
+        player={myPlayer}
+        teamId={teamId}
         points={myPts}
         state={myState}
         isLive={myIsLive}
         side="mine"
-        injuryStatus={myPlayer.injury_status}
       />
       <div className="gd-center">
         <span className="gd-slot-label">{displaySlot(slot.slot)}</span>
@@ -121,19 +127,24 @@ function MirroredRow({ slot, iAmHome, bigPlay }: RowProps) {
         </span>
       </div>
       <Side
-        name={oppPlayer.name}
-        nflTeam={oppPlayer.nfl_team}
+        player={oppPlayer}
+        teamId={teamId}
         points={oppPts}
         state={oppState}
         isLive={oppIsLive}
         side="theirs"
-        injuryStatus={oppPlayer.injury_status}
       />
     </div>
   );
 }
 
-export function MirroredRoster({ slots, iAmHome, rosterRef, bigPlays }: MirroredRosterProps) {
+export function MirroredRoster({
+  slots,
+  iAmHome,
+  teamId,
+  rosterRef,
+  bigPlays,
+}: MirroredRosterProps) {
   return (
     <div className="gd-roster" data-testid="gd-roster" ref={rosterRef}>
       {slots.map((slot) => (
@@ -141,6 +152,7 @@ export function MirroredRoster({ slots, iAmHome, rosterRef, bigPlays }: Mirrored
           key={slot.slot}
           slot={slot}
           iAmHome={iAmHome}
+          teamId={teamId}
           bigPlay={bigPlays?.[slot.slot]}
         />
       ))}

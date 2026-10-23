@@ -11,6 +11,7 @@
 //   - moves                -> here is what to change
 
 import type { LineupAdvice, LineupMove } from "../../types/api";
+import { PlayerName } from "../../components/shared/PlayerName";
 
 function MoveRow({ move }: { move: LineupMove }) {
   return (
@@ -19,7 +20,7 @@ function MoveRow({ move }: { move: LineupMove }) {
       <div className="lineup-move-swap">
         <div className="lineup-move-line">
           <span className="lineup-move-verb sit">SIT</span>
-          <span className="player-name">{move.out_player.name}</span>
+          <PlayerName player={move.out_player} />
           <span className="muted lineup-move-pts">{move.out_points.toFixed(1)}</span>
           <span className="lineup-move-src">RW</span>
           {move.reason === "unstartable" && (
@@ -30,7 +31,7 @@ function MoveRow({ move }: { move: LineupMove }) {
         </div>
         <div className="lineup-move-line">
           <span className="lineup-move-verb start">START</span>
-          <span className="player-name">{move.in_player.name}</span>
+          <PlayerName player={move.in_player} />
           <span className="muted lineup-move-pts">{move.in_points.toFixed(1)}</span>
           <span className="lineup-move-src">RW</span>
         </div>
