@@ -70,7 +70,10 @@ if launchctl print "gui/$(id -u)/${MCP_PLIST_LABEL}" >/dev/null 2>&1; then
 fi
 
 step "Waiting for health check"
-ATTEMPTS=15
+# 90s, not 30: the first start after a deploy re-syncs the venv under `uv run` and, on a
+# game day, starts the scheduler's catch-up jobs at the same time. The iMac has come up
+# healthy just after a 30s window had already declared the deploy failed.
+ATTEMPTS=45
 SLEEP_SECONDS=2
 HEALTHY=0
 for ((i = 1; i <= ATTEMPTS; i++)); do
@@ -88,5 +91,10 @@ else
 	echo
 	echo "Deploy FAILED: $HEALTH_URL never became healthy after $((ATTEMPTS * SLEEP_SECONDS))s" >&2
 	echo "Check logs: $LOG_DIR/app.log / app.err.log" >&2
+	# The end of the error log usually names the cause; print it here so a failed deploy
+	# doesn't need a second ssh session to diagnose.
+	echo >&2
+	echo "--- last 30 lines of app.err.log ---" >&2
+	tail -n 30 "$LOG_DIR/app.err.log" >&2 2>/dev/null || true
 	exit 1
 fi
