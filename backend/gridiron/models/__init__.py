@@ -22,6 +22,7 @@ from backend.gridiron.models.player_pool import PlayerPoolEntry
 from backend.gridiron.models.player_projections import PlayerProjection
 from backend.gridiron.models.player_stats import PlayerStatSeason, PlayerWeeklyStat
 from backend.gridiron.models.players import Player
+from backend.gridiron.models.push_subscriptions import PushSubscription
 from backend.gridiron.models.refresh_runs import RefreshRun
 from backend.gridiron.models.roster_slots import RosterSlot
 from backend.gridiron.models.season_weeks import SeasonWeek
@@ -51,6 +52,7 @@ __all__ = [
     "PlayerProjection",
     "PlayerStatSeason",
     "PlayerWeeklyStat",
+    "PushSubscription",
     "RefreshRun",
     "RosterSlot",
     "SeasonWeek",

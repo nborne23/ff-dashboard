@@ -72,7 +72,11 @@ export const apiClient = {
       method: "PUT",
       body: body === undefined ? undefined : JSON.stringify(body),
     }),
-  delete: <T = void>(path: string): Promise<T> => request<T>(path, { method: "DELETE" }),
+  delete: <T = void>(path: string, body?: unknown): Promise<T> =>
+    request<T>(path, {
+      method: "DELETE",
+      body: body === undefined ? undefined : JSON.stringify(body),
+    }),
 };
 
 interface TypedErrorDetail {

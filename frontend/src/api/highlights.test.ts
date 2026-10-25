@@ -61,6 +61,18 @@ describe("pullHighlights", () => {
     expect(localStorage.getItem(CURSOR_KEY)).toBe("9");
   });
 
+  it("plays the highlight a push notification opened, even on a first load", async () => {
+    window.history.replaceState(null, "", "/?highlight=5&week=3");
+    const fetchMock = stubFetch({ highlights: [highlight(5)], latest_id: 6 });
+
+    await pullHighlights();
+
+    expect(fetchMock.mock.calls[0]![0]).toBe("/api/highlights?after=4");
+    expect(useHighlightStore.getState().queue.map((h) => h.id)).toEqual([5]);
+    expect(window.location.search).toBe("?week=3");
+    expect(localStorage.getItem(CURSOR_KEY)).toBe("6");
+  });
+
   it("seeds 0 on an empty table so the first highlight ever still plays", async () => {
     stubFetch({ highlights: [], latest_id: null });
     await pullHighlights();

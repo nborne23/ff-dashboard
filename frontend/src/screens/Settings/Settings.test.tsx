@@ -295,18 +295,15 @@ describe("Settings", () => {
     });
   });
 
-  it("toggles a notification switch without hitting the network", async () => {
-    const { fetchMock } = installFetchMock();
-
+  it("has no inert notification toggles, only the real push card", async () => {
     renderSettings();
 
-    const switchEl = await screen.findByRole("switch", { name: "Red zone alerts" });
-    expect(switchEl.getAttribute("aria-checked")).toBe("true");
-
-    fireEvent.click(switchEl);
-
-    expect(switchEl.getAttribute("aria-checked")).toBe("false");
-    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("notif"))).toBe(false);
+    await screen.findByText("Notifications");
+    expect(screen.queryByRole("switch", { name: "Red zone alerts" })).toBeNull();
+    expect(screen.queryByRole("switch", { name: "Notify on score change" })).toBeNull();
+    // jsdom has no PushManager, so the toggle is shown but can't be turned on.
+    const toggle = screen.getByRole("switch", { name: "Touchdowns & big plays" });
+    expect(toggle.getAttribute("aria-disabled")).toBe("true");
   });
 
   // --- Appearance: removed (dark-only by design) -------------------------------------

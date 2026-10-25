@@ -516,3 +516,67 @@ async def test_a_failed_fantasy_run_still_reschedules_itself(session_factory, mo
         assert running.get_job("refresh_fantasy").trigger.interval.total_seconds() == 10
     finally:
         scheduler.shutdown_scheduler()
+
+
+# --- refresh_player_stats -> highlights -> push glue (add-play-highlights / push) ------
+
+
+@pytest.fixture
+def player_stats_glue(monkeypatch):
+    calls: dict[str, list] = {"snapshot": [], "record_new": [], "notify": []}
+    fetch_error: dict[str, str | None] = {"value": None}
+    inserted = [object(), object()]
+
+    async def snapshot(session):
+        calls["snapshot"].append(session)
+        return "BEFORE"
+
+    async def record_new(session, before):
+        calls["record_new"].append(before)
+        return inserted
+
+    async def fetch_and_upsert(session, live):
+        return fetch_error["value"]
+
+    async def notify(session, highlights):
+        calls["notify"].append(highlights)
+        return len(highlights)
+
+    from backend.gridiron.services import highlights, push
+
+    monkeypatch.setattr(highlights, "snapshot", snapshot)
+    monkeypatch.setattr(highlights, "record_new", record_new)
+    monkeypatch.setattr(scheduler.sleeper_stats, "fetch_and_upsert", fetch_and_upsert)
+    monkeypatch.setattr(push, "notify_highlights", notify)
+    return calls, fetch_error, inserted
+
+
+@pytest.mark.asyncio
+async def test_player_stats_on_game_day_detects_and_pushes(player_stats_glue) -> None:
+    calls, _, inserted = player_stats_glue
+    live_state.set_current_live_state("live")
+
+    assert await scheduler._refresh_player_stats(session=object()) is None
+
+    assert calls["record_new"] == ["BEFORE"]
+    assert calls["notify"] == [inserted]
+
+
+@pytest.mark.asyncio
+async def test_player_stats_off_day_skips_detection(player_stats_glue) -> None:
+    calls, _, _ = player_stats_glue
+    live_state.set_current_live_state("off_day")
+
+    await scheduler._refresh_player_stats(session=object())
+
+    assert calls == {"snapshot": [], "record_new": [], "notify": []}
+
+
+@pytest.mark.asyncio
+async def test_player_stats_fetch_error_skips_detection(player_stats_glue) -> None:
+    calls, fetch_error, _ = player_stats_glue
+    live_state.set_current_live_state("game_day")
+    fetch_error["value"] = "sleeper stats unavailable"
+
+    assert await scheduler._refresh_player_stats(session=object()) == "sleeper stats unavailable"
+    assert calls["record_new"] == [] and calls["notify"] == []

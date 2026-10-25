@@ -5,9 +5,11 @@ import { RouterProvider } from "react-router-dom";
 
 import "./styles/tokens.css";
 import "./styles/global.css";
+import { registerServiceWorker } from "./api/push";
 import { router } from "./routes";
 
 const queryClient = new QueryClient();
+registerServiceWorker();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

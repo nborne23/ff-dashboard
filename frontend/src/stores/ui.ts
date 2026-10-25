@@ -24,23 +24,6 @@ export const TWEAK_DEFAULTS: Tweaks = {
   auroraIntensity: 0.18,
 };
 
-/**
- * Settings' Preferences card notification toggles (task 7.4). Persisted so the choice
- * survives a reload, but functionally inert — there's no push-notification delivery
- * mechanism yet (Phase 8).
- */
-export interface Notifications {
-  scoreChange: boolean;
-  redzone: boolean;
-  finalScore: boolean;
-}
-
-export const NOTIFICATION_DEFAULTS: Notifications = {
-  scoreChange: true,
-  redzone: true,
-  finalScore: true,
-};
-
 export type Theme = "dark" | "light" | "auto";
 
 /**
@@ -154,8 +137,6 @@ interface UiState {
    */
   activeTeamId: string | null;
   setActiveTeamId: (teamId: string | null) => void;
-  notifications: Notifications;
-  setNotification: <K extends keyof Notifications>(key: K, value: Notifications[K]) => void;
   appearance: Appearance;
   setTheme: (theme: Theme) => void;
   setAccentColor: (accentColor: string) => void;
@@ -187,9 +168,6 @@ export const useUiStore = create<UiState>()(
       setMobileNavOpen: (mobileNavOpen) => set({ mobileNavOpen }),
       activeTeamId: null,
       setActiveTeamId: (activeTeamId) => set({ activeTeamId }),
-      notifications: NOTIFICATION_DEFAULTS,
-      setNotification: (key, value) =>
-        set((state) => ({ notifications: { ...state.notifications, [key]: value } })),
       appearance: APPEARANCE_DEFAULTS,
       setTheme: (theme) => set((state) => ({ appearance: { ...state.appearance, theme } })),
       setAccentColor: (accentColor) =>
@@ -220,7 +198,6 @@ export const useUiStore = create<UiState>()(
         tweaks: state.tweaks,
         sidebarCollapsed: state.sidebarCollapsed,
         activeTeamId: state.activeTeamId,
-        notifications: state.notifications,
         appearance: state.appearance,
         gameDay: state.gameDay,
       }),

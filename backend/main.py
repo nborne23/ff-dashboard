@@ -19,6 +19,7 @@ from backend.gridiron.api.events import router as events_router
 from backend.gridiron.api.headshots import router as headshots_router
 from backend.gridiron.api.highlights import router as highlights_router
 from backend.gridiron.api.players import router as players_router
+from backend.gridiron.api.push import router as push_router
 from backend.gridiron.api.team_logos import router as team_logos_router
 from backend.gridiron.api.leagues import router as leagues_router
 from backend.gridiron.api.settings import router as settings_router
@@ -41,6 +42,33 @@ FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 # deleted previous build's assets after a deploy.
 ASSETS_CACHE_CONTROL = "public, max-age=31536000, immutable"
 INDEX_CACHE_CONTROL = "no-cache"
+
+
+# Unhashed files Vite copies from `frontend/public` to the root of `dist` — the service
+# worker and the web app manifest (add-push-notifications). Both are no-cache like
+# `index.html`: a browser holding last deploy's `sw.js` keeps running last deploy's push
+# handler. Explicit types because `mimetypes` doesn't know `.webmanifest` everywhere and
+# iOS ignores a manifest served as anything else.
+ROOT_FILE_MEDIA_TYPES = {
+    ".js": "text/javascript",
+    ".webmanifest": "application/manifest+json",
+    ".png": "image/png",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+}
+
+
+def resolve_root_file(dist: Path, full_path: str) -> Path | None:
+    """The real file under `dist` that `full_path` names, or None for an SPA route.
+
+    Only top-level files: `assets/` has its own mount, and anything that resolves outside
+    `dist` (`../.env`) is refused rather than served."""
+    if not full_path or "/" in full_path or full_path == "index.html":
+        return None
+    candidate = (dist / full_path).resolve()
+    if candidate.parent != dist.resolve() or not candidate.is_file():
+        return None
+    return candidate
 
 
 class ImmutableStaticFiles(StaticFiles):
@@ -114,6 +142,7 @@ def create_app() -> FastAPI:
     app.include_router(settings_router)
     app.include_router(teams_router)
     app.include_router(players_router)
+    app.include_router(push_router)
     app.include_router(admin_router)
     app.include_router(data_router)
     app.include_router(draft_router)
@@ -128,6 +157,13 @@ def create_app() -> FastAPI:
         async def spa_fallback(full_path: str) -> FileResponse:
             if full_path.startswith("api"):
                 raise HTTPException(status_code=404)
+            root_file = resolve_root_file(FRONTEND_DIST, full_path)
+            if root_file is not None:
+                return FileResponse(
+                    root_file,
+                    media_type=ROOT_FILE_MEDIA_TYPES.get(root_file.suffix),
+                    headers={"Cache-Control": INDEX_CACHE_CONTROL},
+                )
             return FileResponse(
                 FRONTEND_DIST / "index.html", headers={"Cache-Control": INDEX_CACHE_CONTROL}
             )

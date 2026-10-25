@@ -80,7 +80,7 @@ Then fill in:
 |---|---|
 | `GRIDIRON_SECRET_KEY` | Generate once: `uv run python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. Encrypts Yahoo tokens + ESPN cookies at rest. **Losing this key means re-entering ESPN cookies and redoing Yahoo OAuth** — back up `.env` accordingly (Time Machine covers this on the iMac). |
 | `YAHOO_CLIENT_ID` / `YAHOO_CLIENT_SECRET` | From the Yahoo developer app above. |
-| `GRIDIRON_BASE_URL` | `https://<dev-machine>.<tailnet>.ts.net` in dev, `https://<imac>.<tailnet>.ts.net` in prod — used to build the Yahoo OAuth redirect, so it must match whichever URL you're actually reaching the app through (must be https; Yahoo rejects `http://localhost` redirect URIs). |
+| `GRIDIRON_BASE_URL` | `https://<dev-machine>.<tailnet>.ts.net` in dev, `https://<imac>.<tailnet>.ts.net` in prod — used to build the Yahoo OAuth redirect, so it must match whichever URL you're actually reaching the app through (must be https; Yahoo rejects `http://localhost` redirect URIs). Also sent as the Web Push VAPID contact, which Apple requires to be https. |
 | `ESPN_BASE_URL` | Only override if ESPN moves their API host. |
 | `GRIDIRON_SCHEDULER_ENABLED` | `false` in dev (default) — see "Dev workflow" below. `true` in prod. |
 | `GRIDIRON_DB_PATH` | SQLite file location, created on boot. |

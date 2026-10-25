@@ -9,7 +9,8 @@
 // keeps only the last 30 minutes in reach, so it's never a replay of the whole day.
 //
 // The cursor lives in localStorage so a reload doesn't replay what was already seen. A
-// device with no cursor yet adopts the newest id and plays nothing.
+// device with no cursor yet adopts the newest id and plays nothing — unless it was
+// opened from a push notification, which plays the play that was tapped.
 
 import { useQuery } from "@tanstack/react-query";
 
@@ -58,9 +59,28 @@ function writeCursor(id: number): void {
   }
 }
 
+/**
+ * A tapped push notification opens `/?highlight=<id>` (backend services/push.py). Take
+ * the id and strip it from the URL, so a reload doesn't replay it.
+ */
+function takeHighlightFromUrl(): number | null {
+  if (typeof window === "undefined") return null;
+  const url = new URL(window.location.href);
+  const raw = url.searchParams.get("highlight");
+  if (raw === null) return null;
+  url.searchParams.delete("highlight");
+  window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+  const id = Number(raw);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
 /** Fetch since the cursor, queue what's new, and advance the cursor. Exported for tests. */
 export async function pullHighlights(): Promise<number | null> {
-  const cursor = readCursor();
+  let cursor = readCursor();
+  // Opened from a notification: back the cursor up to just before it, so the card for
+  // the play that was tapped plays — even on a first open, or when it was already seen.
+  const tapped = takeHighlightFromUrl();
+  if (tapped !== null && (cursor === null || cursor >= tapped)) cursor = tapped - 1;
   const query = cursor === null ? "" : `?after=${cursor}`;
   const { data } = await apiClient.get<Envelope<HighlightsData>>(`/api/highlights${query}`);
   if (cursor !== null) useHighlightStore.getState().enqueue(data.highlights);

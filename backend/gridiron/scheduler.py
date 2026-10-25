@@ -43,6 +43,7 @@ from backend.gridiron.services import (
     highlights,
     live_state,
     live_tier,
+    push,
     quiescence,
 )
 
@@ -237,7 +238,8 @@ async def _refresh_player_stats(session: AsyncSession) -> str | None:
     before = await highlights.snapshot(session) if state != "off_day" else None
     error = await sleeper_stats.fetch_and_upsert(session, live=state == "live")
     if before is not None and error is None:
-        await highlights.record_new(session, before)
+        inserted = await highlights.record_new(session, before)
+        await push.notify_highlights(session, inserted)
     return error
 
 

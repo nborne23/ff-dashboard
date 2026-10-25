@@ -9,6 +9,7 @@ import { ConnectionsCard } from "./ConnectionsCard";
 import { DataManagementCard } from "./DataManagementCard";
 import { EspnCredentialsCard } from "./EspnCredentialsCard";
 import { LeaguesCard } from "./LeaguesCard";
+import { NotificationsCard } from "./NotificationsCard";
 import { PreferencesCard } from "./PreferencesCard";
 
 export default function Settings() {
@@ -34,6 +35,7 @@ export default function Settings() {
         </div>
         <div className="settings-col">
           <PreferencesCard />
+          <NotificationsCard />
           <DataManagementCard />
         </div>
       </div>
