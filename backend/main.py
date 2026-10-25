@@ -1,11 +1,12 @@
 """FastAPI application factory for GridIron."""
 
+import ipaddress
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.types import Scope
 
@@ -64,9 +65,41 @@ async def lifespan(app: FastAPI):
         scheduler.shutdown_scheduler()
 
 
+# This app has unauthenticated /api/admin and /api/connections routes, so it must only ever
+# answer devices on the tailnet. It can no longer rely on the bind address to enforce that:
+# uvicorn takes a single --host, `tailscale serve` can only proxy to loopback, and a phone
+# whose DNS bypasses MagicDNS needs the tailnet address directly — so it binds 0.0.0.0 and
+# the check moves here.
+_ALLOWED_CLIENT_NETS = (
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("100.64.0.0/10"),  # Tailscale IPv4 (CGNAT range)
+    ipaddress.ip_network("fd7a:115c:a1e0::/48"),  # Tailscale IPv6
+)
+
+
+def client_is_allowed(host: str | None) -> bool:
+    """True for loopback and tailnet addresses, false for the LAN and everything else."""
+    if not host:
+        return False
+    try:
+        addr = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped is not None:
+        addr = addr.ipv4_mapped
+    return any(addr in net for net in _ALLOWED_CLIENT_NETS)
+
+
 def create_app() -> FastAPI:
     configure_logging(get_settings().gridiron_log_dir)
     app = FastAPI(title="GridIron", lifespan=lifespan)
+
+    @app.middleware("http")
+    async def restrict_to_tailnet(request: Request, call_next):
+        if not client_is_allowed(request.client.host if request.client else None):
+            return PlainTextResponse("Not available on this network.", status_code=403)
+        return await call_next(request)
 
     @app.get("/api/health")
     async def health() -> dict[str, bool]:

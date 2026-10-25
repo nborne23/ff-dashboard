@@ -13,8 +13,12 @@
 		<string>__APP_DIR__</string>
 		<string>uvicorn</string>
 		<string>backend.main:app</string>
+		<!-- 0.0.0.0, not 127.0.0.1: `tailscale serve` can only proxy to loopback, while a
+	     phone whose DNS bypasses MagicDNS needs http://<tailnet-ip>:8000 directly, and
+	     uvicorn takes a single --host. backend/main.py refuses any client that is not
+	     loopback or tailnet, so the LAN still cannot reach it. -->
 		<string>--host</string>
-		<string>127.0.0.1</string>
+		<string>0.0.0.0</string>
 		<string>--port</string>
 		<string>8000</string>
 	</array>

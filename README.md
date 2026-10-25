@@ -225,7 +225,8 @@ dashboard and has no write, refresh or draft tools.
 
 **Why it's a separate, public process.** Custom connectors are called from Anthropic's
 cloud, not from your phone, so a tailnet-only address can't work. The main app on `:8000`
-has unauthenticated admin/credential routes and must stay tailnet-only; the MCP server is a
+has unauthenticated admin/credential routes and must stay tailnet-only (it binds
+`0.0.0.0` but refuses non-tailnet clients in the app — see `client_is_allowed`); the MCP server is a
 second process on `:8001` that serves *only* `/mcp/<token>` (everything else 404s, plus a
 harmless `/healthz`). Claude connectors accept OAuth or no auth, not a static header, so the
 secret is the URL path. Anyone holding the URL can read your fantasy data: treat it like a
@@ -286,6 +287,16 @@ Local check: run `uv run uvicorn backend.mcp_main:app --port 8001` with the toke
   anyway, `sudo tailscale cert <imac>.<tailnet>.ts.net` forces a renewal, and
   `tailscale serve --bg 8000` re-establishes the proxy if it somehow got torn down
   (e.g. after a Tailscale upgrade).
+- **A device gets an SSL protocol error on the tailnet URL** — it is resolving
+  `<imac>.<tailnet>.ts.net` through public DNS instead of MagicDNS, and landing on
+  Tailscale's public Funnel ingress, which serves nothing. Check that Tailscale is
+  connected on that device and that "Use Tailscale DNS" is on; on iOS, iCloud Private
+  Relay routes Safari's DNS around MagicDNS and causes exactly this. As a fallback that
+  needs no DNS at all, use `http://<tailnet-ip>:8000` directly (`tailscale ip -4` on the
+  iMac prints it) — the app binds `0.0.0.0` so that address works, and refuses any client
+  that is not loopback or tailnet (see `client_is_allowed` in `backend/main.py`), so the
+  LAN still gets a 403. `tailscale serve` only answers for the hostname, so the https URL
+  has no IP equivalent.
 - **Scheduler seems to have stopped polling** — check `GET /api/admin/refresh-runs`
   for recent entries first; if the gaps match the off-season back-off cadence above,
   that's working as intended, not broken.
