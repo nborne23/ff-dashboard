@@ -17,6 +17,7 @@ from backend.gridiron.api.data import router as data_router
 from backend.gridiron.api.draft import router as draft_router
 from backend.gridiron.api.events import router as events_router
 from backend.gridiron.api.headshots import router as headshots_router
+from backend.gridiron.api.highlights import router as highlights_router
 from backend.gridiron.api.players import router as players_router
 from backend.gridiron.api.team_logos import router as team_logos_router
 from backend.gridiron.api.leagues import router as leagues_router
@@ -107,6 +108,7 @@ def create_app() -> FastAPI:
 
     app.include_router(connections_router)
     app.include_router(headshots_router)
+    app.include_router(highlights_router)
     app.include_router(team_logos_router)
     app.include_router(leagues_router)
     app.include_router(settings_router)

@@ -16,6 +16,7 @@ from backend.gridiron.models.http_cache import HttpCache
 from backend.gridiron.models.leagues import League
 from backend.gridiron.models.live_nfl_games import LiveNflGame
 from backend.gridiron.models.matchups import Matchup, MatchupSlot
+from backend.gridiron.models.player_highlights import PlayerHighlight
 from backend.gridiron.models.player_injuries import PlayerInjury
 from backend.gridiron.models.player_pool import PlayerPoolEntry
 from backend.gridiron.models.player_projections import PlayerProjection
@@ -44,6 +45,7 @@ __all__ = [
     "Matchup",
     "MatchupSlot",
     "Player",
+    "PlayerHighlight",
     "PlayerInjury",
     "PlayerPoolEntry",
     "PlayerProjection",

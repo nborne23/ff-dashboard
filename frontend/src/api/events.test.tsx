@@ -68,6 +68,10 @@ function renderWithClient(queryClient: QueryClient) {
 }
 
 describe("queryKeyForScope", () => {
+  it("maps the highlights scope to the celebration feed", () => {
+    expect(queryKeyForScope("highlights")).toEqual(["highlights"]);
+  });
+
   it("maps the aggregate teams scope", () => {
     expect(queryKeyForScope("teams")).toEqual(["teams"]);
   });

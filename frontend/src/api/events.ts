@@ -60,6 +60,9 @@ export function queryKeyForScope(scope: string): QueryKey | null {
   // prefix key here invalidates every api/draft.ts query (board/pool/state/
   // recommendations all key off ["draft", ...]) via invalidateQueries' prefix match.
   if (scope === "draft") return ["draft"];
+  // A starter's touchdown or big play (services/highlights.py): refetch the feed that
+  // drives the shell's celebration.
+  if (scope === "highlights") return ["highlights"];
 
   const separatorIndex = scope.indexOf(":");
   if (separatorIndex === -1) return null;

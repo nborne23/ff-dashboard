@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from "react-router-dom";
 
 import { useLiveEvents } from "./api/events";
+import { HighlightCelebration } from "./components/shell/HighlightCelebration";
 import { Sidebar } from "./components/shell/Sidebar";
 import { TabBar } from "./components/shell/TabBar";
 import { TeamContextBar } from "./components/shell/TeamContextBar";
@@ -37,6 +38,7 @@ export default function App() {
         </main>
       </div>
       <TabBar />
+      <HighlightCelebration />
     </div>
   );
 }

@@ -1,0 +1,139 @@
+/* The touchdown / big-play celebration (components/shell/HighlightCelebration.tsx).
+
+   One 3200ms beat, mirrored by CELEBRATION_MS: the scrim and card arrive on the bouncy
+   spring, hold, and the whole layer fades in the last 300ms. Entrance durations come
+   from --spring-*-dur, so reduced motion (tokens.css zeroes them) leaves the fade only. */
+
+.hl {
+  --hl-color: var(--positive);
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  cursor: pointer;
+  background:
+    radial-gradient(
+      circle at 50% 42%,
+      color-mix(in srgb, var(--hl-color) 30%, transparent) 0%,
+      transparent 62%
+    ),
+    var(--scrim);
+  animation:
+    hl-fade-in 200ms ease-out both,
+    hl-fade-out 300ms ease-in 2900ms forwards;
+}
+.hl[data-kind="big_play"] {
+  --hl-color: var(--live);
+}
+
+.hl-confetti {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.hl-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: min(100%, 22rem);
+  padding: var(--space-6) var(--space-5) var(--space-5);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  background: var(--material-thick);
+  backdrop-filter: var(--material-blur);
+  -webkit-backdrop-filter: var(--material-blur);
+  box-shadow:
+    var(--shadow-lifted),
+    0 0 0 1px color-mix(in srgb, var(--hl-color) 35%, transparent);
+  animation: hl-card-in var(--spring-bouncy-dur) var(--spring-bouncy) both;
+}
+
+.hl-headshot {
+  display: grid;
+  place-items: center;
+  width: 6rem;
+  height: 6rem;
+  margin-bottom: var(--space-2);
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--surface-2);
+  box-shadow:
+    0 0 0 3px var(--hl-color),
+    0 0 32px color-mix(in srgb, var(--hl-color) 55%, transparent);
+  animation: hl-pop var(--spring-bouncy-dur) var(--spring-bouncy) 80ms both;
+}
+.hl-headshot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.hl-initials {
+  font: var(--type-title1);
+  color: var(--text-secondary);
+}
+
+.hl-headline {
+  font: var(--type-large-title);
+  font-family: var(--font-rounded);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--hl-color);
+  text-shadow: 0 0 24px color-mix(in srgb, var(--hl-color) 60%, transparent);
+  animation: hl-rise var(--spring-default-dur) var(--spring-default) 140ms both;
+}
+.hl-name {
+  font: var(--type-title3);
+  color: var(--text);
+  animation: hl-rise var(--spring-default-dur) var(--spring-default) 200ms both;
+}
+.hl-play,
+.hl-line,
+.hl-more {
+  font: var(--type-subhead);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  animation: hl-rise var(--spring-default-dur) var(--spring-default) 240ms both;
+}
+.hl-line {
+  color: var(--text);
+}
+.hl-more {
+  margin-top: var(--space-2);
+  color: var(--text-tertiary);
+}
+
+@keyframes hl-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes hl-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes hl-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.86);
+  }
+}
+@keyframes hl-pop {
+  from {
+    transform: scale(0.3);
+  }
+}
+@keyframes hl-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}

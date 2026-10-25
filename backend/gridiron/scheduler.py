@@ -40,6 +40,7 @@ from backend.gridiron.services import (
     differ,
     events,
     fantasy_service,
+    highlights,
     live_state,
     live_tier,
     quiescence,
@@ -230,9 +231,14 @@ async def _refresh_player_stats(session: AsyncSession) -> str | None:
     """Weekly stat lines for every fantasy-relevant player, current season plus nine back
     (Sportradar, via Sleeper's public feed). The only writer of `player_weekly_stats` —
     `GET /api/players/{id}/stats` reads it and never fetches (design.md D7)."""
-    return await sleeper_stats.fetch_and_upsert(
-        session, live=live_state.get_current_live_state() == "live"
-    )
+    state = live_state.get_current_live_state()
+    # Highlights only on a game day: Tuesday's stat corrections can bump a TD count too,
+    # and a celebration two days late is a bug report.
+    before = await highlights.snapshot(session) if state != "off_day" else None
+    error = await sleeper_stats.fetch_and_upsert(session, live=state == "live")
+    if before is not None and error is None:
+        await highlights.record_new(session, before)
+    return error
 
 
 async def _backup_db(session: AsyncSession) -> str | None:

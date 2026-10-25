@@ -56,7 +56,9 @@ FULL_INTERVAL = timedelta(minutes=30)
 POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 
 # Everything the stats panel's columns read, plus `gp`. See `services/player_stats.py`
-# for which position shows which. The rest of each raw line is dropped at ingest.
+# for which position shows which. The `*_40p` / `*_lng` keys are what
+# `services/highlights.py` detects big plays from. The rest of each raw line is dropped
+# at ingest.
 KEPT_STATS = frozenset(
     {
         "gp",
@@ -74,6 +76,15 @@ KEPT_STATS = frozenset(
         "rec",
         "rec_yd",
         "rec_td",
+        "pass_lng",
+        "pass_td_lng",
+        "pass_cmp_40p",
+        "rush_lng",
+        "rush_td_lng",
+        "rush_40p",
+        "rec_lng",
+        "rec_td_lng",
+        "rec_40p",
         "fum_lost",
         "pass_2pt",
         "rush_2pt",
