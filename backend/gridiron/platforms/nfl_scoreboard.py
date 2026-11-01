@@ -89,8 +89,14 @@ def map_scoreboard(payload: dict) -> list[schemas.LiveNflGame]:
             games.append(
                 schemas.LiveNflGame(
                     nfl_game_id=str(event["id"]),
-                    home_team=(home.get("team") or {}).get("abbreviation", ""),
-                    away_team=(away.get("team") or {}).get("abbreviation", ""),
+                    # ESPN's `WSH` -> the app's `WAS`, so a Commanders game matches the
+                    # `players.nfl_team` that `live_state.user_nfl_teams` compares it to.
+                    home_team=nfl_week_cache.normalize_team(
+                        (home.get("team") or {}).get("abbreviation")
+                    ),
+                    away_team=nfl_week_cache.normalize_team(
+                        (away.get("team") or {}).get("abbreviation")
+                    ),
                     home_score=_score(home),
                     away_score=_score(away),
                     state=state,

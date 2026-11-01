@@ -184,3 +184,20 @@ async def test_fetch_and_upsert_caches_the_week_for_the_scores_screen(session_fa
         assert await nfl_week_cache.read_current(session) == (2025, 7)
         cached, _ = await nfl_week_cache.read_week(session, 2025, 7)
     assert len(cached["events"]) == 4
+
+
+def test_washington_maps_to_the_apps_abbreviation_and_counts_as_live() -> None:
+    """ESPN says `WSH`; `players.nfl_team` says `WAS`. Without the mapping a Commanders
+    game in progress never made the user "live"."""
+    from backend.gridiron.services import live_state
+
+    payload = json.loads((FIXTURES / "nfl" / "scores_week.json").read_text())
+    event = next(e for e in payload["events"] if "WSH" in e["shortName"])
+    status = event["competitions"][0]["status"]
+    status["type"] = {"name": "STATUS_IN_PROGRESS", "state": "in"}
+    status["period"], status["displayClock"] = 2, "5:00"
+
+    game = next(g for g in nfl_scoreboard.map_scoreboard(payload) if g.nfl_game_id == event["id"])
+
+    assert game.away_team == "WAS"
+    assert live_state.classify([game], {"WAS"}, datetime(2025, 10, 19, 18, 0)) == "live"

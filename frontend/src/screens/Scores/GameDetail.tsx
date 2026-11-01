@@ -2,13 +2,14 @@
 // top, a big score header, the linescore, and AWAY | FANTASY | HOME tabs.
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import { useScoreGame, useScoresWeek, type ScoreGame, type ScoreTeam } from "../../api/scores";
 import { ErrorCard } from "../../components/shared/ErrorCard";
 import { IconArrowL, Skeleton } from "../../components/primitives";
 import { useScoresStore } from "../../stores/scores";
+import { useUiStore } from "../../stores/ui";
 import { BoxScore } from "./BoxScore";
 import { FantasyTab } from "./FantasyTab";
 import { statusLabel, winnerSide } from "./format";
@@ -146,6 +147,8 @@ export default function GameDetailScreen() {
   const leagueId = useScoresStore((s) => s.leagueId);
   const setLeagueId = useScoresStore((s) => s.setLeagueId);
   const [tab, setTab] = useState<Tab>("fantasy");
+  const setWeek = useUiStore((s) => s.setWeek);
+  const setPickedWeek = useScoresStore((s) => s.setPickedWeek);
 
   const gameQuery = useScoreGame(gameId, leagueId, weekParam);
   const detail = gameQuery.data?.data;
@@ -153,6 +156,14 @@ export default function GameDetailScreen() {
   const games = weekQuery.data?.data.games ?? [];
   // The list is fresher than the detail between polls; prefer its copy of this game.
   const game = games.find((g) => g.game_id === gameId) ?? detail?.game;
+
+  // The Topbar names this game's week, and "back to all scores" returns to it.
+  const detailWeek = detail?.week;
+  useEffect(() => {
+    if (detailWeek === undefined) return;
+    setWeek(detailWeek);
+    setPickedWeek(detailWeek);
+  }, [detailWeek, setWeek, setPickedWeek]);
 
   if (gameQuery.isError) {
     return (
@@ -194,11 +205,21 @@ export default function GameDetailScreen() {
             type="button"
             role="tab"
             aria-selected={tab === t.id}
+            aria-label={t.label}
             className={"sc-tab" + (tab === t.id ? " active" : "")}
             onClick={() => setTab(t.id)}
           >
             {t.team && <TeamMark team={t.team} size={20} />}
-            {t.label}
+            {t.team ? (
+              <>
+                <span className="sc-tab-full">{t.label}</span>
+                <span className="sc-tab-abbr" aria-hidden="true">
+                  {t.team.abbr}
+                </span>
+              </>
+            ) : (
+              t.label
+            )}
           </button>
         ))}
       </div>

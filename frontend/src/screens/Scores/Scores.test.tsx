@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ScoresWeek } from "../../api/scores";
+import { useScoresStore } from "../../stores/scores";
 import { useUiStore } from "../../stores/ui";
 import type { Envelope, Meta } from "../../types/api";
 import { FINAL_GAME, LIVE_GAME, PRE_GAME, WEEK_FIXTURE } from "./fixtures";
@@ -49,6 +50,7 @@ function renderScores(week: Partial<ScoresWeek> = {}, status = 200) {
 
 beforeEach(() => {
   useUiStore.setState({ week: 7, weekPinned: false });
+  useScoresStore.setState({ pickedWeek: null });
 });
 
 afterEach(() => {
@@ -57,15 +59,36 @@ afterEach(() => {
 });
 
 describe("Scores", () => {
-  it("asks for the server's current week until the user picks one", async () => {
-    const fetchMock = renderScores();
+  it("opens on the server's current week, whatever the shared week says", async () => {
+    // A database with no leagues pins the shared week to 1.
+    useUiStore.setState({ week: 1, weekPinned: true });
+    const fetchMock = renderScores({ week: 8 });
     await screen.findByTestId("scores");
 
     expect(String(fetchMock.mock.calls[0][0])).toBe("/api/scores");
+    expect(screen.getByText("NFL · 2026 · Week 8")).toBeTruthy();
   });
 
-  it("uses the shared week once the user has picked one", async () => {
-    useUiStore.setState({ week: 5, weekPinned: true });
+  it("pushes the week on screen into the shared week, so the Topbar names it", async () => {
+    useUiStore.setState({ week: 1, weekPinned: true });
+    renderScores({ week: 8 });
+    await screen.findByTestId("scores");
+
+    await vi.waitFor(() => expect(useUiStore.getState().week).toBe(8));
+  });
+
+  it("follows the Topbar's arrows", async () => {
+    const fetchMock = renderScores();
+    await screen.findByText("NFL · 2026 · Week 7");
+
+    act(() => useUiStore.getState().setWeek(6));
+
+    await screen.findByText("NFL · 2026 · Week 6");
+    expect(fetchMock.mock.calls.some(([url]) => String(url) === "/api/scores?week=6")).toBe(true);
+  });
+
+  it("stays on a week picked earlier in the session", async () => {
+    useScoresStore.setState({ pickedWeek: 5 });
     const fetchMock = renderScores();
     await screen.findByTestId("scores");
 
@@ -88,7 +111,7 @@ describe("Scores", () => {
     fireEvent.click(within(strip).getByText("week 9"));
 
     expect(useUiStore.getState().week).toBe(9);
-    expect(useUiStore.getState().weekPinned).toBe(true);
+    expect(useScoresStore.getState().pickedWeek).toBe(9);
     await screen.findByText("NFL · 2026 · Week 9");
     expect(fetchMock.mock.calls.some(([url]) => String(url) === "/api/scores?week=9")).toBe(true);
   });

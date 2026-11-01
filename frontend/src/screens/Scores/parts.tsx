@@ -25,7 +25,6 @@ export function TeamMark({ team, size = 28 }: { team: ScoreTeam; size?: number }
       alt=""
       width={size}
       height={size}
-      loading="lazy"
       onError={() => setFailed(true)}
     />
   );

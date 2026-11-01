@@ -1,16 +1,19 @@
 // Scores: every NFL game of a week, modeled on Sleeper's scoreboard.
 //
-// The week is the app's one shared week (`stores/ui.ts`), so this strip and the Topbar's
-// arrows are the same control seen twice rather than two weeks that can disagree. Until
-// the user picks one, the screen asks the server for ESPN's current week — the fantasy
-// leagues' week can lag it by a day around the Tuesday rollover.
+// Until the user picks a week, the screen asks the server for ESPN's current week: the
+// shared week (`stores/ui.ts`) comes from the fantasy leagues, which can lag the NFL by a
+// day around the Tuesday rollover and read week 1 on a database with no leagues. Whatever
+// week is on screen is pushed back into the shared week, so the Topbar always names it,
+// and the Topbar's arrows move this screen too — one week, two controls.
 
 import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 
 import { useScoresWeek, type ScoreGame } from "../../api/scores";
 import { ErrorCard } from "../../components/shared/ErrorCard";
 import { Skeleton } from "../../components/primitives";
+import { useScoresStore } from "../../stores/scores";
 import { useUiStore } from "../../stores/ui";
 import { groupByDay, statusLabel, winnerSide } from "./format";
 import { TeamMark, WeekStrip } from "./parts";
@@ -94,11 +97,33 @@ function ScoresSkeleton() {
 export default function Scores() {
   const queryClient = useQueryClient();
   const storeWeek = useUiStore((s) => s.week);
-  const weekPinned = useUiStore((s) => s.weekPinned);
   const setWeek = useUiStore((s) => s.setWeek);
+  const pickedWeek = useScoresStore((s) => s.pickedWeek);
+  const setPickedWeek = useScoresStore((s) => s.setPickedWeek);
 
-  const query = useScoresWeek(weekPinned ? storeWeek : null);
+  const query = useScoresWeek(pickedWeek);
   const data = query.data?.data;
+  const shownWeek = data?.week;
+
+  // The week on screen becomes the shared week, so the Topbar names it.
+  useEffect(() => {
+    if (shownWeek !== undefined) setWeek(shownWeek);
+  }, [shownWeek, setWeek]);
+
+  // ...and a shared-week change made elsewhere (the Topbar's arrows) moves this screen.
+  // Only changes after mount count: the value already in the store when the screen opens
+  // is the fantasy week, not a choice made here.
+  const lastStoreWeek = useRef(storeWeek);
+  useEffect(() => {
+    if (storeWeek === lastStoreWeek.current) return;
+    lastStoreWeek.current = storeWeek;
+    if (shownWeek !== undefined && storeWeek !== shownWeek) setPickedWeek(storeWeek);
+  }, [storeWeek, shownWeek, setPickedWeek]);
+
+  const pickWeek = (week: number) => {
+    setPickedWeek(week);
+    setWeek(week);
+  };
 
   const header = (
     <>
@@ -142,7 +167,7 @@ export default function Scores() {
         weeks={data.weeks}
         selected={data.week}
         current={data.current_week}
-        onSelect={setWeek}
+        onSelect={pickWeek}
       />
 
       {data.games.length === 0 ? (
