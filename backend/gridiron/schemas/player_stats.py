@@ -75,7 +75,7 @@ class GameLogColumn(StatColumn):
 WeekState = Literal["final", "live", "upcoming", "bye", "dnp"]
 
 
-class SeasonWeek(BaseModel):
+class SeasonLogWeek(BaseModel):
     """One row of the season game log — every regular-season week, played or not."""
 
     week: int
@@ -101,7 +101,7 @@ class SeasonLog(BaseModel):
 
     season: int
     columns: list[GameLogColumn]
-    weeks: list[SeasonWeek]
+    weeks: list[SeasonLogWeek]
     # Season total in `points_format`, every stored line including an in-progress week.
     fantasy_points: float | None
     # Where that total ranks among players at the position. None when unranked.

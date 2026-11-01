@@ -42,7 +42,7 @@ from backend.gridiron.schemas.player_stats import (
     PositionGroup,
     SeasonLog,
     SeasonSummary,
-    SeasonWeek,
+    SeasonLogWeek,
     StatColumn,
     ThisWeek,
     WeekState,
@@ -621,7 +621,7 @@ async def build_season_log(
         return None
 
     last_week = max((g.week for g in games), default=REGULAR_SEASON_WEEKS)
-    weeks: list[SeasonWeek] = []
+    weeks: list[SeasonLogWeek] = []
     for week in range(1, last_week + 1):
         line = lines.get(week)
         # A past line says which uniform he wore and whom he faced — right for a traded
@@ -646,7 +646,7 @@ async def build_season_log(
             # Sleeper leaves zeros out of a line; in a game played, a missing count is 0.
             stats = {c.key: line.stats.get(c.key, 0.0) for c in columns}
         weeks.append(
-            SeasonWeek(
+            SeasonLogWeek(
                 week=week,
                 state=state,
                 opponent=opponent,

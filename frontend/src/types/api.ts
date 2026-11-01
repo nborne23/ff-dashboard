@@ -430,6 +430,43 @@ export interface PlayerStatsData {
   seasons: SeasonSummary[];
   /** Newest season first, weeks ascending within a season. */
   game_log: GameLogRow[];
+  /** The current season week by week (the Game Log tab). */
+  season_log?: SeasonLog | null;
+  jersey_number?: string | null;
+}
+
+export interface GameLogColumn extends StatColumn {
+  /** INT, fumbles, points allowed: a big number is a bad game, so the shading flips. */
+  lower_is_better: boolean;
+}
+
+/** `dnp`: his team played and he has no line. `live`: his line can still move. */
+export type SeasonLogWeekState = "final" | "live" | "upcoming" | "bye" | "dnp";
+
+export interface SeasonLogWeek {
+  week: number;
+  state: SeasonLogWeekState;
+  opponent: string | null;
+  /** null when there's no schedule to say (and on a bye). */
+  home: boolean | null;
+  /** By fantasy points allowed to the position per game; 1 = most allowed. */
+  opponent_rank: number | null;
+  /** Rotowire via Sleeper, in the card's points format. */
+  proj_points: number | null;
+  fantasy_points: number | null;
+  stats: Record<string, number> | null;
+}
+
+export interface SeasonLog {
+  season: number;
+  columns: GameLogColumn[];
+  weeks: SeasonLogWeek[];
+  fantasy_points: number | null;
+  position_rank: number | null;
+  bye_week: number | null;
+  /** What the opponent ranks are out of — 0 when there are none yet. */
+  ranked_teams: number;
+  ranks_through_week: number;
 }
 
 /** Which projection the lineup advice was computed from. Never a blend. */

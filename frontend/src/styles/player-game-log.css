@@ -1,0 +1,276 @@
+/* The player card's headline strip, section tabs, and the Game Log tab (Yahoo-style
+   season log). Kept out of global.css: everything here is owned by the player card. */
+
+/* ---- headline strip ---------------------------------------------------------------- */
+
+.pgl-headline {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  margin: 0 0 12px;
+  padding: 10px 4px;
+  background: var(--fill-4);
+  border-radius: var(--radius-md);
+}
+.pgl-headline > div {
+  display: flex;
+  flex-direction: column-reverse; /* value above label, with <dt> first in the DOM */
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px;
+  min-width: 0;
+}
+.pgl-headline > div + div {
+  border-left: 0.5px solid var(--separator);
+}
+.pgl-headline dt {
+  font: var(--type-caption);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.pgl-headline dd {
+  margin: 0;
+  font: var(--type-headline);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ---- tabs -------------------------------------------------------------------------- */
+
+.pgl-tabs {
+  display: flex;
+  border-bottom: 0.5px solid var(--separator);
+  margin: 0 -20px 4px;
+  padding: 0 20px;
+}
+.pgl-tabs button {
+  appearance: none;
+  flex: 1 1 0;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -0.5px;
+  padding: 10px 4px;
+  min-height: 44px;
+  color: var(--text-secondary);
+  font: var(--type-subhead);
+  font-weight: 500;
+  cursor: pointer;
+}
+.pgl-tabs button:hover {
+  color: var(--text);
+}
+.pgl-tabs button[aria-selected="true"] {
+  color: var(--text);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+.pgl-tabs button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+.pgl-tabpanel > .pstats-section:first-child {
+  border-top: 0;
+  margin-top: 0;
+}
+
+/* ---- game log table ---------------------------------------------------------------- */
+
+.pgl {
+  padding-top: 8px;
+}
+
+/* No bleed into the panel's padding: the sticky columns pin to this box's edge, and
+   anything scrolled past them must be clipped right there, not show in a gutter. */
+.pgl-scroll {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.pgl-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 4px;
+  font: var(--type-footnote);
+  font-variant-numeric: tabular-nums;
+}
+.pgl-table thead th {
+  font: var(--type-caption);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 4px 6px 6px;
+  white-space: nowrap;
+}
+.pgl-table td,
+.pgl-table tbody th {
+  text-align: center;
+  padding: 0 3px;
+  white-space: nowrap;
+}
+
+/* Week and opponent stay put while the stat columns scroll under them. */
+.pgl-sticky {
+  position: sticky;
+  z-index: 1;
+  background: var(--surface);
+}
+.pgl-table .pgl-wk {
+  left: 0;
+  box-sizing: border-box;
+  width: 32px;
+  min-width: 32px;
+  max-width: 32px;
+  padding-left: 0;
+  font-weight: 600;
+}
+.pgl-table tbody th.pgl-wk {
+  font: var(--type-subhead);
+  font-weight: 600;
+  color: var(--text);
+}
+.pgl-table .pgl-opp {
+  left: 32px;
+  min-width: 96px;
+  text-align: left;
+  padding: 0 8px 0 4px;
+  font: var(--type-footnote);
+  font-weight: 500;
+  color: var(--text);
+}
+.pgl-vs {
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+.pgl-opp-easy {
+  color: var(--positive);
+}
+.pgl-opp-hard {
+  color: var(--negative);
+}
+.pgl-bye {
+  color: var(--text-tertiary);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+}
+
+.pgl-cell {
+  display: block;
+  min-width: 52px;
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+  font: var(--type-subhead);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.pgl-proj {
+  background: var(--fill-4);
+  color: var(--text-secondary);
+}
+.pgl-typical {
+  background: var(--fill-3);
+}
+.pgl-above {
+  background: rgba(48, 209, 88, 0.28);
+}
+.pgl-below {
+  background: rgba(255, 69, 58, 0.28);
+}
+.pgl-live {
+  background: var(--live-tint);
+  color: var(--live);
+}
+.pgl-empty {
+  color: var(--text-tertiary);
+}
+
+.pgl-row-dnp .pgl-opp,
+.pgl-row-bye .pgl-wk,
+.pgl-row-dnp .pgl-wk {
+  color: var(--text-tertiary);
+}
+.pgl-row-dnp .pgl-empty {
+  font: var(--type-caption);
+  letter-spacing: var(--track-caps);
+}
+.pgl-row-live tbody th.pgl-wk,
+.pgl-table tr.pgl-row-live .pgl-wk {
+  color: var(--live);
+}
+
+.pgl-live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 4px;
+  vertical-align: middle;
+  border-radius: 50%;
+  background: var(--live);
+  box-shadow: 0 0 6px var(--live);
+}
+
+.pgl-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- legend, pinned to the bottom of the sheet ---------------------------------------- */
+
+.pgl-legend {
+  position: sticky;
+  bottom: -20px; /* the panel's own bottom padding */
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 14px;
+  margin: 12px -20px -20px;
+  padding: 10px 20px 12px;
+  background: var(--material-thick);
+  -webkit-backdrop-filter: var(--material-blur);
+  backdrop-filter: var(--material-blur);
+  border-top: 0.5px solid var(--separator);
+  font: var(--type-footnote);
+}
+.pgl-legend-title {
+  font-weight: 600;
+  color: var(--text);
+}
+/* A phone can't fit title and keys on one line: title above, keys in one row below. */
+@media (max-width: 480px) {
+  .pgl-legend-title {
+    flex-basis: 100%;
+    text-align: center;
+  }
+}
+.pgl-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+.pgl-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+.pgl-swatch.pgl-above {
+  background: var(--positive);
+}
+.pgl-swatch.pgl-typical {
+  background: var(--fill);
+}
+.pgl-swatch.pgl-below {
+  background: var(--negative);
+}
