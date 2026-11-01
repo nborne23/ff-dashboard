@@ -1,6 +1,6 @@
 // Phone navigation: a bottom tab bar, replacing the hamburger drawer.
 //
-// The app has three destinations, so all three can be on screen at all times. A drawer
+// The app has four destinations, so all four can be on screen at all times. A drawer
 // hid them behind a tap and covered the screen to show them. "Teams" opens the team you
 // were last following; the team page's own switcher moves between teams.
 
