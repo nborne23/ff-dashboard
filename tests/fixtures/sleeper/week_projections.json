@@ -1,0 +1,589 @@
+{
+ "_fixture_note": "Sleeper projections, 2025 week 7, trimmed to CIN/PIT's top 16 each, one zero-projection depth player per team, and one free agent.",
+ "rows": [
+  {
+   "player_id": "7564",
+   "team": "CIN",
+   "opponent": "PIT",
+   "player": {
+    "first_name": "Ja'Marr",
+    "last_name": "Chase",
+    "position": "WR",
+    "team": "CIN"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 14.94,
+    "pts_ppr": 17.92,
+    "pts_std": 11.97,
+    "rec": 5.95
+   }
+  },
+  {
+   "player_id": "19",
+   "team": "CIN",
+   "opponent": "PIT",
+   "player": {
+    "first_name": "Joe",
+    "last_name": "Flacco",
+    "position": "QB",
+    "team": "CIN"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pass_yd": 215.27,
+    "pts_half_ppr": 16.46,
+    "pts_ppr": 16.46,
+    "pts_std": 16.46
+   }
+  },
+  {
+   "player_id": "9224",
+   "team": "CIN",
+   "opponent": "PIT",
+   "player": {
+    "first_name": "Chase",
+    "last_name": "Brown",
+    "position": "RB",
+    "team": "CIN"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 10.53,
+    "pts_ppr": 12.02,
+    "pts_std": 9.03,
+    "rec": 3.0
+   }
+  },
+  {
+   "player_id": "6801",
+   "team": "CIN",
+   "opponent": "PIT",
+   "player": {
+    "first_name": "Tee",
+    "last_name": "Higgins",
+    "position": "WR",
+    "team": "CIN"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 9.9,
+    "pts_ppr": 11.84,
+    "pts_std": 7.97,
+    "rec": 3.87
+   }
+  },
+  {
+   "player_id": "7839",
+   "team": "CIN",
+   "opponent": "PIT",
+   "player": {
+    "first_name": "Evan",
+    "last_name": "McPherson",
+    "position": "K",
+    "team": "CIN"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 8.33,
+    "pts_ppr": 8.33,
+    "pts_std": 8.33
+   }
+  },
+  {
+   "player_id": "5857",
+   "team": "CIN",
+   "opponent": "PIT",
+   "player": {
+    "first_name": "Noah",
+    "last_name": "Fant",
+    "position": "TE",
+    "team": "NO"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 6.1,
+    "pts_ppr": 7.84,
+    "pts_std": 4.36,
+    "rec": 3.48
+   }
+  },
+  {
+   "player_id": "CIN",
+   "team": "CIN",
+   "opponent": "PIT",
+   "player": {
+    "first_name": "Cincinnati",
+    "last_name": "Bengals",
+    "position": "DEF",
+    "team": "CIN"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 5.87,
+    "pts_ppr": 5.87,
+    "pts_std": 5.87
+   }
+  },
+  {
+   "player_id": "10226",
+   "team": "CIN",
+   "opponent": "PIT",
+   "player": {
+    "first_name": "Andrei",
+    "last_name": "Iosivas",
+    "position": "WR",
+    "team": "CIN"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 4.57,
+    "pts_ppr": 5.53,
+    "pts_std": 3.61,
+    "rec": 1.92
+   }
+  },
+  {
+   "player_id": "4147",
+   "team": "CIN",
+   "opponent": "PIT",
+   "player": {
+    "first_name": "Samaje",
+    "last_name": "Perine",
+    "position": "RB",
+    "team": "CIN"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 3.84,
+    "pts_ppr": 4.54,
+    "pts_std": 3.14,
+    "rec": 1.4
+   }
+  },
+  {
+   "player_id": "6001",
+   "team": "CIN",
+   "opponent": "PIT",
+   "player": {
+    "first_name": "Drew",
+    "last_name": "Sample",
+    "position": "TE",
+    "team": "CIN"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 2.75,
+    "pts_ppr": 3.65,
+    "pts_std": 1.85,
+    "rec": 1.8
+   }
+  },
+  {
+   "player_id": "12543",
+   "team": "CIN",
+   "opponent": "PIT",
+   "player": {
+    "first_name": "Tahj",
+    "last_name": "Brooks",
+    "position": "RB",
+    "team": "CIN"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 1.17,
+    "pts_ppr": 1.26,
+    "pts_std": 1.09,
+    "rec": 0.17
+   }
+  },
+  {
+   "player_id": "12062",
+   "team": "CIN",
+   "opponent": "PIT",
+   "player": {
+    "first_name": "Cam",
+    "last_name": "Grandy",
+    "position": "TE",
+    "team": "CIN"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 0.61,
+    "pts_ppr": 0.79,
+    "pts_std": 0.42,
+    "rec": 0.37
+   }
+  },
+  {
+   "player_id": "11068",
+   "team": "CIN",
+   "opponent": "PIT",
+   "player": {
+    "first_name": "Mitch",
+    "last_name": "Tinsley",
+    "position": "WR",
+    "team": "CIN"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 0.63,
+    "pts_ppr": 0.78,
+    "pts_std": 0.48,
+    "rec": 0.3
+   }
+  },
+  {
+   "player_id": "10228",
+   "team": "CIN",
+   "opponent": "PIT",
+   "player": {
+    "first_name": "Charlie",
+    "last_name": "Jones",
+    "position": "WR",
+    "team": "NYG"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 0.32,
+    "pts_ppr": 0.4,
+    "pts_std": 0.24,
+    "rec": 0.16
+   }
+  },
+  {
+   "player_id": "11649",
+   "team": "CIN",
+   "opponent": null,
+   "player": {
+    "first_name": "Kendall",
+    "last_name": "Milton",
+    "position": "RB",
+    "team": "CIN"
+   },
+   "stats": {}
+  },
+  {
+   "player_id": "12971",
+   "team": "CIN",
+   "opponent": null,
+   "player": {
+    "first_name": "Ke'Shawn",
+    "last_name": "Williams",
+    "position": "WR",
+    "team": "CIN"
+   },
+   "stats": {}
+  },
+  {
+   "player_id": "11649",
+   "team": "CIN",
+   "opponent": null,
+   "player": {
+    "first_name": "Kendall",
+    "last_name": "Milton",
+    "position": "RB",
+    "team": "CIN"
+   },
+   "stats": {}
+  },
+  {
+   "player_id": "96",
+   "team": "PIT",
+   "opponent": "CIN",
+   "player": {
+    "first_name": "Aaron",
+    "last_name": "Rodgers",
+    "position": "QB",
+    "team": "PIT"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pass_yd": 223.19,
+    "pts_half_ppr": 18.78,
+    "pts_ppr": 18.78,
+    "pts_std": 18.78
+   }
+  },
+  {
+   "player_id": "5846",
+   "team": "PIT",
+   "opponent": "CIN",
+   "player": {
+    "first_name": "DK",
+    "last_name": "Metcalf",
+    "position": "WR",
+    "team": "PIT"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 12.49,
+    "pts_ppr": 14.61,
+    "pts_std": 10.38,
+    "rec": 4.23
+   }
+  },
+  {
+   "player_id": "8228",
+   "team": "PIT",
+   "opponent": "CIN",
+   "player": {
+    "first_name": "Jaylen",
+    "last_name": "Warren",
+    "position": "RB",
+    "team": "PIT"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 11.16,
+    "pts_ppr": 12.63,
+    "pts_std": 9.69,
+    "rec": 2.94
+   }
+  },
+  {
+   "player_id": "7567",
+   "team": "PIT",
+   "opponent": "CIN",
+   "player": {
+    "first_name": "Kenny",
+    "last_name": "Gainwell",
+    "position": "RB",
+    "team": "TB"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 9.63,
+    "pts_ppr": 10.81,
+    "pts_std": 8.44,
+    "rec": 2.37
+   }
+  },
+  {
+   "player_id": "1945",
+   "team": "PIT",
+   "opponent": "CIN",
+   "player": {
+    "first_name": "Chris",
+    "last_name": "Boswell",
+    "position": "K",
+    "team": "PIT"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 9.29,
+    "pts_ppr": 9.29,
+    "pts_std": 9.29
+   }
+  },
+  {
+   "player_id": "4144",
+   "team": "PIT",
+   "opponent": "CIN",
+   "player": {
+    "first_name": "Jonnu",
+    "last_name": "Smith",
+    "position": "TE",
+    "team": "GB"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 7.37,
+    "pts_ppr": 9.1,
+    "pts_std": 5.64,
+    "rec": 3.46
+   }
+  },
+  {
+   "player_id": "PIT",
+   "team": "PIT",
+   "opponent": "CIN",
+   "player": {
+    "first_name": "Pittsburgh",
+    "last_name": "Steelers",
+    "position": "DEF",
+    "team": "PIT"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 7.61,
+    "pts_ppr": 7.61,
+    "pts_std": 7.61
+   }
+  },
+  {
+   "player_id": "9479",
+   "team": "PIT",
+   "opponent": "CIN",
+   "player": {
+    "first_name": "Darnell",
+    "last_name": "Washington",
+    "position": "TE",
+    "team": "PIT"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 4.37,
+    "pts_ppr": 5.48,
+    "pts_std": 3.25,
+    "rec": 2.23
+   }
+  },
+  {
+   "player_id": "7600",
+   "team": "PIT",
+   "opponent": "CIN",
+   "player": {
+    "first_name": "Pat",
+    "last_name": "Freiermuth",
+    "position": "TE",
+    "team": "PIT"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 3.87,
+    "pts_ppr": 4.82,
+    "pts_std": 2.93,
+    "rec": 1.88
+   }
+  },
+  {
+   "player_id": "6290",
+   "team": "PIT",
+   "opponent": "CIN",
+   "player": {
+    "first_name": "Scotty",
+    "last_name": "Miller",
+    "position": "WR",
+    "team": "CHI"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 3.1,
+    "pts_ppr": 3.73,
+    "pts_std": 2.47,
+    "rec": 1.26
+   }
+  },
+  {
+   "player_id": "11630",
+   "team": "PIT",
+   "opponent": "CIN",
+   "player": {
+    "first_name": "Roman",
+    "last_name": "Wilson",
+    "position": "WR",
+    "team": "PIT"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 2.97,
+    "pts_ppr": 3.63,
+    "pts_std": 2.31,
+    "rec": 1.32
+   }
+  },
+  {
+   "player_id": "12504",
+   "team": "PIT",
+   "opponent": "CIN",
+   "player": {
+    "first_name": "Kaleb",
+    "last_name": "Johnson",
+    "position": "RB",
+    "team": "GB"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 2.28,
+    "pts_ppr": 2.4,
+    "pts_std": 2.15,
+    "rec": 0.25
+   }
+  },
+  {
+   "player_id": "7757",
+   "team": "PIT",
+   "opponent": "CIN",
+   "player": {
+    "first_name": "Ben",
+    "last_name": "Skowronek",
+    "position": "WR",
+    "team": "PIT"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 1.52,
+    "pts_ppr": 1.85,
+    "pts_std": 1.18,
+    "rec": 0.67
+   }
+  },
+  {
+   "player_id": "8181",
+   "team": "PIT",
+   "opponent": "CIN",
+   "player": {
+    "first_name": "Connor",
+    "last_name": "Heyward",
+    "position": "RB",
+    "team": "LV"
+   },
+   "stats": {
+    "gp": 1.0,
+    "pts_half_ppr": 0.11,
+    "pts_ppr": 0.14,
+    "pts_std": 0.08,
+    "rec": 0.05
+   }
+  },
+  {
+   "player_id": "6016",
+   "team": "PIT",
+   "opponent": null,
+   "player": {
+    "first_name": "Dax",
+    "last_name": "Raymond",
+    "position": "TE",
+    "team": "PIT"
+   },
+   "stats": {}
+  },
+  {
+   "player_id": "9510",
+   "team": "PIT",
+   "opponent": null,
+   "player": {
+    "first_name": "Lew",
+    "last_name": "Nichols",
+    "position": "RB",
+    "team": "PIT"
+   },
+   "stats": {}
+  },
+  {
+   "player_id": "6016",
+   "team": "PIT",
+   "opponent": null,
+   "player": {
+    "first_name": "Dax",
+    "last_name": "Raymond",
+    "position": "TE",
+    "team": "PIT"
+   },
+   "stats": {}
+  },
+  {
+   "player_id": "6462",
+   "team": null,
+   "opponent": null,
+   "player": {
+    "first_name": "Ellis",
+    "last_name": "Richardson",
+    "position": "TE",
+    "team": null
+   },
+   "stats": {}
+  }
+ ]
+}

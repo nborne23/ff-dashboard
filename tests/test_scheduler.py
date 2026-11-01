@@ -54,6 +54,7 @@ def test_jobs_registry_includes_the_phase_8_jobs() -> None:
         "refresh_projections",
         "refresh_player_stats",
         "backup_db",
+        "refresh_nfl_weeks",
     }
 
 
@@ -357,6 +358,7 @@ async def test_start_scheduler_registers_every_job_then_shuts_down() -> None:
             "refresh_projections",
             "refresh_player_stats",
             "backup_db",
+            "refresh_nfl_weeks",
         }
     finally:
         scheduler.shutdown_scheduler()
@@ -570,6 +572,26 @@ async def test_player_stats_off_day_skips_detection(player_stats_glue) -> None:
     await scheduler._refresh_player_stats(session=object())
 
     assert calls == {"snapshot": [], "record_new": [], "notify": []}
+
+
+@pytest.mark.asyncio
+async def test_player_stats_polls_live_while_any_game_is_on(player_stats_glue, monkeypatch) -> None:
+    # A game with none of the user's starters in it: "game_day", not "live" — but the
+    # Scores screen still wants its fantasy points on the live cadence.
+    seen = []
+
+    async def fetch_and_upsert(session, live=False):
+        seen.append(live)
+        return None
+
+    monkeypatch.setattr(scheduler.sleeper_stats, "fetch_and_upsert", fetch_and_upsert)
+    live_state.set_current_live_state("game_day")
+
+    await scheduler._refresh_player_stats(session=object())
+    live_state.set_games_in_progress(True)
+    await scheduler._refresh_player_stats(session=object())
+
+    assert seen == [False, True]
 
 
 @pytest.mark.asyncio

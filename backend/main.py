@@ -24,6 +24,7 @@ from backend.gridiron.api.team_logos import router as team_logos_router
 from backend.gridiron.api.leagues import router as leagues_router
 from backend.gridiron.api.settings import router as settings_router
 from backend.gridiron.api.teams import router as teams_router
+from backend.gridiron.api.scores import router as scores_router
 from backend.gridiron.config import get_settings
 from backend.gridiron.logging_config import configure_logging
 
@@ -147,6 +148,7 @@ def create_app() -> FastAPI:
     app.include_router(data_router)
     app.include_router(draft_router)
     app.include_router(events_router)
+    app.include_router(scores_router)
 
     if FRONTEND_DIST.is_dir():
         assets_dir = FRONTEND_DIST / "assets"

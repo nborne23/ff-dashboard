@@ -23,7 +23,7 @@ summary line (task 11.3).
 import logging
 import time
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -33,7 +33,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.gridiron.db import async_session_factory, resolve_db_path
 from backend.gridiron.errors import GridironError
 from backend.gridiron.models import RefreshRun
-from backend.gridiron.platforms import espn_injuries, nfl_scoreboard, sleeper, sleeper_stats
+from backend.gridiron.platforms import (
+    espn_injuries,
+    nfl_scoreboard,
+    nfl_weeks,
+    sleeper,
+    sleeper_stats,
+)
 from backend.gridiron.schemas.events import LiveStateChangedEvent
 from backend.gridiron.services import backup as backup_service
 from backend.gridiron.services import (
@@ -89,6 +95,13 @@ PROJECTIONS_INTERVAL_SECONDS = 3 * 60 * 60
 # anything: the live week while games are on, a full pass every 30 minutes otherwise —
 # see `platforms/sleeper_stats.py`.
 PLAYER_STATS_INTERVAL_SECONDS = int(sleeper_stats.LIVE_INTERVAL.total_seconds())
+
+# `refresh_nfl_weeks` cadence (add-nfl-scores): the rest of the season's scoreboards and
+# every week's all-player projections. The current week's scoreboard rides on
+# `refresh_nfl_state`'s 30s tick instead; this only has to keep up with schedule changes
+# and Rotowire's projection revisions, which is the projections job's own 3h rhythm.
+NFL_WEEKS_INTERVAL_SECONDS = 3 * 60 * 60
+NFL_WEEKS_FIRST_RUN_DELAY = timedelta(minutes=2)
 
 
 class UnknownJobError(GridironError):
@@ -183,6 +196,7 @@ async def _refresh_nfl_state(session: AsyncSession) -> str | None:
     games = await nfl_scoreboard.fetch_and_upsert(session)
     await quiescence.record_kickoffs_seen(session, games)
 
+    live_state.set_games_in_progress(any(game.state == "in" for game in games))
     teams = await live_state.user_nfl_teams(session)
     now = datetime.now(UTC).replace(tzinfo=None)
     new_state = live_state.classify(games, teams, now)
@@ -236,11 +250,22 @@ async def _refresh_player_stats(session: AsyncSession) -> str | None:
     # Highlights only on a game day: Tuesday's stat corrections can bump a TD count too,
     # and a celebration two days late is a bug report.
     before = await highlights.snapshot(session) if state != "off_day" else None
-    error = await sleeper_stats.fetch_and_upsert(session, live=state == "live")
+    # Any game in progress, not just one the user has a starter in: the Scores screen
+    # shows every game's fantasy points, and on the 30-minute full-pass cadence a game
+    # without the user's players would trail by most of a quarter.
+    live = state == "live" or live_state.games_in_progress()
+    error = await sleeper_stats.fetch_and_upsert(session, live=live)
     if before is not None and error is None:
         inserted = await highlights.record_new(session, before)
         await push.notify_highlights(session, inserted)
     return error
+
+
+async def _refresh_nfl_weeks(session: AsyncSession) -> str | None:
+    """Every regular-season week's scoreboard and Sleeper's all-player projections, for the
+    Scores screen's week switcher and pre-game Fantasy tab (add-nfl-scores). Read by
+    `GET /api/scores`, which never fetches (design.md D7)."""
+    return await nfl_weeks.fetch_and_cache(session)
 
 
 async def _backup_db(session: AsyncSession) -> str | None:
@@ -263,6 +288,7 @@ JOBS: dict[str, Callable[[AsyncSession], Awaitable[str | None]]] = {
     "refresh_projections": _refresh_projections,
     "refresh_player_stats": _refresh_player_stats,
     "backup_db": _backup_db,
+    "refresh_nfl_weeks": _refresh_nfl_weeks,
 }
 
 
@@ -380,6 +406,17 @@ def start_scheduler() -> AsyncIOScheduler:
         args=["backup_db"],
         id="backup_db",
         replace_existing=True,
+    )
+    scheduler.add_job(
+        _scheduled,
+        IntervalTrigger(seconds=NFL_WEEKS_INTERVAL_SECONDS),
+        args=["refresh_nfl_weeks"],
+        id="refresh_nfl_weeks",
+        replace_existing=True,
+        # First pass soon after boot rather than three hours in: until it runs, the Scores
+        # screen has only the current week. The delay lets `refresh_nfl_state` set the
+        # current-week pointer first.
+        next_run_time=datetime.now(UTC) + NFL_WEEKS_FIRST_RUN_DELAY,
     )
     scheduler.start()
     _scheduler = scheduler

@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.gridiron import schemas
 from backend.gridiron.models import LiveNflGame as LiveNflGameRow
 from backend.gridiron.schemas.live_nfl_games import GameState
+from backend.gridiron.services import nfl_week_cache
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -134,6 +135,9 @@ async def fetch_and_upsert(
     client = client or NflScoreboardClient()
     try:
         payload = await client.get_scoreboard()
+        # The Scores screen's copy of this week, written BEFORE the upsert so the
+        # `live_nfl_games` signal this tick publishes never beats it to the cache.
+        await nfl_week_cache.store_scoreboard(session, payload, current=True)
         games = map_scoreboard(payload)
         await upsert_games(session, games)
         return games
