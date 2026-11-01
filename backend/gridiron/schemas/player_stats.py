@@ -66,6 +66,52 @@ class ThisWeek(BaseModel):
     breakdown_total: float | None
 
 
+class GameLogColumn(StatColumn):
+    # Interceptions, fumbles, points allowed: a big number is a bad game, so the
+    # above/below-average shading flips.
+    lower_is_better: bool = False
+
+
+WeekState = Literal["final", "live", "upcoming", "bye", "dnp"]
+
+
+class SeasonWeek(BaseModel):
+    """One row of the season game log — every regular-season week, played or not."""
+
+    week: int
+    # `final`: played and over. `live`: his game is on (or the week is mid-flight and his
+    # line may still move). `upcoming`: not yet kicked off. `bye`: his team is off.
+    # `dnp`: his team played and he has no line (inactive, injured, a healthy scratch).
+    state: WeekState
+    opponent: str | None
+    # None when there's no schedule to say (and on a bye).
+    home: bool | None
+    # The opponent's rank by fantasy points allowed to this position per game, 1st being
+    # the most allowed. None before any week is complete, or with no schedule.
+    opponent_rank: int | None
+    # Rotowire, via Sleeper, in the same points format as `fantasy_points`.
+    proj_points: float | None
+    fantasy_points: float | None
+    stats: dict[str, float] | None
+
+
+class SeasonLog(BaseModel):
+    """The current season, week by week, with the matchup context the Yahoo-style game
+    log prints: opponent ranks, projections, the bye, and the season's headline numbers."""
+
+    season: int
+    columns: list[GameLogColumn]
+    weeks: list[SeasonWeek]
+    # Season total in `points_format`, every stored line including an in-progress week.
+    fantasy_points: float | None
+    # Where that total ranks among players at the position. None when unranked.
+    position_rank: int | None
+    bye_week: int | None
+    # What the opponent ranks are out of (normally 32), and the last week they cover.
+    ranked_teams: int
+    ranks_through_week: int
+
+
 class PlayerStatsData(BaseModel):
     player_id: str
     # None when the player couldn't be matched to Sleeper — no history to show.
@@ -80,3 +126,7 @@ class PlayerStatsData(BaseModel):
     seasons: list[SeasonSummary]
     # Newest season first, weeks ascending within a season.
     game_log: list[GameLogRow]
+    # The current season as the Game Log tab shows it. Optional so older callers and
+    # fixtures that build this model by hand keep working.
+    season_log: SeasonLog | None = None
+    jersey_number: str | None = None

@@ -12,7 +12,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from backend.gridiron.db import make_engine
 from backend.gridiron.models import Base, League, Player, PlayerStatSeason, PlayerWeeklyStat
-from backend.gridiron.platforms import sleeper, sleeper_stats
+from backend.gridiron.platforms import nfl_schedule, sleeper, sleeper_stats
+from backend.gridiron.services import matchup_ranks
 
 FIXTURE = json.loads(
     (Path(__file__).parent.parent / "fixtures" / "sleeper" / "stats_week_2025_10.json").read_text()
@@ -21,16 +22,31 @@ FETCHED_AT = datetime(2026, 10, 22, 12, 0, 0)
 
 
 class FakeStatsClient:
-    def __init__(self, weeks: dict[tuple[int, int], list[dict]] | None = None, fail=False):
+    def __init__(
+        self,
+        weeks: dict[tuple[int, int], list[dict]] | None = None,
+        fail=False,
+        schedule: list[dict] | None = None,
+        schedule_fail=False,
+    ):
         self.weeks = weeks or {}
         self.fail = fail
+        self.schedule = schedule or []
+        self.schedule_fail = schedule_fail
         self.calls: list[tuple[int, int]] = []
+        self.schedule_calls: list[int] = []
 
     async def get_week(self, season, week):
         self.calls.append((season, week))
         if self.fail:
             raise httpx.ConnectError("boom")
         return self.weeks.get((season, week), [])
+
+    async def get_schedule(self, season):
+        self.schedule_calls.append(season)
+        if self.schedule_fail:
+            raise httpx.ConnectError("schedule down")
+        return json.dumps(self.schedule)
 
     async def aclose(self):  # pragma: no cover - never owned by the code under test
         pass
@@ -198,6 +214,51 @@ async def test_live_tick_fetches_only_current_week(db):
     async with db() as session:
         await sleeper_stats.fetch_and_upsert(session, live, FakePlayersClient(), live=True)
     assert live.calls == [(2026, 7)]
+
+
+async def test_full_pass_stores_schedule_and_matchup_ranks(db, monkeypatch):
+    monkeypatch.setattr(sleeper_stats, "HISTORY_SEASONS", 1)
+    await seed_league(db, season=2025, week=11)
+    schedule = [{"week": 10, "home": "SF", "away": "TB", "date": "2025-11-09", "game_id": "1"}]
+    client = FakeStatsClient({(2025, 10): FIXTURE}, schedule=schedule)
+    dump = {"4034": {"position": "RB", "number": 23}}
+
+    async with db() as session:
+        error = await sleeper_stats.fetch_and_upsert(session, client, FakePlayersClient(dump))
+    assert error is None
+    assert client.schedule_calls == [2025]
+
+    async with db() as session:
+        games = await nfl_schedule.get_cached(session, 2025)
+        assert [(g.week, g.home, g.away) for g in games] == [(10, "SF", "TB")]
+        ranks = await matchup_ranks.get_cached(session, 2025)
+        assert ranks is not None and ranks.through_week == 10
+        assert ranks.position_rank("ppr", "4034") == 1
+        assert ranks.jersey("4034") == "23"
+
+    # A fresh schedule isn't fetched again on the next full pass.
+    async with db() as session:
+        for s in (await session.execute(select(PlayerStatSeason))).scalars():
+            s.fetched_at = FETCHED_AT - timedelta(days=1)
+        await session.commit()
+        await sleeper_stats.fetch_and_upsert(session, client, FakePlayersClient(dump))
+    assert client.schedule_calls == [2025]
+
+
+async def test_schedule_outage_does_not_fail_the_stats_pass(db, monkeypatch):
+    monkeypatch.setattr(sleeper_stats, "HISTORY_SEASONS", 1)
+    await seed_league(db, season=2025, week=11)
+    client = FakeStatsClient({(2025, 10): FIXTURE}, schedule_fail=True)
+
+    async with db() as session:
+        error = await sleeper_stats.fetch_and_upsert(session, client, FakePlayersClient())
+    assert error is None
+
+    async with db() as session:
+        assert (await session.execute(select(PlayerWeeklyStat))).scalars().first() is not None
+        assert await nfl_schedule.get_cached(session, 2025) == []
+        # Ranks are still computed from what the pass stored.
+        assert await matchup_ranks.get_cached(session, 2025) is not None
 
 
 async def test_http_error_is_reported_not_raised(db, monkeypatch):
