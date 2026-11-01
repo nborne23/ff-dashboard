@@ -18,6 +18,7 @@ import { PlayerHealth } from "../../components/shared/PlayerHealth";
 import { ProjectionCompare } from "../../components/shared/ProjectionCompare";
 import type { WaiverCandidate } from "../../types/api";
 import { PlayerAvatarButton, PlayerName } from "../../components/shared/PlayerName";
+import { formatShortDate } from "./filters";
 
 /** An absent value renders as an em dash, never as a number.
  *
@@ -58,6 +59,28 @@ function Headshot({ name, url }: { name: string; url: string }) {
       />
     </div>
   );
+}
+
+/** Where the player can be had from, for the line under the name: a waiver claim (and
+ *  when it clears), the user's own roster, or someone else's. A plain free agent says
+ *  nothing — that is the default state of every row and repeating it is noise. */
+function Availability({ candidate }: { candidate: WaiverCandidate }) {
+  if (candidate.is_mine) {
+    return <span className="waiver-availability mine">My team</span>;
+  }
+  if (candidate.rostered_by) {
+    return <span className="waiver-availability">{candidate.rostered_by}</span>;
+  }
+  if (candidate.status === "WAIVERS") {
+    return (
+      <span className="waiver-availability waivers">
+        {candidate.waiver_clears
+          ? `On waivers (clears ${formatShortDate(candidate.waiver_clears)})`
+          : "On waivers"}
+      </span>
+    );
+  }
+  return null;
 }
 
 /** The delta against the user's weakest eligible starter — the column the screen
@@ -107,14 +130,25 @@ function WaiverRow({ candidate, rank }: { candidate: WaiverCandidate; rank: numb
                 status={player.injury_status}
               />
             </div>
-            <div className="player-meta">{player.nfl_team}</div>
+            <div className="player-meta">
+              {player.nfl_team}
+              {(candidate.status !== "FREEAGENT" || candidate.is_mine) && (
+                <>
+                  {" · "}
+                  <Availability candidate={candidate} />
+                </>
+              )}
+            </div>
           </div>
         </div>
       </td>
       <td className="muted roster-col-opp">{player.nfl_team}</td>
       <td className="roster-col-status">
         <span className="muted" style={{ fontSize: 12 }}>
-          {candidate.percent_owned.toFixed(0)}%
+          {/* Unknown for a rostered Yahoo player (no pool row) — a dash, never "0%". */}
+          {candidate.percent_owned === null || candidate.percent_owned === undefined
+            ? "—"
+            : `${candidate.percent_owned.toFixed(0)}%`}
         </span>
       </td>
       <td className="num muted roster-col-proj">

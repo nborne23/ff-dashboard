@@ -58,6 +58,7 @@ function candidate(
   extSeasonProj: number | null = null,
   weekProj: number | null = null,
   weekDelta: number | null = null,
+  waiverClears: string | null = null,
 ): WaiverCandidate {
   return {
     league_id: LEAGUE_ID,
@@ -72,6 +73,9 @@ function candidate(
     ext_season_proj_points: extSeasonProj,
     week_proj_points: weekProj,
     delta_vs_worst_starter_week: weekDelta,
+    waiver_clears: waiverClears,
+    is_mine: false,
+    rostered_by: null,
   };
 }
 
@@ -79,14 +83,21 @@ export const WAIVERS_FIXTURE: WaiversData = {
   team_id: "espn:l-705139273-t-4",
   league_id: LEAGUE_ID,
   week: 1,
+  // Week 1 of 2026: Thursday Sep 10, Sunday Sep 13, Monday Sep 14.
+  game_days: ["2026-09-10", "2026-09-13", "2026-09-14"],
+  game_day: null,
   candidates: [
-    // 1. Clear upgrade.
+    // 1. Clear upgrade — on waivers, with the day he clears.
     candidate(
       player("3116385", "Tyler Boyd", "WR", "CIN"),
       168.4,
       42.7,
       ["WR", "RB/WR", "WR/TE", "FLEX", "REC_FLEX"],
       61.2,
+      null,
+      null,
+      null,
+      "2026-09-09",
     ),
     // 2. Marginal add.
     candidate(

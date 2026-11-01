@@ -299,12 +299,22 @@ export interface PlayerPoolEntry {
    *  its positions (RB1, RB2) from per-roster counters; a pool player is on no
    *  roster, so there is no basis for that numbering. */
   eligible_slots: string[];
+  /** `YYYY-MM-DD` (US Eastern) a "WAIVERS" player clears to free agency; null for any
+   *  other status, or when the platform published no date. */
+  waiver_clears: string | null;
 }
 
-/** A pool entry presented as claimable. `status` is inherited and is always
- *  "FREEAGENT" or "WAIVERS" here — "ONTEAM" rows are ingested so incumbent starters
- *  have a season projection to be compared against, but are never listed. */
-export interface WaiverCandidate extends PlayerPoolEntry {
+/** A pool entry presented in the Waivers list. `status` is "FREEAGENT" or "WAIVERS"
+ *  for a claimable player; "ONTEAM" only for a rostered player the filter sheet asked
+ *  for ("All Players", "Show My Team"), with `rostered_by` naming the owner. */
+export interface WaiverCandidate extends Omit<PlayerPoolEntry, "percent_owned"> {
+  /** null for a rostered player with no pool row (every Yahoo rostered player) —
+   *  unknown, not 0%. */
+  percent_owned: number | null;
+  /** The user's own player, listed by "Show My Team". */
+  is_mine: boolean;
+  /** The fantasy team rostering this player; null when claimable. */
+  rostered_by: string | null;
   /** Season projection minus that of the weakest starter the user rosters at an
    *  eligible slot. null — never 0 — when either side has no projection or no
    *  eligible starter exists. Render as an em dash. */
@@ -326,6 +336,12 @@ export interface WaiversData {
   league_id: string;
   week: number;
   candidates: WaiverCandidate[];
+  /** `YYYY-MM-DD` (US Eastern) days this week with a game still to finish — the filter
+   *  sheet's "Games Thursday / Sunday / Monday" options. Empty except in the current week. */
+  game_days: string[];
+  /** The game-day filter the server applied; null when none was asked for or the day
+   *  asked for has no game left (the client then drops its stale choice). */
+  game_day: string | null;
 }
 
 /** `{platform}:{platform_id}` → the platform prefix, per the stable-id scheme. */

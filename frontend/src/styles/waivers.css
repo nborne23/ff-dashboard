@@ -1,0 +1,186 @@
+/* Waivers: the filter trigger, the filter sheet, and the row's availability line.
+   The sheet sits on `.draft-detail-overlay` / `.draft-detail-panel` (global.css) and only
+   restyles the panel's inside, so the overlay's scroll lock and phone/desktop placement
+   stay shared with every other dialog. */
+
+/* ---- Header: title + Filters trigger ---- */
+.waivers-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.waivers-header .large-title {
+  min-width: 0;
+}
+
+.waiver-filter-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  min-height: 36px;
+  margin-top: 4px;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+}
+.waiver-filter-trigger.active {
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+.waiver-filter-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #fff;
+  font: var(--type-caption);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Sheet ---- */
+/* Header and footer stay put while the options scroll between them, so "Apply Filters"
+   is always one tap away however many game days the week has. */
+.draft-detail-panel.waiver-sheet {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  max-width: 520px;
+}
+.waiver-sheet-grabber {
+  width: 36px;
+  height: 5px;
+  margin: 8px auto 0;
+  border-radius: var(--radius-pill);
+  background: var(--fill-2);
+  flex-shrink: 0;
+}
+@media (min-width: 768px) {
+  .waiver-sheet-grabber {
+    display: none;
+  }
+}
+.waiver-sheet-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: var(--space-2) 56px;
+  border-bottom: 0.5px solid var(--separator);
+  flex-shrink: 0;
+}
+.waiver-sheet-title {
+  margin: 0;
+  font: var(--type-headline);
+  letter-spacing: var(--track-headline);
+}
+.waiver-sheet-close {
+  position: absolute;
+  right: var(--space-4);
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: var(--fill-3);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.waiver-sheet-close:hover {
+  color: var(--text);
+  background: var(--fill-2);
+}
+
+.waiver-sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-4) var(--space-4) var(--space-2);
+}
+.waiver-sheet-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: 0 var(--space-3);
+  font: var(--type-body);
+}
+.waiver-sheet-section {
+  margin: var(--space-5) var(--space-3) var(--space-2);
+  font: var(--type-footnote);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.waiver-sheet-option {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 48px;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  font: var(--type-body);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.waiver-sheet-option:hover {
+  background: var(--fill-4);
+}
+.waiver-sheet-option.selected {
+  background: var(--accent-tint);
+  font-weight: 600;
+}
+.waiver-sheet-option-detail {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+.waiver-sheet-check {
+  display: grid;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.waiver-sheet-footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom));
+  border-top: 0.5px solid var(--separator);
+  flex-shrink: 0;
+}
+.waiver-sheet-footer .btn {
+  min-height: 48px;
+  border-radius: var(--radius-pill);
+  font-size: 16px;
+}
+
+/* ---- Row availability line ---- */
+.waiver-availability {
+  color: var(--text-secondary);
+}
+.waiver-availability.waivers {
+  color: var(--live);
+}
+.waiver-availability.mine {
+  color: var(--accent);
+  font-weight: 600;
+}
