@@ -153,6 +153,52 @@ async def fantasy_fingerprints(session: AsyncSession, week: int) -> dict[str, st
     return fingerprints
 
 
+async def league_matchups_fingerprints(session: AsyncSession, week: int) -> dict[str, str]:
+    """One `"matchups:{league_id}"` scope per enabled league with a user team,
+    fingerprinting every week-`week` pairing's score — what the All Matchups screen and
+    its read-only head-to-head show. The `h2h:` scopes cover only the user's own matchup,
+    so without this a live tick that moved only other teams' scores would never reach
+    the screen. A player's points moving moves his team's total, so the totals suffice.
+
+    Only ever called with `week = current_week(session)` — see the module docstring.
+    """
+    league_ids = (
+        (
+            await session.execute(
+                select(League.id)
+                .join(Team, Team.league_id == League.id)
+                .where(Team.is_user_team.is_(True), League.is_enabled.is_(True))
+                .distinct()
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not league_ids:
+        return {}
+
+    rows = (
+        await session.execute(
+            select(
+                Matchup.league_id,
+                Matchup.id,
+                Matchup.home_score,
+                Matchup.away_score,
+                Matchup.home_proj,
+                Matchup.away_proj,
+                Matchup.is_complete,
+            ).where(Matchup.week == week, Matchup.league_id.in_(league_ids))
+        )
+    ).all()
+    by_league: dict[str, list[tuple]] = {league_id: [] for league_id in league_ids}
+    for league_id, *values in rows:
+        by_league[league_id].append(tuple(values))
+    return {
+        f"matchups:{league_id}": _fingerprint(sorted(values))
+        for league_id, values in by_league.items()
+    }
+
+
 async def draft_fingerprints(session: AsyncSession) -> dict[str, str]:
     """Single `"draft"` scope fingerprinting `(max(overall_pick), count(picks),
     current_overall_pick)`, plus the `draft_sessions` row's `status` ONLY when a row

@@ -116,8 +116,11 @@ _COOLDOWN_UNTIL: dict[str, datetime] = {}
 
 def reset_state() -> None:
     """Clear module-level refresh state (used by tests)."""
+    from backend.gridiron.services import league_matchups
+
     _LAST_ERRORS.clear()
     _COOLDOWN_UNTIL.clear()
+    league_matchups.reset_state()
 
 
 def set_cooldown(platform: str, until: datetime | None = None) -> None:
@@ -1894,6 +1897,10 @@ async def _discover_yahoo(factory: async_sessionmaker, settings: Settings) -> No
                 )
                 await session.commit()
 
+            # Function-local: league_matchups imports this module for its helpers.
+            from backend.gridiron.services import league_matchups
+
+            await league_matchups.sync_yahoo_league_matchups(factory, client, league, user_team.id)
             await _sync_other_yahoo_rosters(
                 factory, client, teams, week, synced={user_team.id, opp_id}
             )
@@ -2051,6 +2058,21 @@ async def _discover_espn(factory: async_sessionmaker, settings: Settings) -> Non
                             for t in raw.get("teams", [])
                         }
                         await _record_season_weeks_from_matchup(session, matchup, names)
+
+                if week > 0:
+                    # Function-local: league_matchups imports this module for its helpers.
+                    from backend.gridiron.services import league_matchups
+
+                    await league_matchups.store_espn_league_matchups(
+                        session,
+                        roster_raw,
+                        week,
+                        (
+                            f"espn:l-{league.platform_id}-t-{user_team_id}"
+                            if user_team_id is not None
+                            else None
+                        ),
+                    )
                 await session.commit()
     finally:
         await client.aclose()
@@ -2365,6 +2387,7 @@ async def refresh_fantasy(session: AsyncSession, settings: Settings | None = Non
 
     week = await current_week(session)
     fingerprints = await differ.fantasy_fingerprints(session, week)
+    fingerprints.update(await differ.league_matchups_fingerprints(session, week))
     differ.diff_and_publish(fingerprints)
 
     return summarize_outcomes(outcomes)

@@ -478,15 +478,61 @@ def _side_proj(side: dict, slot_sum: float) -> float:
     return slot_sum
 
 
-def map_matchup(
-    raw: dict, week: int, user_team_id: int
+def _map_schedule_entry(
+    entry: dict, league_id: int, week: int, injury_by_id: dict[int, str]
 ) -> tuple[schemas.Matchup, list[schemas.MatchupSlot]]:
-    """Map the roster+matchup response to the `schedule[]` entry involving `user_team_id`.
+    """One `schedule[]` entry as a `Matchup` plus its starter `MatchupSlot`s.
 
     `MatchupSlot`s are built for starting slots only (bench/IR are excluded — pairing
     reserve players 1:1 across two rosters isn't meaningful), matched home-vs-away by
-    internal slot label.
+    internal slot label. An entry outside the fetched scoring period carries no
+    `rosterForCurrentScoringPeriod`, so it maps to a matchup with no slots.
     """
+    home, away = entry["home"], entry["away"]
+    home_team_id = f"espn:l-{league_id}-t-{home['teamId']}"
+    away_team_id = f"espn:l-{league_id}-t-{away['teamId']}"
+    home_slots = {
+        s.slot: s
+        for s in _build_roster_slots(home, home_team_id, week, injury_by_id)
+        if s.slot not in _STARTER_SLOTS_EXCLUDED
+    }
+    away_slots = {
+        s.slot: s
+        for s in _build_roster_slots(away, away_team_id, week, injury_by_id)
+        if s.slot not in _STARTER_SLOTS_EXCLUDED
+    }
+
+    matchup_id = f"espn:l-{league_id}-m-{entry['id']}-w-{week}"
+    matchup = schemas.Matchup(
+        id=matchup_id,
+        league_id=f"espn:{league_id}",
+        week=week,
+        home_team_id=home_team_id,
+        away_team_id=away_team_id,
+        home_score=_side_score(home),
+        away_score=_side_score(away),
+        home_proj=_side_proj(home, sum(s.proj_points for s in home_slots.values())),
+        away_proj=_side_proj(away, sum(s.proj_points for s in away_slots.values())),
+        is_complete=entry.get("winner", "UNDECIDED") != "UNDECIDED",
+    )
+    matchup_slots = [
+        schemas.MatchupSlot(
+            matchup_id=matchup_id,
+            slot=slot,
+            home_player=home_slots[slot].player,
+            away_player=away_slots[slot].player,
+            home_pts=home_slots[slot].actual_points,
+            away_pts=away_slots[slot].actual_points,
+        )
+        for slot in sorted(set(home_slots) & set(away_slots))
+    ]
+    return matchup, matchup_slots
+
+
+def map_matchup(
+    raw: dict, week: int, user_team_id: int
+) -> tuple[schemas.Matchup, list[schemas.MatchupSlot]]:
+    """Map the roster+matchup response to the `schedule[]` entry involving `user_team_id`."""
     league_id = raw["id"]
     injury_by_id = injury_status_by_player_id(raw)
     for entry in raw.get("schedule", []):
@@ -502,46 +548,34 @@ def map_matchup(
         )
         if not involves_user:
             continue
-
-        home_team_id = f"espn:l-{league_id}-t-{home['teamId']}"
-        away_team_id = f"espn:l-{league_id}-t-{away['teamId']}"
-        home_slots = {
-            s.slot: s
-            for s in _build_roster_slots(home, home_team_id, week, injury_by_id)
-            if s.slot not in _STARTER_SLOTS_EXCLUDED
-        }
-        away_slots = {
-            s.slot: s
-            for s in _build_roster_slots(away, away_team_id, week, injury_by_id)
-            if s.slot not in _STARTER_SLOTS_EXCLUDED
-        }
-
-        matchup_id = f"espn:l-{league_id}-m-{entry['id']}-w-{week}"
-        matchup = schemas.Matchup(
-            id=matchup_id,
-            league_id=f"espn:{league_id}",
-            week=week,
-            home_team_id=home_team_id,
-            away_team_id=away_team_id,
-            home_score=_side_score(home),
-            away_score=_side_score(away),
-            home_proj=_side_proj(home, sum(s.proj_points for s in home_slots.values())),
-            away_proj=_side_proj(away, sum(s.proj_points for s in away_slots.values())),
-            is_complete=entry.get("winner", "UNDECIDED") != "UNDECIDED",
-        )
-        matchup_slots = [
-            schemas.MatchupSlot(
-                matchup_id=matchup_id,
-                slot=slot,
-                home_player=home_slots[slot].player,
-                away_player=away_slots[slot].player,
-                home_pts=home_slots[slot].actual_points,
-                away_pts=away_slots[slot].actual_points,
-            )
-            for slot in sorted(set(home_slots) & set(away_slots))
-        ]
-        return matchup, matchup_slots
+        return _map_schedule_entry(entry, league_id, week, injury_by_id)
 
     raise MatchupNotFoundError(
         f"no schedule entry found for user_team_id={user_team_id!r} in week {week}"
     )
+
+
+def map_league_matchups(
+    raw: dict, week: int
+) -> list[tuple[schemas.Matchup, list[schemas.MatchupSlot]]]:
+    """Every head-to-head pairing in the roster+matchup response, up to and including
+    `week`: the fetched week's with slots, earlier weeks' as totals only.
+
+    `schedule[]` covers the whole season, so the payload the user's own matchup already
+    comes from carries every other team's pairing — and every past week's final score —
+    at no extra request. Future weeks are skipped: a not-yet-played row would read as a
+    0-0 matchup on screens that look a team's week up. So are bye entries with no
+    opponent, which a head-to-head row cannot represent.
+    """
+    league_id = raw["id"]
+    injury_by_id = injury_status_by_player_id(raw)
+    mapped: list[tuple[schemas.Matchup, list[schemas.MatchupSlot]]] = []
+    for entry in raw.get("schedule", []):
+        period = entry.get("matchupPeriodId")
+        if period is None or period > week:
+            continue
+        home, away = entry.get("home"), entry.get("away")
+        if not home or not away or "teamId" not in home or "teamId" not in away:
+            continue
+        mapped.append(_map_schedule_entry(entry, league_id, period, injury_by_id))
+    return mapped

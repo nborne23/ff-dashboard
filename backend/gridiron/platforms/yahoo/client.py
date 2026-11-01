@@ -293,6 +293,24 @@ class YahooClient:
             ttl=cache_service.select_ttl(week, current_week, MATCHUP_TTL),
         )
 
+    async def get_scoreboard(
+        self,
+        session: AsyncSession,
+        league_key: str,
+        week: int,
+        current_week: int | None = None,
+    ) -> dict:
+        """Return the raw JSON for every week-`week` matchup in `league_key` — one request
+        for the whole league, where `get_matchup` is one per team. Mapping is
+        `mapper.map_scoreboard`'s job. See `get_roster` for `current_week`."""
+        return await self._cached_get(
+            session,
+            endpoint="scoreboard",
+            cache_params={"league_key": league_key, "week": week},
+            path=f"/league/{league_key}/scoreboard;week={week}",
+            ttl=cache_service.select_ttl(week, current_week, MATCHUP_TTL),
+        )
+
     async def list_player_pool_raw(
         self, session: AsyncSession, league_key: str, *, limit: int = PLAYER_POOL_LIMIT
     ) -> list[dict]:

@@ -6,6 +6,7 @@ the "teams" scope for that same run — the three halves of the live-updates sto
 
 import asyncio
 import json
+import re
 from collections.abc import AsyncIterator
 from pathlib import Path
 
@@ -63,6 +64,11 @@ def _mock_yahoo_refresh() -> None:
     respx.get(f"{YAHOO_BASE}/team/461.l.123456.t.2/roster;week=14/players/stats").mock(
         return_value=httpx.Response(200, json=opp_roster)
     )
+    # Every week's league scoreboard (the current one, plus past weeks being backfilled):
+    # the fixture's one pairing is the user's own, which the current week skips.
+    respx.get(
+        url__regex=rf"{re.escape(YAHOO_BASE)}/league/461\.l\.123456/scoreboard;week=\d+"
+    ).mock(return_value=httpx.Response(200, json=load_fixture("yahoo", "scoreboard.json")))
 
 
 @pytest.fixture(autouse=True)

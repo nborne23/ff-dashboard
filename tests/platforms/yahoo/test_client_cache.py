@@ -249,6 +249,30 @@ async def test_get_matchup_returns_raw_json_and_caches(session_factory, client) 
     await client.aclose()
 
 
+# --- get_scoreboard ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_get_scoreboard_fetches_the_whole_league_week_and_caches(
+    session_factory, client
+) -> None:
+    fixture = load_fixture("scoreboard.json")
+    route = respx.get(
+        f"{BASE_URL}/league/461.l.123456/scoreboard;week=14", params={"format": "json"}
+    ).mock(return_value=httpx.Response(200, json=fixture))
+
+    async with session_factory() as session:
+        raw = await client.get_scoreboard(session, "461.l.123456", 14)
+    assert raw == fixture
+
+    async with session_factory() as session:
+        await client.get_scoreboard(session, "461.l.123456", 14)
+    assert route.call_count == 1  # cache hit
+
+    await client.aclose()
+
+
 # --- week plumbing / past-week TTL (tasks 9.3 / 9.5) ---------------------------------------
 
 

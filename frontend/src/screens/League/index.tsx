@@ -9,15 +9,18 @@
 // id, which is why the order does not shuffle between reloads in the preseason.
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import { useLeagueStandings, useTeam } from "../../api/teams";
+import { IconChevR, IconMatchups } from "../../components/primitives";
 import { EmptyState } from "../../components/shared/EmptyState";
 import { ErrorCard } from "../../components/shared/ErrorCard";
 import { usePlatformsDisconnected } from "../../hooks/usePlatformsDisconnected";
 import { useUiStore } from "../../stores/ui";
 import { LeagueSkeleton } from "./LeagueSkeleton";
+import { matchupsPath } from "../LeagueMatchups/format";
 import { StandingsTable } from "./StandingsTable";
+import "../../styles/league-matchups.css";
 
 export default function League() {
   const { teamId = "" } = useParams();
@@ -57,6 +60,17 @@ export default function League() {
       <p className="large-subtitle">
         {league.season} · {rows.length} teams · {league.scoring_type.replace("_", " ")}
       </p>
+
+      <Link to={matchupsPath(teamId)} className="card lm-entry">
+        <IconMatchups size={22} />
+        <span className="lm-entry-text">
+          <span className="lm-entry-title">All Matchups</span>
+          <span className="lm-entry-sub"> · Week {week} across the league</span>
+        </span>
+        <span className="row-chevron" aria-hidden="true">
+          <IconChevR size={16} />
+        </span>
+      </Link>
 
       <StandingsTable rows={rows} viewingTeamId={teamId} />
     </>

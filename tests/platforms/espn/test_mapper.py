@@ -353,6 +353,70 @@ def _flex_lineup_raw(roster_matchup_raw: dict) -> dict:
     return raw
 
 
+# --- map_league_matchups ------------------------------------------------------
+
+
+def _with_more_schedule(raw: dict) -> dict:
+    """Add a second week-10 pairing (3 v 4), a past week-9 entry with totals only, a
+    week-11 entry, and a bye (no away side) to the fixture's one week-10 entry."""
+    other = copy.deepcopy(raw["schedule"][0])
+    other["id"] = 5002
+    other["home"]["teamId"], other["away"]["teamId"] = 3, 4
+    raw["schedule"] += [
+        other,
+        {
+            "id": 4001,
+            "matchupPeriodId": 9,
+            "winner": "AWAY",
+            "home": {"teamId": 2, "totalPoints": 90.0},
+            "away": {"teamId": 3, "totalPoints": 101.5},
+        },
+        {"id": 6001, "matchupPeriodId": 11, "home": {"teamId": 2}, "away": {"teamId": 4}},
+        {"id": 5003, "matchupPeriodId": 10, "home": {"teamId": 6}},
+    ]
+    return raw
+
+
+def test_map_league_matchups_returns_every_pairing_through_the_week(
+    roster_matchup_raw: dict,
+) -> None:
+    mapped = mapper.map_league_matchups(_with_more_schedule(roster_matchup_raw), week=10)
+
+    assert [m.id for m, _ in mapped] == [
+        "espn:l-1234567-m-5001-w-10",
+        "espn:l-1234567-m-5002-w-10",
+        "espn:l-1234567-m-4001-w-9",
+    ]
+
+
+def test_map_league_matchups_gives_the_fetched_week_its_slots(roster_matchup_raw: dict) -> None:
+    by_id = {
+        m.id: (m, slots)
+        for m, slots in mapper.map_league_matchups(_with_more_schedule(roster_matchup_raw), week=10)
+    }
+
+    other, other_slots = by_id["espn:l-1234567-m-5002-w-10"]
+    assert (other.home_team_id, other.away_team_id) == (
+        "espn:l-1234567-t-3",
+        "espn:l-1234567-t-4",
+    )
+    assert other_slots and all(s.matchup_id == other.id for s in other_slots)
+
+    past, past_slots = by_id["espn:l-1234567-m-4001-w-9"]
+    assert past.week == 9
+    assert (past.home_score, past.away_score, past.is_complete) == (90.0, 101.5, True)
+    assert past_slots == []
+
+
+def test_map_league_matchups_agrees_with_map_matchup_for_the_users_entry(
+    roster_matchup_raw: dict,
+) -> None:
+    mine = mapper.map_matchup(roster_matchup_raw, week=10, user_team_id=2)
+    mapped = mapper.map_league_matchups(roster_matchup_raw, week=10)
+
+    assert mapped == [mine]
+
+
 def test_map_roster_numbers_every_flex_in_a_multi_flex_lineup(roster_matchup_raw: dict) -> None:
     slots = mapper.map_roster(_flex_lineup_raw(roster_matchup_raw), week=10)
     home = [s for s in slots if s.team_id == "espn:l-1234567-t-2"]

@@ -88,6 +88,10 @@ describe("queryKeyForScope", () => {
     expect(queryKeyForScope("season:yahoo:l1.t1")).toEqual(["team", "yahoo:l1.t1", "season"]);
   });
 
+  it("maps a league's matchups scope to every All Matchups query", () => {
+    expect(queryKeyForScope("matchups:espn:705139273")).toEqual(["league-matchups"]);
+  });
+
   it("maps the live_nfl_games scope", () => {
     expect(queryKeyForScope("live_nfl_games")).toEqual(["live_nfl_games"]);
   });

@@ -359,6 +359,77 @@ def map_matchup(raw: dict, week: int) -> schemas.Matchup:
         raise MapperError(f"yahoo matchup payload missing expected field: {exc}") from exc
 
 
+def _scoreboard_side(entry: dict) -> dict:
+    team_parts = entry["team"]
+    team_fields = flatten(team_parts[0])
+    extra = flatten(team_parts[1:])
+    points = extra.get("team_points") or {}
+    proj = extra.get("team_projected_points") or {}
+    return {
+        "team_key": str(team_fields["team_key"]),
+        "score": float(points.get("total", 0) or 0),
+        "proj": float(proj.get("total", 0) or 0),
+    }
+
+
+def _team_number(team_key: str) -> str:
+    """`"461.l.123456.t.7"` -> `"7"`."""
+    return team_key.rsplit(".t.", 1)[-1]
+
+
+def map_scoreboard(raw: dict, week: int) -> list[schemas.Matchup]:
+    """`raw` is the full `/league/{league_key}/scoreboard;week={N}?format=json` response:
+    every matchup in the league that week.
+
+    Each matchup inside it has the same shape `map_matchup` reads from a team's
+    `/matchups` (index 0 is "home" purely for a stable ordering). The id differs from
+    `map_matchup`'s `{league}.mu.{week}` on purpose: that id names only ONE matchup per
+    league-week, which was all this app stored before. Several pairings in one week need
+    the two team numbers in the id to stay distinct.
+
+    The scoreboard wrapper is parsed defensively — like `/standings`, Yahoo has been seen
+    to wrap a league sub-resource in a single-element array on some responses.
+    """
+    try:
+        league_array = raw["fantasy_content"]["league"]
+        scoreboard = find_subresource(league_array, "scoreboard")
+        if isinstance(scoreboard, list):
+            scoreboard = scoreboard[0]
+        matchup_items = collection_items(nested_subresource(scoreboard, "matchups"))
+    except (KeyError, IndexError, TypeError) as exc:
+        raise MapperError(f"yahoo scoreboard payload missing expected field: {exc}") from exc
+
+    matchups: list[schemas.Matchup] = []
+    for item in matchup_items:
+        try:
+            matchup = item["matchup"]
+            team_entries = collection_items(nested_subresource(matchup, "teams"))
+            if len(team_entries) < 2:
+                continue
+            home, away = (_scoreboard_side(e) for e in team_entries[:2])
+        except (KeyError, IndexError, TypeError, ValueError) as exc:
+            raise MapperError(f"yahoo scoreboard matchup malformed: {exc}") from exc
+
+        league_key = _league_key_from_team_key(home["team_key"])
+        status = str(matchup.get("status", ""))
+        pair = f"{_team_number(home['team_key'])}v{_team_number(away['team_key'])}"
+        matchups.append(
+            schemas.Matchup(
+                id=f"yahoo:{league_key}.mu.{week}.{pair}",
+                league_id=f"yahoo:{league_key}",
+                week=week,
+                home_team_id=f"yahoo:{home['team_key']}",
+                away_team_id=f"yahoo:{away['team_key']}",
+                home_score=home["score"],
+                away_score=away["score"],
+                home_proj=home["proj"],
+                away_proj=away["proj"],
+                is_complete=status.lower() == "postevent",
+            )
+        )
+    return matchups
+
+
 def _unnumbered_slot(code: str) -> str | None:
     """A Yahoo eligible-position code as the internal *unnumbered* slot name, or `None`
     for a code this app has no slot for.
