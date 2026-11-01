@@ -444,3 +444,22 @@ async def test_yahoo_overlay_failure_keeps_the_pool_as_free_agents() -> None:
     result = await fantasy_service._overlay_yahoo_waivers(client, None, league, entries)
 
     assert result == entries
+
+
+@pytest.mark.asyncio
+async def test_yahoo_overlay_survives_an_unexpected_error_type() -> None:
+    league = League(id="yahoo:461.l.1", platform="yahoo", platform_id="461.l.1", name="Y")
+    entries = [_yahoo_entry("461.p.1")]
+    client = _FakeYahoo(error=RuntimeError("yahoo rejected the request"))
+
+    assert await fantasy_service._overlay_yahoo_waivers(client, None, league, entries) == entries
+
+
+@pytest.mark.asyncio
+async def test_yahoo_overlay_survives_a_malformed_ownership_shape() -> None:
+    league = League(id="yahoo:461.l.1", platform="yahoo", platform_id="461.l.1", name="Y")
+    entries = [_yahoo_entry("461.p.1")]
+    malformed = {"player": [[{"player_key": "461.p.1"}], {"ownership": "waivers"}]}
+    client = _FakeYahoo(items=[malformed])
+
+    assert await fantasy_service._overlay_yahoo_waivers(client, None, league, entries) == entries

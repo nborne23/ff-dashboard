@@ -2341,12 +2341,18 @@ async def _overlay_yahoo_waivers(
     state the screen was in before waivers were distinguished at all. A player on
     waivers who isn't in the (top-300) pool isn't added; that tail is never claimed from.
     """
+    # Deliberately broad: the request (`status=W` + `ownership`) and the shape it maps
+    # from are both unverified against a live league, and whatever goes wrong in either —
+    # a 4xx this client raises as its own type, an `ownership` that isn't a dict — must
+    # cost the waiver badge, never the pool the whole Waivers screen is built on.
     try:
         items = await client.list_waiver_players_raw(session, league.platform_id)
-    except (httpx.HTTPError, AuthRequiredError, RateLimitedError, KeyError) as exc:
-        logger.warning("player_pool (yahoo): waiver list for %s unavailable: %s", league.name, exc)
+        waivers = yahoo_mapper.map_waiver_dates(items)
+    except Exception:
+        logger.warning(
+            "player_pool (yahoo): waiver list for %s unavailable", league.name, exc_info=True
+        )
         return entries
-    waivers = yahoo_mapper.map_waiver_dates(items)
     return [
         (
             entry.model_copy(
