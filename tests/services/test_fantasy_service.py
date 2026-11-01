@@ -3,6 +3,7 @@ upstream, so no platform mocking there) and `refresh_discovery` against respx-mo
 platform HTTP using the captured fixtures."""
 
 import json
+import re
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from urllib.parse import quote
@@ -656,6 +657,11 @@ def _mock_yahoo_discovery() -> None:
     respx.get(f"{YAHOO_BASE}/team/461.l.123456.t.2/roster;week=14/players/stats").mock(
         return_value=httpx.Response(200, json=opp_roster)
     )
+    # Every week's league scoreboard (the current one, plus past weeks being backfilled):
+    # the fixture's one pairing is the user's own, which the current week skips.
+    respx.get(
+        url__regex=rf"{re.escape(YAHOO_BASE)}/league/461\.l\.123456/scoreboard;week=\d+"
+    ).mock(return_value=httpx.Response(200, json=load_fixture("yahoo", "scoreboard.json")))
 
 
 async def _connect_yahoo(session_factory) -> None:

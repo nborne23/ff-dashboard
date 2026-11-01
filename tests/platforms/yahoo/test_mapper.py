@@ -349,6 +349,71 @@ def test_map_matchup_missing_teams_raises_mapper_error() -> None:
         mapper.map_matchup(raw, week=14)
 
 
+# --- map_scoreboard ------------------------------------------------------------------------
+
+
+def _scoreboard_with_second_matchup() -> dict:
+    raw = load_fixture("scoreboard.json")
+    matchups = raw["fantasy_content"]["league"][1]["scoreboard"]["0"]["matchups"]
+    other = json.loads(
+        json.dumps(matchups["0"]).replace('.t.1"', '.t.3"').replace('.t.2"', '.t.4"')
+    )
+    other["matchup"]["status"] = "postevent"
+    matchups["1"] = other
+    matchups["count"] = 2
+    return raw
+
+
+def test_map_scoreboard_returns_every_matchup_in_the_league() -> None:
+    matchups = mapper.map_scoreboard(_scoreboard_with_second_matchup(), week=14)
+
+    assert [m.id for m in matchups] == [
+        "yahoo:461.l.123456.mu.14.1v2",
+        "yahoo:461.l.123456.mu.14.3v4",
+    ]
+    first, second = matchups
+    assert first.league_id == "yahoo:461.l.123456"
+    assert (first.home_team_id, first.away_team_id) == (
+        "yahoo:461.l.123456.t.1",
+        "yahoo:461.l.123456.t.2",
+    )
+    assert (first.home_score, first.away_score) == (88.24, 76.10)
+    assert (first.home_proj, first.away_proj) == (104.50, 95.20)
+    assert first.is_complete is False
+    assert (second.home_team_id, second.is_complete) == ("yahoo:461.l.123456.t.3", True)
+
+
+def test_map_scoreboard_ids_never_collide_with_the_users_matchup_id() -> None:
+    """`map_matchup`'s id names one matchup per league-week; scoreboard ids must not."""
+    legacy = mapper.map_matchup(load_fixture("matchup.json"), week=14)
+    ids = {m.id for m in mapper.map_scoreboard(load_fixture("scoreboard.json"), week=14)}
+
+    assert legacy.id not in ids
+
+
+def test_map_scoreboard_reads_a_list_wrapped_scoreboard() -> None:
+    raw = load_fixture("scoreboard.json")
+    league = raw["fantasy_content"]["league"]
+    league[1]["scoreboard"] = [league[1]["scoreboard"]]
+
+    assert len(mapper.map_scoreboard(raw, week=14)) == 1
+
+
+def test_map_scoreboard_takes_the_requested_week() -> None:
+    (matchup,) = mapper.map_scoreboard(load_fixture("scoreboard.json"), week=9)
+
+    assert matchup.week == 9
+    assert matchup.id == "yahoo:461.l.123456.mu.9.1v2"
+
+
+def test_map_scoreboard_without_matchups_raises_mapper_error() -> None:
+    raw = load_fixture("scoreboard.json")
+    raw["fantasy_content"]["league"][1] = {"standings": {}}
+
+    with pytest.raises(mapper.MapperError):
+        mapper.map_scoreboard(raw, week=14)
+
+
 def test_translate_slot_numbers_repeated_flex_codes() -> None:
     """Yahoo's flex code is `W/R/T`, and a lineup may hold several. They are renamed AND
     numbered (FLEX1/FLEX2/...) for the same reason the ESPN side numbers them: the

@@ -1,0 +1,95 @@
+{
+  "fantasy_content": {
+    "xml:lang": "en-US",
+    "yahoo:uri": "/fantasy/v2/league/461.l.123456/scoreboard;week=14",
+    "league": [
+      {
+        "league_key": "461.l.123456",
+        "league_id": "123456",
+        "name": "The League of Extraordinary Gentlemen",
+        "url": "https://football.fantasysports.yahoo.com/f1/123456",
+        "num_teams": 10,
+        "scoring_type": "head",
+        "current_week": 14,
+        "season": "2025"
+      },
+      {
+        "scoreboard": {
+          "0": {
+            "matchups": {
+              "0": {
+                "matchup": {
+                  "week": "14",
+                  "week_start": "2025-12-04",
+                  "week_end": "2025-12-08",
+                  "status": "midevent",
+                  "is_playoffs": "0",
+                  "is_consolation": "0",
+                  "teams": {
+                    "0": {
+                      "team": [
+                        [
+                          {
+                            "team_key": "461.l.123456.t.1"
+                          },
+                          {
+                            "team_id": "1"
+                          },
+                          {
+                            "name": "Gridiron Gurus"
+                          }
+                        ],
+                        {
+                          "team_points": {
+                            "coverage_type": "week",
+                            "week": "14",
+                            "total": "88.24"
+                          },
+                          "team_projected_points": {
+                            "coverage_type": "week",
+                            "week": "14",
+                            "total": "104.50"
+                          }
+                        }
+                      ]
+                    },
+                    "1": {
+                      "team": [
+                        [
+                          {
+                            "team_key": "461.l.123456.t.2"
+                          },
+                          {
+                            "team_id": "2"
+                          },
+                          {
+                            "name": "The Contenders"
+                          }
+                        ],
+                        {
+                          "team_points": {
+                            "coverage_type": "week",
+                            "week": "14",
+                            "total": "76.10"
+                          },
+                          "team_projected_points": {
+                            "coverage_type": "week",
+                            "week": "14",
+                            "total": "95.20"
+                          }
+                        }
+                      ]
+                    },
+                    "count": 2
+                  }
+                }
+              },
+              "count": 1
+            }
+          },
+          "week": "14"
+        }
+      }
+    ]
+  }
+}
