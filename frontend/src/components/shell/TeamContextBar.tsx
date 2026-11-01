@@ -7,6 +7,7 @@
 // (§7), rather than appearing from nowhere.
 
 import { TeamLogo } from "../shared/TeamLogo";
+import { SourceAppLinkButton } from "../shared/SourceAppLink";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -88,6 +89,7 @@ export function TeamContextBar({ teamId, section }: TeamContextBarProps) {
             ))}
           </ul>
         )}
+        <SourceAppLinkButton teamId={teamId} teamName={current?.name} />
       </div>
 
       <nav className="team-tabs segmented" aria-label="Team views">
