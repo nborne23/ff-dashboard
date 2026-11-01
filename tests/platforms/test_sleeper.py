@@ -2,6 +2,7 @@
 
 from datetime import datetime
 
+import httpx
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -60,9 +61,11 @@ async def db(tmp_path):
 
 
 class FakeClient:
-    def __init__(self, dump=None, projections=None):
+    def __init__(self, dump=None, projections=None, by_week=None, fail_weeks=()):
         self._dump = DUMP if dump is None else dump
         self._proj = PROJECTIONS if projections is None else projections
+        self._by_week = by_week or {}
+        self._fail_weeks = set(fail_weeks)
         self.calls: list[int | None] = []
 
     async def get_players(self, session):
@@ -70,7 +73,9 @@ class FakeClient:
 
     async def get_projections(self, season, week):
         self.calls.append(week)
-        return self._proj
+        if week in self._fail_weeks:
+            raise httpx.ConnectError("sleeper is down")
+        return self._by_week.get(week, self._proj)
 
     async def aclose(self):  # pragma: no cover - never owned by the code under test
         pass
@@ -202,12 +207,14 @@ async def test_fetch_and_upsert_writes_both_weekly_and_season_scopes(db):
     async with db() as session:
         assert await sleeper.fetch_and_upsert(session, client) is None
 
-    # Weekly first, then season (None) — both scopes, one pass each.
-    assert client.calls == [4, None]
+    # Weekly first, then season (None) — both scopes, one pass each. The daily pass over
+    # the season's other weeks follows; see the tests at the bottom.
+    assert client.calls[:2] == [4, None]
     async with db() as session:
         rows = (await session.execute(select(PlayerProjection))).scalars().all()
-    assert sorted(r.week for r in rows) == [sleeper.SEASON_SCOPE, 4]
-    assert {r.match_tier for r in rows} == {"espn_id"}
+    scoped = [r for r in rows if r.week in (sleeper.SEASON_SCOPE, 4)]
+    assert sorted(r.week for r in scoped) == [sleeper.SEASON_SCOPE, 4]
+    assert {r.match_tier for r in scoped} == {"espn_id"}
 
 
 async def test_total_match_failure_is_reported_not_swallowed(db):
@@ -311,8 +318,120 @@ async def test_projections_are_filed_under_the_apps_current_week(db):
         )
         await session.commit()
 
+    client = FakeClient()
     async with db() as session:
-        await sleeper.fetch_and_upsert(session, FakeClient())
+        await sleeper.fetch_and_upsert(session, client)
         rows = (await session.execute(select(PlayerProjection))).scalars().all()
 
-    assert sorted(r.week for r in rows) == [sleeper.SEASON_SCOPE, 4]
+    # The current week is asked for, and filed, as 4 — then the daily other-weeks pass.
+    assert client.calls[:2] == [4, None]
+    assert {sleeper.SEASON_SCOPE, 4} <= {r.week for r in rows}
+
+
+# --------------------------------------------------------------------------------------
+# The rest of the season, once a day
+# --------------------------------------------------------------------------------------
+
+MAHOMES = ("espn:p-3139477", "Patrick Mahomes", "QB", "KC")
+ETIENNE = ("espn:p-4239996", "Travis Etienne Jr.", "RB", "JAX")
+
+
+def week_feed(ppr):
+    """A one-week feed where every player is projected for `ppr`, to tell weeks apart."""
+    return [
+        proj_row("111", "Patrick", "Mahomes", "KC", "QB", ppr),
+        proj_row("222", "Travis", "Etienne", "JAX", "RB", ppr),
+    ]
+
+
+async def stored_points(db):
+    async with db() as session:
+        rows = (await session.execute(select(PlayerProjection))).scalars().all()
+    return {(r.player_id, r.week): r.pts_ppr for r in rows}
+
+
+async def seed_projection(db, player_id, week, ppr):
+    async with db() as session:
+        session.add(
+            PlayerProjection(
+                player_id=player_id,
+                season=2026,
+                week=week,
+                source=sleeper.SOURCE,
+                pts_ppr=ppr,
+                match_tier="espn_id",
+                fetched_at=FETCHED_AT,
+            )
+        )
+        await session.commit()
+
+
+async def test_first_run_fetches_every_other_week_of_the_season(db):
+    """The player card's Game Log prints Proj Pts for every week, past and future, and
+    the current-week path alone left all but one of them blank."""
+    await seed(db, [MAHOMES], week=4)
+    client = FakeClient(by_week={w: week_feed(float(w)) for w in range(1, 19)})
+
+    async with db() as session:
+        assert await sleeper.fetch_and_upsert(session, client) is None
+
+    assert client.calls == [4, None, 1, 2, 3, *range(5, 19)]
+    points = await stored_points(db)
+    assert {week for _pid, week in points} == {sleeper.SEASON_SCOPE, *range(1, 19)}
+    assert points[(MAHOMES[0], 12)] == 12.0
+
+
+async def test_the_other_weeks_are_fetched_at_most_once_a_day(db):
+    await seed(db, [MAHOMES], week=4)
+    async with db() as session:
+        await sleeper.fetch_and_upsert(session, FakeClient())
+
+    again = FakeClient()
+    async with db() as session:
+        assert await sleeper.fetch_and_upsert(session, again) is None
+    assert again.calls == [4, None]
+
+
+async def test_a_future_week_is_refreshed(db):
+    await seed(db, [MAHOMES], week=4)
+    await seed_projection(db, MAHOMES[0], 9, 3.0)
+
+    async with db() as session:
+        await sleeper.fetch_and_upsert(session, FakeClient(by_week={9: week_feed(19.5)}))
+
+    assert (await stored_points(db))[(MAHOMES[0], 9)] == 19.5
+
+
+async def test_a_past_week_only_fills_gaps_and_is_skipped_when_full(db):
+    """A past week keeps the number captured while it was current — what the app showed
+    going into that game. Only a player missing from it is backfilled, and a week with
+    nobody missing isn't fetched at all."""
+    await seed(db, [MAHOMES, ETIENNE], week=4)
+    await seed_projection(db, MAHOMES[0], 2, 3.0)  # week 2: Etienne missing
+    await seed_projection(db, MAHOMES[0], 3, 3.0)  # week 3: both present
+    await seed_projection(db, ETIENNE[0], 3, 3.0)
+    client = FakeClient(by_week={w: week_feed(float(w)) for w in range(1, 19)})
+
+    async with db() as session:
+        await sleeper.fetch_and_upsert(session, client)
+
+    assert 2 in client.calls and 3 not in client.calls
+    points = await stored_points(db)
+    assert points[(MAHOMES[0], 2)] == 3.0
+    assert points[(ETIENNE[0], 2)] == 2.0
+    assert points[(MAHOMES[0], 3)] == points[(ETIENNE[0], 3)] == 3.0
+
+
+async def test_an_outage_on_another_week_keeps_the_current_week_and_retries(db):
+    await seed(db, [MAHOMES], week=4)
+
+    async with db() as session:
+        assert await sleeper.fetch_and_upsert(session, FakeClient(fail_weeks={9})) is None
+
+    points = await stored_points(db)
+    assert (MAHOMES[0], 4) in points and (MAHOMES[0], sleeper.SEASON_SCOPE) in points
+    # No daily marker was written, so the next tick tries the other weeks again.
+    retry = FakeClient()
+    async with db() as session:
+        await sleeper.fetch_and_upsert(session, retry)
+    assert 9 in retry.calls

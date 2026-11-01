@@ -11,7 +11,8 @@ Phase 8 adaptive-cadence jobs:
 - `refresh_player_pool` — free-agent/waiver pool + season projections, fixed 6h cadence.
 - `refresh_injuries` — ESPN injury-report detail for non-healthy players, fixed 30 min
   (add-player-health).
-- `refresh_projections` — third-party point projections, fixed 3 h (add-sleeper-projections).
+- `refresh_projections` — third-party point projections, fixed 3 h (add-sleeper-projections);
+  the regular season's other weeks ride along once a day.
 - `backup_db` — nightly SQLite backup + prune (task 11.4).
 
 Every job run — scheduled or manually triggered via `POST /api/admin/refresh` — goes
@@ -85,7 +86,8 @@ PLAYER_POOL_INTERVAL_SECONDS = 6 * 60 * 60 + 5 * 60
 INJURIES_INTERVAL_SECONDS = 30 * 60
 
 # `refresh_projections` cadence. Two upstream calls per run regardless of roster size —
-# the projection feed is served whole — so this is cheap. Three hours rather than
+# the projection feed is served whole — so this is cheap; once a day a run adds one per
+# remaining week of the season (see `sleeper.fetch_and_upsert`). Three hours rather than
 # thirty minutes because Rotowire revises on news, not on snaps; the injury sweep is
 # what carries the fast-moving half of that story.
 PROJECTIONS_INTERVAL_SECONDS = 3 * 60 * 60
