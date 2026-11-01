@@ -73,6 +73,10 @@ export function queryKeyForScope(scope: string): QueryKey | null {
   if (prefix === "team") return ["team", id];
   if (prefix === "h2h") return ["team", id, "h2h"];
   if (prefix === "season") return ["team", id, "season"];
+  // Every pairing in one league (All Matchups and its read-only head-to-head). The
+  // screens key by the viewing team, not the league, so the whole prefix is refetched —
+  // only those two screens ever hold one of these queries.
+  if (prefix === "matchups") return ["league-matchups"];
   return null;
 }
 
