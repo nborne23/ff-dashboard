@@ -12,6 +12,8 @@ import MyTeam from "./screens/MyTeam";
 import Season from "./screens/Season";
 import Settings from "./screens/Settings";
 import Waivers from "./screens/Waivers";
+import Scores from "./screens/Scores";
+import ScoresGame from "./screens/Scores/GameDetail";
 
 /** The shell's child routes, exported so tests can mount them in a memory router. */
 export const routeChildren = [
@@ -30,6 +32,8 @@ export const routeChildren = [
   { path: "team/:teamId/league/:rosterTeamId", element: <LeagueTeam /> },
   ...(DRAFT_ASSISTANT ? [{ path: "draft", element: <Draft /> }] : []),
   { path: "settings", element: <Settings /> },
+  { path: "scores", element: <Scores /> },
+  { path: "scores/game/:gameId", element: <ScoresGame /> },
 ];
 
 export const router = createBrowserRouter([

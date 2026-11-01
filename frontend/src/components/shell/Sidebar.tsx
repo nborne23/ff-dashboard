@@ -18,7 +18,14 @@ import { DRAFT_ASSISTANT } from "../../features";
 import { parseTeamRoute, teamRoutePath } from "../../hooks/teamRoute";
 import { useUiStore } from "../../stores/ui";
 import type { Team } from "../../types/api";
-import { IconBolt, IconChevR, IconFlame, IconFootball, IconSettings } from "../primitives";
+import {
+  IconBolt,
+  IconChevR,
+  IconFlame,
+  IconFootball,
+  IconScoreboard,
+  IconSettings,
+} from "../primitives";
 
 function navItemClassName({ isActive }: { isActive: boolean }): string {
   return "nav-item" + (isActive ? " active" : "");
@@ -76,6 +83,12 @@ export function Sidebar() {
             <IconBolt size={18} />
           </span>
           <span className="label">Game Day</span>
+        </NavLink>
+        <NavLink to="/scores" className={navItemClassName} title="Scores">
+          <span className="icon">
+            <IconScoreboard size={18} />
+          </span>
+          <span className="label">Scores</span>
         </NavLink>
         {DRAFT_ASSISTANT && (
           <NavLink to="/draft" className={navItemClassName} title="Draft">

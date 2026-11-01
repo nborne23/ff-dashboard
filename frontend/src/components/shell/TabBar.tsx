@@ -9,7 +9,7 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { useTeams } from "../../api/teams";
 import { parseTeamRoute, resolveTeamId, teamRoutePath } from "../../hooks/teamRoute";
 import { useUiStore } from "../../stores/ui";
-import { IconBolt, IconSettings, IconTeams } from "../primitives";
+import { IconBolt, IconScoreboard, IconSettings, IconTeams } from "../primitives";
 
 export function TabBar() {
   const location = useLocation();
@@ -36,6 +36,10 @@ export function TabBar() {
         <IconTeams size={22} />
         <span>Teams</span>
       </Link>
+      <NavLink to="/scores" className={({ isActive }) => "tab" + (isActive ? " active" : "")}>
+        <IconScoreboard size={22} />
+        <span>Scores</span>
+      </NavLink>
       <NavLink to="/settings" className={({ isActive }) => "tab" + (isActive ? " active" : "")}>
         <IconSettings size={22} />
         <span>Settings</span>
