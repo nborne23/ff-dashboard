@@ -241,3 +241,15 @@ export function IconAlertCircle(p: IconProps) {
     </Icon>
   );
 }
+
+/** A scoreboard: two scores under a header bar — the NFL Scores screen. */
+export function IconScoreboard(p: IconProps) {
+  return (
+    <Icon {...p}>
+      <rect x="3" y="5" width="18" height="14" rx="2.5" />
+      <line x1="12" y1="9" x2="12" y2="19" />
+      <line x1="3" y1="9" x2="21" y2="9" />
+      <path d="M6.5 12.5h2.5v3H6.5zM15 12.5h2.5v3H15z" />
+    </Icon>
+  );
+}

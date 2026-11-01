@@ -167,3 +167,20 @@ async def test_get_scoreboard_raises_on_http_error(session_factory) -> None:
     with pytest.raises(httpx.HTTPStatusError):
         await client.get_scoreboard()
     await client.aclose()
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_fetch_and_upsert_caches_the_week_for_the_scores_screen(session_factory) -> None:
+    from backend.gridiron.services import nfl_week_cache
+
+    payload = json.loads((FIXTURES / "nfl" / "scores_week.json").read_text())
+    respx.get(nfl_scoreboard.SCOREBOARD_URL).mock(return_value=httpx.Response(200, json=payload))
+
+    async with session_factory() as session:
+        await nfl_scoreboard.fetch_and_upsert(session)
+
+    async with session_factory() as session:
+        assert await nfl_week_cache.read_current(session) == (2025, 7)
+        cached, _ = await nfl_week_cache.read_week(session, 2025, 7)
+    assert len(cached["events"]) == 4

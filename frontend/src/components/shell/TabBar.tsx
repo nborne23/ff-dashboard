@@ -1,6 +1,6 @@
 // Phone navigation: a bottom tab bar, replacing the hamburger drawer.
 //
-// The app has three destinations, so all three can be on screen at all times. A drawer
+// The app has four destinations, so all four can be on screen at all times. A drawer
 // hid them behind a tap and covered the screen to show them. "Teams" opens the team you
 // were last following; the team page's own switcher moves between teams.
 
@@ -9,7 +9,7 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { useTeams } from "../../api/teams";
 import { parseTeamRoute, resolveTeamId, teamRoutePath } from "../../hooks/teamRoute";
 import { useUiStore } from "../../stores/ui";
-import { IconBolt, IconSettings, IconTeams } from "../primitives";
+import { IconBolt, IconScoreboard, IconSettings, IconTeams } from "../primitives";
 
 export function TabBar() {
   const location = useLocation();
@@ -36,6 +36,10 @@ export function TabBar() {
         <IconTeams size={22} />
         <span>Teams</span>
       </Link>
+      <NavLink to="/scores" className={({ isActive }) => "tab" + (isActive ? " active" : "")}>
+        <IconScoreboard size={22} />
+        <span>Scores</span>
+      </NavLink>
       <NavLink to="/settings" className={({ isActive }) => "tab" + (isActive ? " active" : "")}>
         <IconSettings size={22} />
         <span>Settings</span>

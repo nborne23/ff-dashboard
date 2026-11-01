@@ -29,6 +29,10 @@ PRE_GAME_WINDOW = timedelta(hours=2)
 # `refresh_nfl_state` tick (30s, task 8.2) re-derives the real value.
 _current_live_state: LiveState = "off_day"
 
+# Whether ANY game was in progress at the last tick — wider than "live", which only counts
+# games involving the user's starters. Same in-memory, re-derived-every-tick contract.
+_games_in_progress = False
+
 
 def get_current_live_state() -> LiveState:
     """The live_state as of the most recent `refresh_nfl_state` tick. Feeds
@@ -41,10 +45,21 @@ def set_current_live_state(state: LiveState) -> None:
     _current_live_state = state
 
 
+def games_in_progress() -> bool:
+    """Whether any NFL game was in progress as of the last `refresh_nfl_state` tick."""
+    return _games_in_progress
+
+
+def set_games_in_progress(value: bool) -> None:
+    global _games_in_progress
+    _games_in_progress = value
+
+
 def reset_state() -> None:
     """Reset the module-level current live_state back to its default (test isolation)."""
-    global _current_live_state
+    global _current_live_state, _games_in_progress
     _current_live_state = "off_day"
+    _games_in_progress = False
 
 
 async def user_nfl_teams(session: AsyncSession) -> set[str]:
