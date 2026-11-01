@@ -34,10 +34,12 @@ so an id-only matcher would have reached under a third of a roster.
 
 import json
 import logging
+from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.gridiron.models import League, Player
@@ -61,6 +63,14 @@ SEASON_SCOPE = 0
 
 # Sleeper's `position` for a team defense. Our vocabulary calls it DST.
 SLEEPER_DST_POSITION = "DEF"
+
+# The rest of the regular season, beyond the current week: past weeks feed the player
+# card's Proj Pts column, future weeks the matchups ahead. Rotowire's weekly numbers for
+# a week months out barely move, so once a day is plenty — a marker in `http_cache`
+# (not memory, so a restart doesn't refetch everything) throttles it.
+REGULAR_SEASON_WEEKS = 18
+OTHER_WEEKS_TTL = timedelta(hours=24)
+OTHER_WEEKS_CACHE = ("gridiron", "projections_other_weeks")
 
 
 class SleeperClient:
@@ -273,6 +283,30 @@ class PlayerIndex:
 # --------------------------------------------------------------------------------------
 
 
+def projection_values(
+    player_id: str,
+    row: dict,
+    *,
+    season: int,
+    week: int,
+    match_tier: str,
+    fetched_at: datetime,
+) -> dict:
+    stats = row.get("stats") or {}
+    return {
+        "player_id": player_id,
+        "season": season,
+        "week": week,
+        "source": SOURCE,
+        "pts_ppr": stats.get("pts_ppr"),
+        "pts_half_ppr": stats.get("pts_half_ppr"),
+        "pts_std": stats.get("pts_std"),
+        "stats_json": json.dumps(stats, sort_keys=True),
+        "match_tier": match_tier,
+        "fetched_at": fetched_at,
+    }
+
+
 def map_projection(
     player_id: str,
     row: dict,
@@ -282,19 +316,121 @@ def map_projection(
     match_tier: str,
     fetched_at: datetime,
 ) -> PlayerProjectionRow:
-    stats = row.get("stats") or {}
     return PlayerProjectionRow(
-        player_id=player_id,
-        season=season,
-        week=week,
-        source=SOURCE,
-        pts_ppr=stats.get("pts_ppr"),
-        pts_half_ppr=stats.get("pts_half_ppr"),
-        pts_std=stats.get("pts_std"),
-        stats_json=json.dumps(stats, sort_keys=True),
-        match_tier=match_tier,
-        fetched_at=fetched_at,
+        **projection_values(
+            player_id, row, season=season, week=week, match_tier=match_tier, fetched_at=fetched_at
+        )
     )
+
+
+async def _upsert_projections(session: AsyncSession, values: list[dict], *, replace: bool) -> None:
+    """Bulk write. `session.merge` would issue a SELECT per row, per week, every day.
+
+    `replace=False` only fills gaps: a past week keeps the number captured while it was
+    the current week — what the app showed going into that game — rather than whatever
+    the feed says about it now.
+    """
+    if not values:
+        return
+    stmt = insert(PlayerProjectionRow)
+    if replace:
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["player_id", "season", "week", "source"],
+            set_={
+                **{
+                    col: stmt.excluded[col]
+                    for col in (
+                        "pts_ppr",
+                        "pts_half_ppr",
+                        "pts_std",
+                        "stats_json",
+                        "match_tier",
+                        "fetched_at",
+                    )
+                },
+                # A Core upsert skips the ORM's `onupdate`.
+                "updated_at": func.now(),
+            },
+        )
+    else:
+        stmt = stmt.on_conflict_do_nothing()
+    # SQLite caps bound parameters per statement; 10 columns x 400 rows stays well under.
+    for start in range(0, len(values), 400):
+        await session.execute(stmt, values[start : start + 400])
+
+
+async def _other_weeks_to_fetch(session: AsyncSession, season: int, week: int) -> list[int]:
+    """Every future week, plus any past week missing a player we project this week.
+
+    The gap check keeps a filled-in past week from being refetched daily for nothing —
+    its rows are never replaced anyway — while still backfilling a player who joined a
+    roster (or the pool) after that week was current.
+    """
+    stored = await session.execute(
+        select(PlayerProjectionRow.player_id, PlayerProjectionRow.week).where(
+            PlayerProjectionRow.season == season,
+            PlayerProjectionRow.source == SOURCE,
+            PlayerProjectionRow.week >= 1,
+        )
+    )
+    by_week: dict[int, set[str]] = defaultdict(set)
+    for player_id, stored_week in stored:
+        by_week[stored_week].add(player_id)
+    projected_now = by_week[week]
+    return [
+        w
+        for w in range(1, REGULAR_SEASON_WEEKS + 1)
+        if w > week or (w < week and not projected_now <= by_week[w])
+    ]
+
+
+async def _refresh_other_weeks(
+    session: AsyncSession,
+    client: SleeperClient,
+    dump: dict,
+    players: list[Player],
+    *,
+    season: int,
+    week: int,
+    fetched_at: datetime,
+) -> list[int] | None:
+    """The regular season's other weeks, at most once a day. Returns the weeks fetched,
+    or None when the daily marker says it isn't due."""
+    marker_params = {"season": season}
+    marker = await cache.get(session, *OTHER_WEEKS_CACHE, marker_params)
+    if marker is not None and not marker.is_expired:
+        return None
+
+    weeks = await _other_weeks_to_fetch(session, season, week)
+    for other_week in weeks:
+        index = PlayerIndex(dump, await client.get_projections(season, other_week))
+        values = []
+        for player in players:
+            found = index.find(player)
+            if found is None:
+                continue
+            row, tier = found
+            values.append(
+                projection_values(
+                    player.id,
+                    row,
+                    season=season,
+                    week=other_week,
+                    match_tier=tier,
+                    fetched_at=fetched_at,
+                )
+            )
+        await _upsert_projections(session, values, replace=other_week > week)
+
+    await cache.set(
+        session,
+        *OTHER_WEEKS_CACHE,
+        marker_params,
+        json.dumps({"weeks": weeks, "current_week": week}),
+        fetched_at + OTHER_WEEKS_TTL,
+    )
+    await session.commit()
+    return weeks
 
 
 async def _season_and_week(session: AsyncSession) -> tuple[int, int]:
@@ -319,13 +455,23 @@ async def _season_and_week(session: AsyncSession) -> tuple[int, int]:
 async def fetch_and_upsert(
     session: AsyncSession, client: SleeperClient | None = None
 ) -> str | None:
-    """Refresh weekly AND season-long projections for every player we know about.
+    """Refresh weekly AND season-long projections for every player we know about, and
+    once a day the regular season's other weeks.
 
     Two upstream calls plus a (usually cached) player dump, regardless of roster size —
-    the feed is served whole, so there is nothing to fan out over.
+    the feed is served whole, so there is nothing to fan out over. The daily pass adds one
+    call per future week, plus any past week with a gap to fill.
     """
     owns_client = client is None
     client = client or SleeperClient()
+    try:
+        return await _refresh(session, client)
+    finally:
+        if owns_client:
+            await client.aclose()
+
+
+async def _refresh(session: AsyncSession, client: SleeperClient) -> str | None:
     fetched_at = datetime.now(UTC).replace(tzinfo=None)
     try:
         season, week = await _season_and_week(session)
@@ -359,9 +505,6 @@ async def fetch_and_upsert(
         await session.commit()
     except httpx.HTTPError as exc:
         return f"sleeper projections unavailable: {type(exc).__name__}: {exc}"
-    finally:
-        if owns_client:
-            await client.aclose()
 
     matched = sum(tiers.values())
     logger.info(
@@ -379,4 +522,29 @@ async def fetch_and_upsert(
         # shape changed or the season/week is wrong, and both are worth surfacing on the
         # refresh-runs row rather than looking like "no data this week".
         return f"sleeper projections matched 0 of {len(players)} players"
+
+    # After the commit above and in its own try: an outage on week 14 must not cost the
+    # current week's rows, and doesn't fail the run. No marker is written on failure, so
+    # the next tick retries rather than waiting a day.
+    if players:
+        try:
+            other_weeks = await _refresh_other_weeks(
+                session,
+                client,
+                dump,
+                players,
+                season=season,
+                week=week,
+                fetched_at=fetched_at,
+            )
+        except (httpx.HTTPError, ValueError) as exc:
+            await session.rollback()
+            logger.warning(
+                "refresh_projections other weeks failed: %s: %s", type(exc).__name__, exc
+            )
+        else:
+            if other_weeks is not None:
+                logger.info(
+                    "refresh_projections other weeks season=%d weeks=%s", season, other_weeks
+                )
     return None
