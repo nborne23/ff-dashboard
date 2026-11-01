@@ -965,7 +965,7 @@ async def test_get_waivers_shape(client, db) -> None:
     body = response.json()
     assert_envelope(body)
     data = body["data"]
-    assert set(data) == {"team_id", "league_id", "week", "candidates"}
+    assert set(data) == {"team_id", "league_id", "week", "candidates", "game_days", "game_day"}
     assert data["team_id"] == USER_TEAM
     assert response.headers["Cache-Control"] == CACHE_CONTROL
 
@@ -991,6 +991,44 @@ async def test_get_waivers_position_filter(client, db) -> None:
 
     assert response.status_code == 200
     assert response.json()["data"]["candidates"] == []
+
+
+@pytest.mark.asyncio
+async def test_get_waivers_status_filter(client, db) -> None:
+    """The filter sheet's STATUS options narrow the pool server-side, and each candidate
+    carries its own status so the row can badge a waiver player."""
+    await seed(db)
+    await _seed_waiver_pool(db)
+
+    waivers = await client.get(f"/api/teams/{USER_TEAM}/waivers?week=14&status=waivers")
+    free_agents = await client.get(f"/api/teams/{USER_TEAM}/waivers?week=14&status=free_agents")
+
+    assert [c["player"]["name"] for c in waivers.json()["data"]["candidates"]] == ["Downgrade RB"]
+    assert waivers.json()["data"]["candidates"][0]["status"] == "WAIVERS"
+    assert [c["player"]["name"] for c in free_agents.json()["data"]["candidates"]] == ["Upgrade RB"]
+
+
+@pytest.mark.asyncio
+async def test_get_waivers_show_my_team_marks_my_players(client, db) -> None:
+    await seed(db)
+    await _seed_waiver_pool(db)
+
+    response = await client.get(f"/api/teams/{USER_TEAM}/waivers?week=14&include_mine=true")
+
+    mine = [c for c in response.json()["data"]["candidates"] if c["is_mine"]]
+    assert mine, "Show My Team lists the user's rostered players"
+    assert all(c["status"] == "ONTEAM" and c["rostered_by"] for c in mine)
+
+
+@pytest.mark.asyncio
+async def test_get_waivers_rejects_an_unknown_filter_value(client, db) -> None:
+    await seed(db)
+
+    status = await client.get(f"/api/teams/{USER_TEAM}/waivers?week=14&status=everyone")
+    sort = await client.get(f"/api/teams/{USER_TEAM}/waivers?week=14&sort=vibes")
+    day = await client.get(f"/api/teams/{USER_TEAM}/waivers?week=14&game_day=thursday")
+
+    assert (status.status_code, sort.status_code, day.status_code) == (422, 422, 422)
 
 
 @pytest.mark.asyncio

@@ -534,3 +534,51 @@ def test_map_player_pool_skips_a_position_this_app_does_not_model() -> None:
 
     assert skipped == 1
     assert all(e.player.id != "yahoo:461.p.102" for e in entries)
+
+
+# --- map_waiver_dates -------------------------------------------------------------------------
+
+
+def _waiver_fragment(key: str, ownership) -> dict:
+    return {"player": [[{"player_key": key}, {"name": {"full": key}}], {"ownership": ownership}]}
+
+
+def test_map_waiver_dates_reads_each_player_s_clear_date() -> None:
+    dates = mapper.map_waiver_dates(
+        [
+            _waiver_fragment("461.p.1", {"ownership_type": "waivers", "waiver_date": "2026-11-04"}),
+            # Yahoo sometimes serializes a subresource as a list of one-key dicts.
+            _waiver_fragment(
+                "461.p.2", [{"ownership_type": "waivers"}, {"waiver_date": "2026-11-05"}]
+            ),
+        ]
+    )
+
+    assert {k: str(v) for k, v in dates.items()} == {
+        "yahoo:461.p.1": "2026-11-04",
+        "yahoo:461.p.2": "2026-11-05",
+    }
+
+
+def test_map_waiver_dates_keeps_a_waiver_player_with_no_usable_date() -> None:
+    dates = mapper.map_waiver_dates(
+        [
+            _waiver_fragment("461.p.1", {"ownership_type": "waivers"}),
+            _waiver_fragment("461.p.2", {"ownership_type": "waivers", "waiver_date": "soon"}),
+        ]
+    )
+
+    assert dates == {"yahoo:461.p.1": None, "yahoo:461.p.2": None}
+
+
+def test_map_waiver_dates_skips_a_player_no_longer_on_waivers() -> None:
+    dates = mapper.map_waiver_dates(
+        [
+            _waiver_fragment(
+                "461.p.1", {"ownership_type": "team", "owner_team_key": "461.l.1.t.3"}
+            ),
+            {"player": [[{"name": {"full": "no key"}}]]},
+        ]
+    )
+
+    assert dates == {}

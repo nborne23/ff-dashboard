@@ -55,6 +55,7 @@ from backend.gridiron.platforms.yahoo.client import YahooClient
 from backend.gridiron.services import cache as cache_service
 from backend.gridiron.services import credentials, differ
 from backend.gridiron.services import live_state as live_state_service
+from backend.gridiron.services import waiver_filters
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -783,9 +784,17 @@ async def get_waivers(
     week: int,
     position: str | None = None,
     limit: int = 50,
+    status: waiver_filters.StatusFilter = "available",
+    include_mine: bool = False,
+    game_day: date | None = None,
+    sort: waiver_filters.SortKey = "upgrade",
 ) -> schemas.WaiversData | None:
-    """Claimable players in this team's league, ranked, each measured against the
-    starter it would actually replace. `None` for an unknown team (the API layer 404s).
+    """Players in this team's league, ranked, each measured against the starter it would
+    actually replace. `None` for an unknown team (the API layer 404s).
+
+    The defaults are the claimable pool ranked by season upgrade. The rest are the
+    Waivers filter sheet's options (`services/waiver_filters.py`), all applied here,
+    before the `limit` cut, so a narrow filter still searches the whole pool.
     """
     team_row = await session.get(Team, team_id)
     if team_row is None:
@@ -822,6 +831,28 @@ async def get_waivers(
     league_row = await session.get(League, league_id)
     scoring_type = league_row.scoring_type if league_row else None
     season_year = league_row.season if league_row else 0
+
+    # The game-day filter's schedule. Only the current week has one: `live_nfl_games` is
+    # "whatever the scoreboard shows now", so asked about any other week it would answer
+    # with this week's kickoffs.
+    schedule: dict[str, waiver_filters.ScheduledGame] = {}
+    if league_row is not None and week == league_row.current_week:
+        schedule = waiver_filters.week_schedule(
+            (
+                await session.execute(
+                    select(
+                        LiveNflGame.home_team,
+                        LiveNflGame.away_team,
+                        LiveNflGame.state,
+                        LiveNflGame.kickoff_at,
+                    )
+                )
+            ).all(),
+            _normalize_nfl_abbr,
+        )
+    game_days = waiver_filters.remaining_game_days(schedule)
+    applied_day = game_day if game_day in game_days else None
+
     starter_projections = await _projections_by_player_and_week(
         session,
         [pid for _slot, pid, _proj in starter_rows],
@@ -851,7 +882,7 @@ async def get_waivers(
         .join(Player, PlayerPoolEntry.player_id == Player.id)
         .where(
             PlayerPoolEntry.league_id == league_id,
-            PlayerPoolEntry.status.in_(("FREEAGENT", "WAIVERS")),
+            PlayerPoolEntry.status.in_(waiver_filters.POOL_STATUSES[status]),
         )
     )
     if position is not None:
@@ -866,24 +897,82 @@ async def get_waivers(
     #
     # Bounded by construction: one league's pool is ~1000 rows, loaded once, and only
     # `limit` of them are turned into schemas.
-    candidate_rows = (await session.execute(stmt)).all()
+    rows: dict[str, waiver_filters.CandidateRow] = {
+        player.id: waiver_filters.CandidateRow(
+            player=player,
+            status=entry.status,
+            on_team_id=entry.on_team_id,
+            percent_owned=entry.percent_owned,
+            percent_started=entry.percent_started,
+            pool_season_proj=entry.season_proj_points,
+            eligible=json.loads(entry.eligible_slots or "[]"),
+            waiver_clears=entry.waiver_clears,
+        )
+        for entry, player in (await session.execute(stmt)).all()
+    }
+
+    # Rostered players, only when a filter asks for them: every team's for "All Players",
+    # the user's own for "Show My Team". From `roster_slots` rather than the pool's ONTEAM
+    # rows, which Yahoo doesn't have and which can't name the owner. A roster row replaces
+    # a pool row for the same player — the pool is the staler of the two snapshots.
+    if status == "all" or include_mine:
+        roster_stmt = (
+            select(RosterSlot.team_id, Team.name, Player, PlayerPoolEntry)
+            .join(Team, Team.id == RosterSlot.team_id)
+            .join(Player, Player.id == RosterSlot.player_id)
+            .outerjoin(
+                PlayerPoolEntry,
+                (PlayerPoolEntry.player_id == RosterSlot.player_id)
+                & (PlayerPoolEntry.league_id == league_id),
+            )
+            .where(Team.league_id == league_id, RosterSlot.week == week)
+        )
+        if status != "all":
+            roster_stmt = roster_stmt.where(RosterSlot.team_id == team_id)
+        if position is not None:
+            roster_stmt = roster_stmt.where(Player.position == position)
+        for owner_id, owner_name, player, entry in (await session.execute(roster_stmt)).all():
+            rows[player.id] = waiver_filters.CandidateRow(
+                player=player,
+                status="ONTEAM",
+                on_team_id=entry.on_team_id if entry else None,
+                percent_owned=entry.percent_owned if entry else None,
+                percent_started=entry.percent_started if entry else 0.0,
+                pool_season_proj=entry.season_proj_points if entry else None,
+                eligible=(
+                    json.loads(entry.eligible_slots or "[]")
+                    if entry
+                    else waiver_filters.fallback_eligibility(player.position)
+                ),
+                is_mine=owner_id == team_id,
+                rostered_by=owner_name,
+            )
+
+    if applied_day is not None:
+        rows = {
+            pid: row
+            for pid, row in rows.items()
+            if (game := schedule.get(row.player.nfl_team)) is not None
+            and row.player.bye_week != week
+            and waiver_filters.game_date(game.kickoff_at) == applied_day
+        }
+
     candidate_proj = await _projections_by_player_and_week(
         session,
-        [player.id for _entry, player in candidate_rows],
+        list(rows),
         season=season_year,
         weeks=[week, SEASON_PROJECTION_WEEK],
     )
 
-    scored: list[tuple[float | None, float | None, PlayerPoolEntry, Player, list[str]]] = []
-    week_by_player: dict[str, tuple[float | None, float | None]] = {}
-    for entry, player in candidate_rows:
-        eligible = json.loads(entry.eligible_slots or "[]")
-        startable = _startable_eligibility(eligible)
+    scored: list[tuple[tuple, schemas.WaiverCandidate]] = []
+    for row in rows.values():
+        player = row.player
+        startable = _startable_eligibility(row.eligible)
         contested = [
             proj for slot, projs in starters_by_slot.items() if slot in startable for proj in projs
         ]
 
-        season_points = entry.season_proj_points
+        season_points = row.pool_season_proj
         if season_points is None:
             season_points = _resolve_points(
                 candidate_proj.get((player.id, SEASON_PROJECTION_WEEK)), scoring_type
@@ -905,48 +994,53 @@ async def get_waivers(
         week_delta = None
         if week_points is not None and contested_week:
             week_delta = week_points - min(contested_week)
-        week_by_player[player.id] = (week_points, week_delta)
 
-        scored.append((delta, season_points, entry, player, eligible))
-
-    # Biggest upgrade first; unrankable rows (no delta, then no projection) last.
-    # Projection breaks ties, so two equal upgrades order by the better player.
-    scored.sort(
-        key=lambda row: (
-            row[0] is None,
-            -(row[0] if row[0] is not None else 0.0),
-            row[1] is None,
-            -(row[1] if row[1] is not None else 0.0),
+        key = waiver_filters.sort_key(
+            sort,
+            delta=delta,
+            season_points=season_points,
+            week_delta=week_delta,
+            week_points=week_points,
+            percent_owned=row.percent_owned,
         )
-    )
-
-    shortlist = scored[:limit]
-
-    candidates = [
-        schemas.WaiverCandidate(
-            league_id=league_id,
-            player=_player_schema(player),
-            status=entry.status,
-            on_team_id=entry.on_team_id,
-            percent_owned=entry.percent_owned,
-            percent_started=entry.percent_started,
-            season_proj_points=season_points,
-            eligible_slots=eligible,
-            delta_vs_worst_starter=delta,
-            # SEASON scope (`week=0`) to match `season_proj_points`. A weekly number
-            # here would be a 21.57-vs-364.86 category error — the weekly axis is
-            # carried separately, below.
-            ext_season_proj_points=_resolve_points(
-                candidate_proj.get((player.id, SEASON_PROJECTION_WEEK)), scoring_type
-            ),
-            week_proj_points=week_by_player.get(player.id, (None, None))[0],
-            delta_vs_worst_starter_week=week_by_player.get(player.id, (None, None))[1],
+        scored.append(
+            (
+                key,
+                schemas.WaiverCandidate(
+                    league_id=league_id,
+                    player=_player_schema(player),
+                    status=row.status,
+                    on_team_id=row.on_team_id,
+                    percent_owned=row.percent_owned,
+                    percent_started=row.percent_started,
+                    season_proj_points=season_points,
+                    eligible_slots=row.eligible,
+                    waiver_clears=row.waiver_clears,
+                    delta_vs_worst_starter=delta,
+                    # SEASON scope (`week=0`) to match `season_proj_points`. A weekly
+                    # number here would be a 21.57-vs-364.86 category error — the weekly
+                    # axis is carried separately, below.
+                    ext_season_proj_points=_resolve_points(
+                        candidate_proj.get((player.id, SEASON_PROJECTION_WEEK)), scoring_type
+                    ),
+                    week_proj_points=week_points,
+                    delta_vs_worst_starter_week=week_delta,
+                    is_mine=row.is_mine,
+                    rostered_by=row.rostered_by,
+                ),
+            )
         )
-        for delta, season_points, entry, player, eligible in shortlist
-    ]
+
+    # Biggest upgrade first (or whichever axis `sort` names); unrankable rows last.
+    scored.sort(key=lambda pair: pair[0])
 
     return schemas.WaiversData(
-        team_id=team_id, league_id=league_id, week=week, candidates=candidates
+        team_id=team_id,
+        league_id=league_id,
+        week=week,
+        candidates=[candidate for _key, candidate in scored[:limit]],
+        game_days=game_days,
+        game_day=applied_day,
     )
 
 
@@ -1655,6 +1749,7 @@ async def _upsert_player_pool_entries(
                 percent_started=entry.percent_started,
                 season_proj_points=entry.season_proj_points,
                 eligible_slots=json.dumps(entry.eligible_slots),
+                waiver_clears=entry.waiver_clears,
             )
         )
 
@@ -2230,6 +2325,7 @@ async def _refresh_yahoo_player_pool(session: AsyncSession, settings: Settings) 
                 continue
 
             entries, skipped = yahoo_mapper.map_player_pool(items)
+            entries = await _overlay_yahoo_waivers(client, session, league, entries)
             async with factory() as write_session:
                 await _upsert_player_pool_entries(write_session, league.id, entries)
                 await write_session.commit()
@@ -2251,6 +2347,44 @@ async def _refresh_yahoo_player_pool(session: AsyncSession, settings: Settings) 
     if total_skipped:
         return f"skipped {total_skipped} unmappable yahoo entries"
     return None
+
+
+async def _overlay_yahoo_waivers(
+    client: YahooClient,
+    session: AsyncSession,
+    league: League,
+    entries: list[schemas.PlayerPoolEntry],
+) -> list[schemas.PlayerPoolEntry]:
+    """Mark the pool entries that are on waivers, with the day each clears.
+
+    Yahoo's `status=A` pool doesn't say which available players are on waivers, so this
+    is a second, small request. Its failure is logged and swallowed, never returned as
+    the run's error: without it every player still lists, just as a free agent — the
+    state the screen was in before waivers were distinguished at all. A player on
+    waivers who isn't in the (top-300) pool isn't added; that tail is never claimed from.
+    """
+    # Deliberately broad: the request (`status=W` + `ownership`) and the shape it maps
+    # from are both unverified against a live league, and whatever goes wrong in either —
+    # a 4xx this client raises as its own type, an `ownership` that isn't a dict — must
+    # cost the waiver badge, never the pool the whole Waivers screen is built on.
+    try:
+        items = await client.list_waiver_players_raw(session, league.platform_id)
+        waivers = yahoo_mapper.map_waiver_dates(items)
+    except Exception:
+        logger.warning(
+            "player_pool (yahoo): waiver list for %s unavailable", league.name, exc_info=True
+        )
+        return entries
+    return [
+        (
+            entry.model_copy(
+                update={"status": "WAIVERS", "waiver_clears": waivers[entry.player.id]}
+            )
+            if entry.player.id in waivers
+            else entry
+        )
+        for entry in entries
+    ]
 
 
 async def _refresh_espn_player_pool(

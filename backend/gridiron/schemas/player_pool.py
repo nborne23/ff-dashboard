@@ -1,5 +1,6 @@
 """`PlayerPoolEntry` / `WaiverCandidate` — add-player-pool's normalized entities."""
 
+from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel
@@ -37,6 +38,9 @@ class PlayerPoolEntry(BaseModel):
     # league-specific: a superflex league admits a QB to `OP`, and a TE-premium one
     # to `REC_FLEX`. Deriving from position alone would get both wrong.
     eligible_slots: list[str] = []
+    # The day (US Eastern) a `WAIVERS` player clears to free agency; None for any other
+    # status, and for a waiver player whose platform published no date.
+    waiver_clears: date | None = None
 
 
 class WaiverCandidate(PlayerPoolEntry):
@@ -80,6 +84,15 @@ class WaiverCandidate(PlayerPoolEntry):
     # eligible starter's projection FOR THIS WEEK.
     delta_vs_worst_starter_week: float | None = None
 
+    # Widened from the pool's `float`: a rostered player listed by the "All Players" or
+    # "Show My Team" filters may have no pool row at all (Yahoo's pool is available-only),
+    # and "unknown" must not render as "0% rostered".
+    percent_owned: float | None
+    # The user's own player, listed by the "Show My Team" filter for comparison.
+    is_mine: bool = False
+    # Name of the fantasy team that rosters this player; None for a claimable one.
+    rostered_by: str | None = None
+
 
 class WaiversData(BaseModel):
     """Payload of `GET /api/teams/{team_id}/waivers`."""
@@ -88,3 +101,10 @@ class WaiversData(BaseModel):
     league_id: str
     week: int
     candidates: list[WaiverCandidate]
+    # US Eastern dates this week with a game still to finish — the filter sheet's "playing
+    # Thursday / Sunday / Monday" options. Empty for any week but the current one.
+    game_days: list[date] = []
+    # The game-day filter actually applied: None when none was asked for, or when the day
+    # asked for has no game left this week (a stale choice is dropped, not answered with
+    # an empty list).
+    game_day: date | None = None

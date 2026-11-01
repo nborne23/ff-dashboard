@@ -25,6 +25,8 @@ Scope of each `raw` argument:
 import logging
 from collections import Counter
 from collections.abc import Iterable
+from datetime import UTC, date, datetime
+from zoneinfo import ZoneInfo
 
 from backend.gridiron import schemas
 from backend.gridiron.errors import MatchupNotFoundError
@@ -336,10 +338,28 @@ def map_player_pool(raw: dict, season: int) -> tuple[list[schemas.PlayerPoolEntr
                 percent_started=ownership.get("percentStarted") or 0.0,
                 season_proj_points=_season_projection(player_raw, season),
                 eligible_slots=eligible,
+                waiver_clears=_waiver_clears(entry),
             )
         )
 
     return entries, skipped
+
+
+# ESPN's waiver clock, and the NFL's: a waiver run at 4am ET is still the previous day in
+# Pacific time and already the next one in UTC, so neither of those is the day to show.
+_EASTERN = ZoneInfo("America/New_York")
+
+
+def _waiver_clears(entry: dict) -> date | None:
+    """The day a `WAIVERS` player clears, from the pool entry's `waiverProcessDate` (epoch
+    milliseconds). None for any other status — the field rides along on every entry and
+    is meaningless off waivers — and when ESPN leaves it out or zeroed."""
+    if entry.get("status") != "WAIVERS":
+        return None
+    raw = entry.get("waiverProcessDate")
+    if isinstance(raw, bool) or not isinstance(raw, int | float) or raw <= 0:
+        return None
+    return datetime.fromtimestamp(raw / 1000, tz=UTC).astimezone(_EASTERN).date()
 
 
 def _repeated_slots(lineup_slot_ids: Iterable[int]) -> set[str]:

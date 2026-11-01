@@ -114,18 +114,44 @@ export interface WaiversResponseData {
   league_id: string;
   week: number;
   candidates: WaiverCandidate[];
+  game_days: string[];
+  game_day: string | null;
+}
+
+/** The filter sheet's server-side options (see `screens/Waivers/filters.ts`). Every one
+ *  is applied before the endpoint's top-50 cut, which is why none of them filters the
+ *  returned list client-side: "Waivers Only" over a 50-row shortlist would find only the
+ *  waiver players who happened to rank in the top 50. */
+export interface WaiverQueryOptions {
+  status?: "available" | "free_agents" | "waivers" | "all";
+  includeMine?: boolean;
+  gameDay?: string | null;
+  sort?: "upgrade" | "upgrade_week" | "owned";
 }
 
 /**
  * Claimable players in this team's league, ranked by how much they would upgrade the
  * lineup. `position` narrows to one position; omitting it returns the full ranking.
+ * `options` carries the filter sheet's choices; omitted, it is the unfiltered list.
  */
-export function useWaivers(id: string, week: number, position?: string) {
+export function useWaivers(
+  id: string,
+  week: number,
+  position?: string,
+  options: WaiverQueryOptions = {},
+) {
+  const { status = "available", includeMine = false, gameDay = null, sort = "upgrade" } = options;
   return useQuery({
-    queryKey: ["waivers", id, week, position ?? null],
+    queryKey: ["waivers", id, week, position ?? null, status, includeMine, gameDay, sort],
     queryFn: () => {
       const params = new URLSearchParams({ week: String(week) });
       if (position) params.set("position", position);
+      // Defaults are left off the URL, so the unfiltered request is byte-for-byte the one
+      // the screen always made.
+      if (status !== "available") params.set("status", status);
+      if (includeMine) params.set("include_mine", "true");
+      if (gameDay) params.set("game_day", gameDay);
+      if (sort !== "upgrade") params.set("sort", sort);
       return apiClient.get<Envelope<WaiversResponseData>>(
         `/api/teams/${id}/waivers?${params.toString()}`,
       );

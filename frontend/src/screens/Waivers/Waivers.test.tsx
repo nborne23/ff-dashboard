@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { TeamDetailData, WaiversResponseData } from "../../api/teams";
 import { useUiStore } from "../../stores/ui";
+import { useWaiverFiltersStore } from "../../stores/waiverFilters";
 import type { Envelope, League, Meta, Team } from "../../types/api";
 import { WAIVERS_FIXTURE } from "./fixtures";
 import Waivers from "./index";
@@ -73,13 +74,22 @@ function renderWaivers(
       if (options.waiversStatus && options.waiversStatus >= 400) {
         return jsonResponse(options.waiversStatus, { detail: "boom" });
       }
-      // Echo the position filter back so the filter test can assert it narrows.
-      const position = new URL(url, "http://x").searchParams.get("position");
-      const candidates = position
-        ? waivers.candidates.filter((c) => c.player.position === position)
-        : waivers.candidates;
+      // Echo the position and status filters back so the filter tests can assert they
+      // narrow, and answer `game_day` the way the server does: applied only when it is
+      // one of the week's remaining game days.
+      const params = new URL(url, "http://x").searchParams;
+      const position = params.get("position");
+      const status = params.get("status");
+      const gameDay = params.get("game_day");
+      const candidates = waivers.candidates
+        .filter((c) => !position || c.player.position === position)
+        .filter((c) => status !== "waivers" || c.status === "WAIVERS");
       return jsonResponse(200, {
-        data: { ...waivers, candidates },
+        data: {
+          ...waivers,
+          candidates,
+          game_day: gameDay && waivers.game_days.includes(gameDay) ? gameDay : null,
+        },
         meta,
       } satisfies Envelope<WaiversResponseData>);
     }
@@ -133,6 +143,7 @@ describe("Waivers", () => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
     useUiStore.setState({ week: 1 });
+    useWaiverFiltersStore.setState({ byTeam: {} });
   });
 
   it("renders candidates in the order the endpoint returned them", async () => {
@@ -233,6 +244,141 @@ describe("Waivers", () => {
     });
 
     expect(await screen.findByTestId("waivers-empty")).toBeTruthy();
+  });
+});
+
+describe("Waivers filter sheet", () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    useUiStore.setState({ week: 1 });
+    useWaiverFiltersStore.setState({ byTeam: {} });
+  });
+
+  function waiverUrls(fetchMock: ReturnType<typeof renderWaivers>): URLSearchParams[] {
+    return fetchMock.mock.calls
+      .map(([input]) => String(input))
+      .filter((url) => url.includes("/waivers"))
+      .map((url) => new URL(url, "http://x").searchParams);
+  }
+
+  async function applyFromSheet(choose: () => void) {
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    await screen.findByRole("dialog", { name: "Filters" });
+    choose();
+    fireEvent.click(screen.getByRole("button", { name: "Apply Filters" }));
+  }
+
+  it("badges a waiver player with the day he clears, and one without a date plainly", async () => {
+    renderWaivers();
+    await screen.findByText("Tyler Boyd");
+
+    expect(within(rowFor("Tyler Boyd")).getByText("On waivers (clears 9/9)")).toBeTruthy();
+    expect(within(rowFor("Rachaad White")).getByText("On waivers")).toBeTruthy();
+    expect(within(rowFor("Blake Grupe")).queryByText(/waivers/i)).toBeNull();
+  });
+
+  it("starts unfiltered: no badge on the trigger and no filter params on the request", async () => {
+    const fetchMock = renderWaivers();
+    await screen.findByText("Tyler Boyd");
+
+    const trigger = screen.getByRole("button", { name: "Filters" });
+    expect(trigger.className).not.toContain("active");
+    const params = waiverUrls(fetchMock)[0];
+    for (const key of ["status", "include_mine", "game_day", "sort"]) {
+      expect(params.has(key)).toBe(false);
+    }
+  });
+
+  it("applies Waivers Only server-side and marks the trigger active", async () => {
+    const fetchMock = renderWaivers();
+    await screen.findByText("Tyler Boyd");
+
+    await applyFromSheet(() =>
+      fireEvent.click(screen.getByRole("radio", { name: "Waivers Only" })),
+    );
+
+    await waitFor(() => expect(screen.queryByText("Blake Grupe")).toBeNull());
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(waiverUrls(fetchMock).at(-1)?.get("status")).toBe("waivers");
+    expect(screen.getByRole("button", { name: "Filters, 1 active" })).toBeTruthy();
+    expect(screen.getByText(/Waivers Only/)).toBeTruthy(); // the subtitle says so
+  });
+
+  it("sends Show My Team, a game day and a sort together", async () => {
+    const fetchMock = renderWaivers();
+    await screen.findByText("Tyler Boyd");
+
+    await applyFromSheet(() => {
+      fireEvent.click(screen.getByRole("switch", { name: "Show My Team" }));
+      fireEvent.click(screen.getByRole("radio", { name: "All Available (Games Thursday - 9/10)" }));
+      fireEvent.click(screen.getByRole("radio", { name: /This week/ }));
+    });
+
+    await waitFor(() => expect(waiverUrls(fetchMock).at(-1)?.get("game_day")).toBe("2026-09-10"));
+    const params = waiverUrls(fetchMock).at(-1)!;
+    expect(params.get("include_mine")).toBe("true");
+    expect(params.get("sort")).toBe("upgrade_week");
+    expect(params.has("status")).toBe(false); // "available" is the default
+    expect(await screen.findByRole("button", { name: "Filters, 3 active" })).toBeTruthy();
+  });
+
+  it("drops a remembered game day the server no longer applies", async () => {
+    // The day was chosen earlier in the session; by now its games are over and the
+    // server answers without it. The stored choice must go too, or the sheet and the
+    // badge would keep claiming a filter the list isn't under.
+    useWaiverFiltersStore.setState({
+      byTeam: {
+        [team.id]: {
+          position: null,
+          status: "available",
+          gameDay: "2026-09-03",
+          showMine: false,
+          sort: "upgrade",
+        },
+      },
+    });
+    renderWaivers();
+    await screen.findByText("Tyler Boyd");
+
+    await waitFor(() =>
+      expect(useWaiverFiltersStore.getState().byTeam[team.id]?.gameDay).toBeNull(),
+    );
+    expect(screen.getByRole("button", { name: "Filters" })).toBeTruthy();
+  });
+
+  it("remembers the filters per team when the screen remounts", async () => {
+    renderWaivers();
+    await screen.findByText("Tyler Boyd");
+    fireEvent.click(screen.getByRole("button", { name: "RB" }));
+    await applyFromSheet(() => fireEvent.click(screen.getByRole("radio", { name: "All Players" })));
+    await screen.findByRole("button", { name: "Filters, 1 active" });
+    cleanup();
+
+    const fetchMock = renderWaivers();
+    await screen.findByText("Rachaad White");
+
+    expect(screen.getByRole("button", { name: "RB" }).getAttribute("aria-pressed")).toBe("true");
+    const params = waiverUrls(fetchMock)[0];
+    expect(params.get("position")).toBe("RB");
+    expect(params.get("status")).toBe("all");
+  });
+
+  it("marks my own players and other teams' rostered players, with unknown ownership as a dash", async () => {
+    const [first, second] = WAIVERS_FIXTURE.candidates;
+    renderWaivers({
+      ...WAIVERS_FIXTURE,
+      candidates: [
+        { ...first, status: "ONTEAM", is_mine: true, rostered_by: "Broadcom" },
+        { ...second, status: "ONTEAM", rostered_by: "Bing Bong", percent_owned: null },
+      ],
+    });
+    await screen.findByText("Tyler Boyd");
+
+    expect(within(rowFor("Tyler Boyd")).getByText("My team")).toBeTruthy();
+    expect(within(rowFor("Rachaad White")).getByText("Bing Bong")).toBeTruthy();
+    expect(cellIn(rowFor("Rachaad White"), "roster-col-status").textContent).toBe("—");
   });
 });
 
