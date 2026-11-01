@@ -50,6 +50,9 @@ PLAYER_POOL_TTL = timedelta(hours=6)  # matches the ESPN pool's TTL
 # falls at the tail nobody claims from.
 PLAYER_POOL_PAGE = 25
 PLAYER_POOL_LIMIT = 300
+# The waiver wire is the handful of players dropped in the last couple of days, so four
+# pages is headroom, not a cut — `list_waiver_players_raw` stops at the first short page.
+WAIVER_LIST_LIMIT = 100
 
 # Called with (access_token, refresh_token) after a successful refresh so the caller
 # can persist the new tokens.
@@ -311,16 +314,56 @@ class YahooClient:
         publishes no season projection at all; that axis comes from the independent
         projection source for both sides (see `fantasy_service.get_waivers`).
         """
+        return await self._paged_players(
+            session,
+            league_key,
+            endpoint="player_pool",
+            filters="status=A;sort=AR",
+            subresource="percent_owned",
+            limit=limit,
+        )
+
+    async def list_waiver_players_raw(
+        self, session: AsyncSession, league_key: str, *, limit: int = WAIVER_LIST_LIMIT
+    ) -> list[dict]:
+        """Return the raw `{"player": [...]}` fragments for the players on waivers in
+        `league_key`, each with its league `ownership` (which carries `waiver_date`).
+
+        A separate request rather than a second subresource on the pool's: `status=A`
+        lumps waivers in with free agents, and the pool request is the one the whole
+        Waivers screen depends on — a waiver lookup that fails must cost the waiver badge,
+        not the pool.
+        """
+        return await self._paged_players(
+            session,
+            league_key,
+            endpoint="waiver_players",
+            filters="status=W",
+            subresource="ownership",
+            limit=limit,
+        )
+
+    async def _paged_players(
+        self,
+        session: AsyncSession,
+        league_key: str,
+        *,
+        endpoint: str,
+        filters: str,
+        subresource: str,
+        limit: int,
+    ) -> list[dict]:
+        """Page a league players collection `PLAYER_POOL_PAGE` at a time, up to `limit`."""
         items: list[dict] = []
         for start in range(0, limit, PLAYER_POOL_PAGE):
             count = min(PLAYER_POOL_PAGE, limit - start)
             raw = await self._cached_get(
                 session,
-                endpoint="player_pool",
+                endpoint=endpoint,
                 cache_params={"league_key": league_key, "start": start, "count": count},
                 path=(
-                    f"/league/{league_key}/players;status=A;sort=AR"
-                    f";start={start};count={count}/percent_owned"
+                    f"/league/{league_key}/players;{filters}"
+                    f";start={start};count={count}/{subresource}"
                 ),
                 ttl=PLAYER_POOL_TTL,
             )
@@ -331,7 +374,7 @@ class YahooClient:
                 break
             page = collection_items(players_root)
             items.extend(page)
-            # A short page means the pool ran out before `limit` did.
+            # A short page means the collection ran out before `limit` did.
             if len(page) < count:
                 break
         return items

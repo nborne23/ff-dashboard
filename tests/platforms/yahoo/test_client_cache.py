@@ -403,3 +403,33 @@ async def test_list_player_pool_raw_stops_at_the_limit(session_factory, client) 
     assert route.call_count == 3
 
     await client.aclose()
+
+
+# --- list_waiver_players_raw ----------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_list_waiver_players_raw_asks_for_waivers_with_ownership(
+    session_factory, client
+) -> None:
+    """Waivers are a separate `status=W` request carrying the `ownership` subresource
+    (where `waiver_date` lives), cached apart from the pool so one never serves the
+    other."""
+    pool_route = respx.get(url__regex=rf"{BASE_URL}/league/461\.l\.123456/players;status=A.*").mock(
+        return_value=httpx.Response(200, json=load_fixture("player_pool.json"))
+    )
+    waiver_route = respx.get(
+        url__regex=rf"{BASE_URL}/league/461\.l\.123456/players;status=W;start=0;count=25/ownership"
+    ).mock(return_value=httpx.Response(200, json=load_fixture("player_pool.json")))
+
+    async with session_factory() as session:
+        await client.list_player_pool_raw(session, "461.l.123456")
+        items = await client.list_waiver_players_raw(session, "461.l.123456")
+        again = await client.list_waiver_players_raw(session, "461.l.123456")
+
+    assert len(items) == len(again) == 4
+    assert pool_route.call_count == 1
+    assert waiver_route.call_count == 1  # second read is a cache hit
+
+    await client.aclose()

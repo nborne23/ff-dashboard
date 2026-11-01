@@ -1,8 +1,8 @@
 """A player's availability and season projection *within one league*."""
 
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Index, String, Text, func
+from sqlalchemy import Date, DateTime, Float, ForeignKey, Index, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.gridiron.models.base import Base
@@ -58,6 +58,11 @@ class PlayerPoolEntry(Base):
     # admits a TE to `REC_FLEX`. It is what `get_waivers` uses to choose which of the
     # user's starters a candidate is actually competing with.
     eligible_slots: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+
+    # The calendar day (US Eastern, the NFL's own clock) a `WAIVERS` player clears to free
+    # agency. Null for every other status, and for a waiver player whose platform didn't
+    # say — the row then reads "Waivers" with no date rather than a guessed one.
+    waiver_clears: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False

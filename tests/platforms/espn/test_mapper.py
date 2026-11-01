@@ -601,3 +601,28 @@ def test_injury_status_by_player_id_ignores_entries_with_no_designation() -> Non
         ]
     }
     assert mapper.injury_status_by_player_id(raw) == {1: "QUESTIONABLE"}
+
+
+def test_map_player_pool_reads_the_waiver_clear_date_in_eastern_time(
+    player_pool_raw: dict,
+) -> None:
+    """`waiverProcessDate` is epoch ms. ESPN processes waivers in the early morning ET —
+    already the next day in UTC on some runs and still the previous one in Pacific — so
+    the date is read on the NFL's own clock."""
+    raw = copy.deepcopy(player_pool_raw)
+    waiver = next(e for e in raw["players"] if e["status"] == "WAIVERS")
+    waiver["waiverProcessDate"] = 1793779200000  # 2026-11-04T08:00:00Z = 3am ET
+    free_agent = next(e for e in raw["players"] if e["status"] == "FREEAGENT")
+    free_agent["waiverProcessDate"] = 1793779200000  # meaningless off waivers
+
+    entries, _ = mapper.map_player_pool(raw, season=2026)
+    by_status = {e.status: e for e in entries}
+
+    assert str(by_status["WAIVERS"].waiver_clears) == "2026-11-04"
+    assert by_status["FREEAGENT"].waiver_clears is None
+
+
+def test_map_player_pool_without_a_waiver_date_leaves_it_null(player_pool_raw: dict) -> None:
+    entries, _ = mapper.map_player_pool(player_pool_raw, season=2026)
+
+    assert all(e.waiver_clears is None for e in entries)

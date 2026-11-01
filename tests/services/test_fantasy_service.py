@@ -1706,15 +1706,17 @@ async def test_get_waivers_query_count_is_bounded(session_factory) -> None:
             event.remove(sync_engine, "before_cursor_execute", _count)
 
     selects = [s for s in statements if s.lstrip().upper().startswith("SELECT")]
-    # The ceiling is 6: team, starters (slot + player_id + season proj in ONE outer
-    # join), league, starter weekly projections, candidates, candidate projections
-    # (weekly AND season in one `week IN (...)` select). Every one is constant.
+    # The ceiling is 7: team, starters (slot + player_id + season proj in ONE outer
+    # join), league, the week's NFL schedule (the filter sheet's game-day options, read
+    # only for the current week), starter weekly projections, candidates, candidate
+    # projections (weekly AND season in one `week IN (...)` select). Every one is
+    # constant.
     #
     # What this test actually protects is that the count does not scale with the number
     # of candidates — adding the weekly axis was worth two more queries only because
     # both are bulk `IN (...)` selects, and the starter roster was folded into a single
     # read rather than fetched twice.
-    assert len(selects) <= 6, f"expected a bounded query count, got {len(selects)}: {selects}"
+    assert len(selects) <= 7, f"expected a bounded query count, got {len(selects)}: {selects}"
 
 
 # ---------------------------------------------------------------------------

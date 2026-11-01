@@ -14,6 +14,7 @@ import hashlib
 import logging
 from collections import Counter
 from collections.abc import Iterable
+from datetime import date
 from typing import Any
 
 from backend.gridiron import schemas
@@ -427,8 +428,9 @@ def map_player_pool(items: list[dict]) -> tuple[list[schemas.PlayerPoolEntry], i
                     bye_week=bye_week,
                     injury_status=_map_injury_status(fields.get("status")),
                 ),
-                # `status=A` is available-only, so every row here is claimable. Yahoo does
-                # distinguish a waiver period, but only on the league's transaction feed.
+                # `status=A` is available-only, so every row here is claimable. Which of
+                # them are on waivers comes from a second, `status=W` request — see
+                # `map_waiver_dates` — and is overlaid by the caller.
                 status="FREEAGENT",
                 on_team_id=None,
                 percent_owned=_as_float(flatten(fields.get("percent_owned") or []).get("value")),
@@ -439,3 +441,34 @@ def map_player_pool(items: list[dict]) -> tuple[list[schemas.PlayerPoolEntry], i
         )
 
     return entries, skipped
+
+
+def map_waiver_dates(items: list[dict]) -> dict[str, date | None]:
+    """Map `client.list_waiver_players_raw` fragments to `{player id: clear date}`.
+
+    Every fragment is a player on waivers (the request filters `status=W`), so presence in
+    the result is the fact that matters; the date is a bonus. `ownership.waiver_date` is a
+    plain `YYYY-MM-DD` and is None when Yahoo omits or garbles it — the row then reads
+    "Waivers" without a date. A fragment whose `ownership_type` says it is NOT on waivers
+    (a claim processed between pages) is left out rather than trusted to the filter.
+    """
+    dates: dict[str, date | None] = {}
+    for item in items:
+        fields = flatten(item.get("player") or [])
+        player_key = fields.get("player_key")
+        if not player_key:
+            continue
+        ownership = fields.get("ownership") or {}
+        if isinstance(ownership, list):
+            ownership = flatten(ownership)
+        if ownership.get("ownership_type") not in (None, "waivers"):
+            continue
+        dates[f"yahoo:{player_key}"] = _parse_iso_date(ownership.get("waiver_date"))
+    return dates
+
+
+def _parse_iso_date(value: Any) -> date | None:
+    try:
+        return date.fromisoformat(value) if isinstance(value, str) else None
+    except ValueError:
+        return None

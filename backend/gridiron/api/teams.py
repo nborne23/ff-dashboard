@@ -6,13 +6,15 @@ normalized tables (design.md D7 — reads never fetch upstream). Responses carry
 invalidation-driven refetches coalesce in the browser cache.
 """
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.gridiron import scheduler
 from backend.gridiron.db import get_session
 from backend.gridiron.schemas import Envelope, LineupAdvice, ProjectionSource, WaiversData
-from backend.gridiron.services import fantasy_service, lineup
+from backend.gridiron.services import fantasy_service, lineup, waiver_filters
 from backend.gridiron.services.fantasy_service import (
     H2HData,
     SeasonData,
@@ -129,11 +131,25 @@ async def get_waivers(
     week: int | None = None,
     position: str | None = None,
     limit: int = 50,
+    status: waiver_filters.StatusFilter = "available",
+    include_mine: bool = False,
+    game_day: date | None = None,
+    sort: waiver_filters.SortKey = "upgrade",
     session: AsyncSession = Depends(get_session),
 ) -> Envelope[WaiversData]:
     response.headers["Cache-Control"] = CACHE_CONTROL
     week = await _resolve_week(session, week)
-    waivers = await fantasy_service.get_waivers(session, team_id, week, position, limit)
+    waivers = await fantasy_service.get_waivers(
+        session,
+        team_id,
+        week,
+        position,
+        limit,
+        status=status,
+        include_mine=include_mine,
+        game_day=game_day,
+        sort=sort,
+    )
     if waivers is None:
         raise _not_found("team_not_found", f"unknown team id: {team_id}")
     return await _envelope(session, waivers)
