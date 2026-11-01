@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GameDetail, ScoresWeek } from "../../api/scores";
 import { useScoresStore } from "../../stores/scores";
+import { useUiStore } from "../../stores/ui";
 import type { Envelope, Meta } from "../../types/api";
 import { DETAIL_FIXTURE, FINAL_GAME, LIVE_GAME, MAYE, WEEK_FIXTURE } from "./fixtures";
 import GameDetailScreen from "./GameDetail";
@@ -54,7 +55,8 @@ function renderDetail(detail: Partial<GameDetail> = {}, status = 200) {
 }
 
 beforeEach(() => {
-  useScoresStore.setState({ leagueId: null });
+  useScoresStore.setState({ leagueId: null, pickedWeek: null });
+  useUiStore.setState({ week: 1, weekPinned: true });
 });
 
 afterEach(() => {
@@ -70,6 +72,14 @@ describe("GameDetail", () => {
     expect(String(fetchMock.mock.calls[0][0])).toBe(
       `/api/scores/games/${FINAL_GAME.game_id}?week=7`,
     );
+  });
+
+  it("names the game's week in the Topbar and returns to it from All scores", async () => {
+    renderDetail();
+    await screen.findByTestId("game-detail");
+
+    await vi.waitFor(() => expect(useUiStore.getState().week).toBe(7));
+    expect(useScoresStore.getState().pickedWeek).toBe(7);
   });
 
   it("strips the week's games across the top with this one selected", async () => {
