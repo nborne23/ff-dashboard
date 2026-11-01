@@ -1,0 +1,66 @@
+/* ==========================================================================
+   "Open in ESPN / Yahoo" — sits beside the team switcher in the team header
+   ========================================================================== */
+
+/* The link is the switcher's last child, so the two share one row at every width and
+   the link never takes a row of its own on a phone. The menu is absolutely positioned,
+   so it stays out of this row. min-width: 0 lets a long team name truncate before the
+   link is squeezed; align-self beats the phone rule that top-aligns the button. */
+.team-switcher {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.team-switcher > .team-switcher-btn {
+  min-width: 0;
+  align-self: center;
+}
+
+.source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--fill-4);
+  color: var(--accent);
+  font: var(--type-subhead);
+  font-weight: 600;
+  letter-spacing: var(--track-subhead);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background var(--spring-snappy-dur) var(--spring-snappy),
+    transform var(--spring-snappy-dur) var(--spring-snappy);
+}
+.source-link:hover {
+  background: var(--fill-3);
+}
+.source-link:active {
+  transform: scale(0.96);
+}
+.source-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.source-link svg {
+  flex-shrink: 0;
+}
+
+/* Phones: the platform name alone is enough beside the team's own name. */
+@media (max-width: 767px) {
+  .source-link-verb {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .source-link {
+    transition: none;
+  }
+  .source-link:active {
+    transform: none;
+  }
+}
