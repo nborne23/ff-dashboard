@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiClient } from "./client";
 
 function stubFetch() {
+  // The typed (unused) params let tests read fetchMock.mock.calls[0][1] under tsc -b.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => ({
     ok: true,
     status: 200,
