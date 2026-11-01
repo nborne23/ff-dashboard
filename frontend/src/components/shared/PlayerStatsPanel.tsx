@@ -1,16 +1,28 @@
-// The player card behind every clickable name (add-player-stats): this week's stat line
-// and points breakdown, then the game log and career totals.
+// The player card behind every clickable name (add-player-stats): a headline strip, then
+// three tabs modeled on Yahoo's player card —
+//
+// - Overview: this week's stat line and points breakdown.
+// - Game Log: the current season week by week, shaded against his own average, with
+//   each opponent's rank against the position and the weeks still to come.
+// - Stats: every season's box scores and career totals.
 //
 // Same dialog shape as PlayerHealthPanel — portal, Escape, body scroll lock, the
 // `.draft-detail-*` overlay — widened, because a stat table at 560px is all ellipsis.
-// One scrolling sheet rather than tabs: the question is usually "how did he do this week
-// and is that normal for him", and tabs would put the two halves of it on different
-// screens.
+// This card used to be one scrolling sheet; it grew tabs with the Game Log, which on its
+// own is a full screen of rows. "Is this week normal for him" now lives in the Game Log's
+// shading rather than in scrolling from one table to the next.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { usePlayerStats } from "../../api/players";
+import { nflTeamName } from "./nflTeamNames";
+import {
+  rememberPlayerCardTab,
+  rememberedPlayerCardTab,
+  type PlayerCardTab,
+} from "./playerCardTab";
+import { SeasonGameLog } from "./SeasonGameLog";
 import type {
   BreakdownLine,
   GameLogRow,
@@ -186,7 +198,7 @@ function totalsFor(rows: GameLogRow[], columns: StatColumn[]): Record<string, nu
   return out;
 }
 
-function GameLog({ data }: { data: PlayerStatsData }) {
+function BoxScores({ data }: { data: PlayerStatsData }) {
   const seasons = data.seasons.map((s) => s.season);
   const [season, setSeason] = useState(seasons[0]);
   const rows = useMemo(
@@ -198,9 +210,9 @@ function GameLog({ data }: { data: PlayerStatsData }) {
   const live = data.this_week;
 
   return (
-    <section className="pstats-section" aria-label="Game log">
+    <section className="pstats-section" aria-label="Box scores">
       <div className="pstats-section-head">
-        <div className="section-label">Game log</div>
+        <div className="section-label">Box scores</div>
         <div className="segmented pstats-seasons" role="tablist" aria-label="Season">
           {seasons.map((s) => (
             <button
@@ -298,6 +310,61 @@ function Career({ data }: { data: PlayerStatsData }) {
   );
 }
 
+/** Season points, position rank, points per game — Yahoo's strip, minus the start and
+ *  roster percentages neither platform's API gives us. */
+function Headline({ data }: { data: PlayerStatsData }) {
+  const log = data.season_log;
+  if (!log) return null;
+  const ppg = data.seasons.find((s) => s.season === log.season)?.ppg ?? null;
+  const items = [
+    { label: "Fan Pts", value: log.fantasy_points?.toFixed(2) },
+    {
+      label: "Pos Rank",
+      value: log.position_rank !== null ? `${data.position_group} ${log.position_rank}` : null,
+    },
+    { label: "Pts / Game", value: ppg?.toFixed(2) },
+  ].filter((item) => item.value !== null && item.value !== undefined);
+  if (items.length === 0) return null;
+  return (
+    <dl className="pgl-headline" aria-label={`${log.season} season`}>
+      {items.map((item) => (
+        <div key={item.label}>
+          <dt>{item.label}</dt>
+          <dd>{item.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+type Tab = PlayerCardTab;
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "overview", label: "Overview" },
+  { id: "gamelog", label: "Game Log" },
+  { id: "stats", label: "Stats" },
+];
+
+function Tabs({ tab, onChange }: { tab: Tab; onChange: (tab: Tab) => void }) {
+  return (
+    <div className="pgl-tabs" role="tablist" aria-label="Player card">
+      {TABS.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          role="tab"
+          id={`pstats-tab-${t.id}`}
+          aria-selected={t.id === tab}
+          aria-controls={`pstats-panel-${t.id}`}
+          onClick={() => onChange(t.id)}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export interface PlayerStatsPanelProps {
   player: Player;
   teamId: string | undefined;
@@ -308,6 +375,11 @@ export interface PlayerStatsPanelProps {
 export function PlayerStatsPanel({ player, teamId, week, onClose }: PlayerStatsPanelProps) {
   const { data, isLoading, isError } = usePlayerStats(player.id, teamId, week);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const [tab, setTab] = useState<Tab>(rememberedPlayerCardTab);
+  const chooseTab = (next: Tab) => {
+    rememberPlayerCardTab(next);
+    setTab(next);
+  };
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -331,6 +403,7 @@ export function PlayerStatsPanel({ player, teamId, week, onClose }: PlayerStatsP
   }, []);
 
   const payload = data?.data;
+  const bye = payload?.season_log?.bye_week ?? player.bye_week;
 
   return createPortal(
     <div
@@ -353,10 +426,17 @@ export function PlayerStatsPanel({ player, teamId, week, onClose }: PlayerStatsP
             <div>
               <div className="pstats-name">{player.name}</div>
               <div className="player-meta">
-                {player.position} · {player.nfl_team}
-                {payload ? ` · ${FORMAT_LABELS[payload.points_format]} scoring` : ""}
-                {payload?.points_format_fallback ? " (league is custom)" : ""}
+                {player.position}
+                {payload?.jersey_number ? ` #${payload.jersey_number}` : ""} ·{" "}
+                {nflTeamName(player.nfl_team)}
+                {bye ? ` · Bye ${bye}` : ""}
               </div>
+              {payload && (
+                <div className="player-meta">
+                  {FORMAT_LABELS[payload.points_format]} scoring
+                  {payload.points_format_fallback ? " (league is custom)" : ""}
+                </div>
+              )}
             </div>
           </div>
           <button ref={closeRef} type="button" className="btn" onClick={onClose}>
@@ -371,23 +451,39 @@ export function PlayerStatsPanel({ player, teamId, week, onClose }: PlayerStatsP
 
         {payload && (
           <>
-            <ThisWeek data={payload} />
-            {payload.game_log.length > 0 ? (
-              <>
-                <GameLog data={payload} />
-                <Career data={payload} />
-              </>
-            ) : (
-              <p className="muted pstats-empty">
-                {payload.sleeper_id
-                  ? "No games on record yet."
-                  : "No stat history available for this player."}
-              </p>
-            )}
-            <p className="pstats-footnote">
-              Stats by Sportradar via Sleeper, regular season. FPTS in{" "}
-              {FORMAT_LABELS[payload.points_format]}.
-            </p>
+            <Headline data={payload} />
+            <Tabs tab={tab} onChange={chooseTab} />
+            <div
+              className="pgl-tabpanel"
+              role="tabpanel"
+              id={`pstats-panel-${tab}`}
+              aria-labelledby={`pstats-tab-${tab}`}
+            >
+              {tab === "overview" && <ThisWeek data={payload} />}
+              {tab === "gamelog" && (
+                <SeasonGameLog data={payload} formatLabel={FORMAT_LABELS[payload.points_format]} />
+              )}
+              {tab === "stats" && (
+                <>
+                  {payload.game_log.length > 0 ? (
+                    <>
+                      <BoxScores data={payload} />
+                      <Career data={payload} />
+                    </>
+                  ) : (
+                    <p className="muted pstats-empty">
+                      {payload.sleeper_id
+                        ? "No games on record yet."
+                        : "No stat history available for this player."}
+                    </p>
+                  )}
+                  <p className="pstats-footnote">
+                    Stats by Sportradar via Sleeper, regular season. FPTS in{" "}
+                    {FORMAT_LABELS[payload.points_format]}.
+                  </p>
+                </>
+              )}
+            </div>
           </>
         )}
       </div>

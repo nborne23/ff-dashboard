@@ -35,7 +35,8 @@ from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.gridiron.models import Player, PlayerStatSeason, PlayerWeeklyStat
-from backend.gridiron.platforms import sleeper
+from backend.gridiron.platforms import nfl_schedule, sleeper
+from backend.gridiron.services import matchup_ranks
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -133,6 +134,9 @@ class SleeperStatsClient:
         response.raise_for_status()
         payload = response.json()
         return payload if isinstance(payload, list) else []
+
+    async def get_schedule(self, season: int) -> str:
+        return await nfl_schedule.fetch_raw(self._http, season)
 
 
 def map_row(row: dict, *, season: int, week: int, fetched_at: datetime) -> dict | None:
@@ -278,6 +282,9 @@ async def fetch_and_upsert(
             session.add(state)
             # Per season, so an interrupted backfill keeps what it finished.
             await session.commit()
+
+        # The game log's schedule and opponent ranks, while the dump is in memory.
+        await matchup_ranks.refresh_context(session, client, dump, current_season, current_week)
     except httpx.HTTPError as exc:
         await session.rollback()
         return f"sleeper stats unavailable: {type(exc).__name__}: {exc}"

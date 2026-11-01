@@ -4,8 +4,9 @@ import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { Envelope, Player, PlayerStatsData } from "../../types/api";
+import type { Envelope, Player, PlayerStatsData, SeasonLog, SeasonLogWeek } from "../../types/api";
 import { PlayerAvatarButton, PlayerName } from "./PlayerName";
+import { resetPlayerCardTab } from "./playerCardTab";
 
 const PLAYER: Player = {
   id: "espn:p-4431452",
@@ -24,6 +25,75 @@ const QB_COLUMNS = [
   { key: "pass_td", label: "Pass TD", agg: "sum" as const },
   { key: "rush_td", label: "Rush TD", agg: "sum" as const },
 ];
+
+function logWeek(week: number, overrides: Partial<SeasonLogWeek> = {}): SeasonLogWeek {
+  return {
+    week,
+    state: "upcoming",
+    opponent: null,
+    home: null,
+    opponent_rank: null,
+    proj_points: null,
+    fantasy_points: null,
+    stats: null,
+    ...overrides,
+  };
+}
+
+const SEASON_LOG: SeasonLog = {
+  season: 2026,
+  columns: [
+    { key: "pass_yd", label: "Pass Yds", agg: "sum", lower_is_better: false },
+    { key: "pass_td", label: "Pass TD", agg: "sum", lower_is_better: false },
+    { key: "pass_int", label: "Int", agg: "sum", lower_is_better: true },
+  ],
+  weeks: [
+    logWeek(1, {
+      state: "final",
+      opponent: "LAC",
+      home: false,
+      opponent_rank: 26,
+      proj_points: 13.65,
+      fantasy_points: 16.48,
+      stats: { pass_yd: 277, pass_td: 1, pass_int: 0 },
+    }),
+    logWeek(2, {
+      state: "final",
+      opponent: "SEA",
+      home: true,
+      opponent_rank: 31,
+      proj_points: 13.97,
+      fantasy_points: 6.5,
+      stats: { pass_yd: 95, pass_td: 1, pass_int: 2 },
+    }),
+    logWeek(3, {
+      state: "final",
+      opponent: "SF",
+      home: false,
+      opponent_rank: 22,
+      proj_points: 15.87,
+      fantasy_points: 25.6,
+      stats: { pass_yd: 280, pass_td: 2, pass_int: 0 },
+    }),
+    logWeek(4, { state: "bye" }),
+    logWeek(5, { state: "dnp", opponent: "DET", home: true, opponent_rank: 1 }),
+    logWeek(6, {
+      state: "live",
+      opponent: "NYJ",
+      home: false,
+      opponent_rank: 8,
+      proj_points: 19.5,
+      fantasy_points: 2.1,
+      stats: { pass_yd: 40, pass_td: 0, pass_int: 1 },
+    }),
+    logWeek(7, { opponent: "DAL", home: false, opponent_rank: 6, proj_points: 18.75 }),
+  ],
+  fantasy_points: 50.68,
+  position_rank: 16,
+  bye_week: 4,
+  ranked_teams: 32,
+  ranks_through_week: 5,
+};
 
 function stats(overrides: Partial<PlayerStatsData> = {}): PlayerStatsData {
   return {
@@ -100,6 +170,8 @@ function stats(overrides: Partial<PlayerStatsData> = {}): PlayerStatsData {
         stats: { pass_yd: 287, pass_td: 1 },
       },
     ],
+    season_log: SEASON_LOG,
+    jersey_number: "10",
     ...overrides,
   };
 }
@@ -149,6 +221,7 @@ async function openPanel() {
 
 describe("PlayerName + PlayerStatsPanel", () => {
   afterEach(() => {
+    resetPlayerCardTab();
     cleanup();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -196,12 +269,13 @@ describe("PlayerName + PlayerStatsPanel", () => {
     expect(within(dialog).getByText("Estimated total")).toBeTruthy();
   });
 
-  it("switches the game log between seasons and shows career rows", async () => {
+  it("switches the box scores between seasons and shows career rows", async () => {
     stubFetch(stats());
     renderName(<PlayerName player={PLAYER} week={7} />);
     const dialog = await openPanel();
+    fireEvent.click(within(dialog).getByRole("tab", { name: "Stats" }));
 
-    const log = within(dialog).getByRole("region", { name: "Game log" });
+    const log = within(dialog).getByRole("region", { name: "Box scores" });
     expect(within(log).getByText("NYJ")).toBeTruthy();
     expect(within(log).queryByText("LV")).toBeNull();
     expect(within(log).getByText("2 games")).toBeTruthy();
@@ -237,9 +311,140 @@ describe("PlayerName + PlayerStatsPanel", () => {
     renderName(<PlayerName player={PLAYER} week={7} />);
     fireEvent.click(screen.getByRole("button", { name: "Drake Maye" }));
     const dialog = await screen.findByRole("dialog");
-    await within(dialog).findByText("No stat history available for this player.");
-    expect(within(dialog).getByText("No stats yet this week.")).toBeTruthy();
+    await within(dialog).findByText("No stats yet this week.");
     expect(dialog.querySelector(".pstats-score")?.textContent).toBe("—");
+    fireEvent.click(within(dialog).getByRole("tab", { name: "Stats" }));
+    expect(within(dialog).getByText("No stat history available for this player.")).toBeTruthy();
+  });
+
+  it("opens on Overview, with the season strip and the player's details above the tabs", async () => {
+    stubFetch(stats());
+    renderName(<PlayerName player={PLAYER} week={7} />);
+    const dialog = await openPanel();
+
+    const tabs = within(dialog)
+      .getAllByRole("tab")
+      .filter((t) => t.closest(".pgl-tabs"));
+    expect(tabs.map((t) => t.textContent)).toEqual(["Overview", "Game Log", "Stats"]);
+    expect(tabs[0].getAttribute("aria-selected")).toBe("true");
+
+    expect(within(dialog).getByText("QB #10 · New England Patriots · Bye 4")).toBeTruthy();
+    const strip = dialog.querySelector(".pgl-headline")!;
+    const items = Array.from(strip.querySelectorAll("div")).map((d) => [
+      d.querySelector("dd")?.textContent,
+      d.querySelector("dt")?.textContent,
+    ]);
+    // No start or roster percentages: neither platform publishes them to us.
+    expect(items).toEqual([
+      ["50.68", "Fan Pts"],
+      ["QB 16", "Pos Rank"],
+      ["20.90", "Pts / Game"],
+    ]);
+  });
+
+  it("shows the season week by week in the Game Log tab", async () => {
+    stubFetch(stats());
+    renderName(<PlayerName player={PLAYER} week={7} />);
+    const dialog = await openPanel();
+    fireEvent.click(within(dialog).getByRole("tab", { name: "Game Log" }));
+
+    const log = within(dialog).getByRole("region", { name: "Week-by-week game log" });
+    const headers = within(log)
+      .getAllByRole("columnheader")
+      .map((h) => h.textContent);
+    expect(headers).toEqual([
+      "Wk",
+      "Opp (vs QBs)",
+      "Proj Pts",
+      "Fan Pts",
+      "Pass Yds",
+      "Pass TD",
+      "Int",
+    ]);
+
+    const rows = within(log).getAllByRole("row").slice(1);
+    expect(rows.map((r) => r.getAttribute("data-state"))).toEqual([
+      "final",
+      "final",
+      "final",
+      "bye",
+      "dnp",
+      "live",
+      "upcoming",
+    ]);
+
+    const [w1, w2, w3, bye, dnp, live, upcoming] = rows;
+    const cells = (row: HTMLElement) => within(row).getAllByRole("cell");
+
+    // Opponent, with its rank vs QBs and the easy/hard tint.
+    expect(cells(w1)[0].textContent).toBe("@LAC (26th)");
+    expect(cells(w1)[0].querySelector("[data-tier]")?.getAttribute("data-tier")).toBe("hard");
+    expect(cells(w3)[0].querySelector("[data-tier]")?.getAttribute("data-tier")).toBe("neutral");
+    expect(cells(dnp)[0].querySelector("[data-tier]")?.getAttribute("data-tier")).toBe("easy");
+    expect(cells(w2)[0].textContent).toBe("SEA (31st)");
+
+    // Each cell against his average over the three final weeks only (16.19 Fan Pts,
+    // 217 yds, 1.33 TD, 0.67 Int) — the live, bye and DNP weeks stay out of it.
+    const tones = (row: HTMLElement) =>
+      cells(row).map((c) => c.querySelector("[data-tone]")?.getAttribute("data-tone") ?? null);
+    expect(tones(w1)).toEqual([null, null, "typical", "above", "below", "above"]);
+    // Two picks against an average of 0.67 is a bad week — the Int column's shading flips.
+    expect(tones(w2)).toEqual([null, null, "below", "below", "below", "below"]);
+    expect(tones(w3)).toEqual([null, null, "above", "above", "above", "above"]);
+
+    expect(cells(w1)[1].textContent).toBe("13.65");
+    expect(cells(w1)[2].textContent).toContain("16.48");
+
+    expect(cells(bye)[0].textContent).toBe("BYE");
+    expect(cells(dnp)[2].textContent).toBe("DNP");
+
+    // The live week shows its running numbers, unshaded.
+    expect(tones(live).every((t) => t === null)).toBe(true);
+    expect(cells(live)[2].textContent).toBe("2.10");
+    expect(within(live).getByRole("img", { name: "in progress" })).toBeTruthy();
+
+    // A week ahead: opponent and projection, dashes for everything else.
+    expect(cells(upcoming)[0].textContent).toBe("@DAL (6th)");
+    expect(cells(upcoming)[1].textContent).toBe("18.75");
+    expect(
+      cells(upcoming)
+        .slice(2)
+        .map((c) => c.textContent),
+    ).toEqual(["—", "—", "—", "—"]);
+
+    const legend = within(dialog).getByTestId("game-log-legend");
+    expect(legend.textContent).toContain("Compared to Player’s Average");
+    expect(legend.textContent).toContain("Above");
+    expect(legend.textContent).toContain("Typical");
+    expect(legend.textContent).toContain("Below");
+    expect(within(log).getByText(/through week 5/)).toBeTruthy();
+  });
+
+  it("says so when there is no season log", async () => {
+    stubFetch(stats({ season_log: null, jersey_number: null }));
+    renderName(<PlayerName player={PLAYER} week={7} />);
+    const dialog = await openPanel();
+    expect(dialog.querySelector(".pgl-headline")).toBeNull();
+    // Falls back to the platform's bye week.
+    expect(within(dialog).getByText("QB · New England Patriots · Bye 14")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("tab", { name: "Game Log" }));
+    expect(within(dialog).getByText("No game log for this season yet.")).toBeTruthy();
+  });
+
+  it("reopens on the last tab chosen", async () => {
+    stubFetch(stats());
+    renderName(<PlayerName player={PLAYER} week={7} />);
+    let dialog = await openPanel();
+    fireEvent.click(within(dialog).getByRole("tab", { name: "Game Log" }));
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    fireEvent.click(screen.getByRole("button", { name: "Drake Maye" }));
+    dialog = await screen.findByRole("dialog", { name: "Drake Maye stats" });
+    await within(dialog).findByRole("region", { name: "Week-by-week game log" });
+    expect(
+      within(dialog).getByRole("tab", { name: "Game Log" }).getAttribute("aria-selected"),
+    ).toBe("true");
   });
 
   it("opens the same card from the headshot", async () => {

@@ -4,32 +4,55 @@ Everything here reads stored rows — `player_weekly_stats` for history, `roster
 the league's own numbers, and the ESPN roster payload `refresh_fantasy` already left in
 `http_cache` for the live stat line and the league-exact points breakdown. Nothing
 fetches upstream (design.md D7).
+
+The season game log (`season_log`, the card's Game Log tab) adds three more stored
+sources: Rotowire projections from `player_projections`, the schedule
+`platforms/nfl_schedule.py` keeps in `http_cache`, and the opponent/position ranks
+`services/matchup_ranks.py` derives during the stats full pass.
 """
 
 import json
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.gridiron.models import League, Player, PlayerWeeklyStat, RosterSlot, Team
+from backend.gridiron.models import (
+    League,
+    LiveNflGame,
+    Player,
+    PlayerProjection,
+    PlayerWeeklyStat,
+    RosterSlot,
+    Team,
+)
 from backend.gridiron.platforms.espn.client import (
     ROSTER_MATCHUP_ENDPOINT,
     EspnClient,
     roster_matchup_params,
 )
 from backend.gridiron.platforms.espn.mapper import STAT_SOURCE_ACTUAL, STAT_SPLIT_WEEK
+from backend.gridiron.platforms import nfl_schedule
 from backend.gridiron.schemas.player_stats import (
     BreakdownLine,
+    GameLogColumn,
     GameLogRow,
     PlayerStatsData,
     PointsFormat,
     PositionGroup,
+    SeasonLog,
     SeasonSummary,
+    SeasonLogWeek,
     StatColumn,
     ThisWeek,
+    WeekState,
 )
-from backend.gridiron.services import cache
-from backend.gridiron.services.fantasy_service import _current_season, current_week
+from backend.gridiron.services import cache, matchup_ranks
+from backend.gridiron.services.fantasy_service import (
+    _current_season,
+    _normalize_nfl_abbr,
+    current_week,
+)
 
 # --------------------------------------------------------------------------------------
 # Columns
@@ -83,6 +106,58 @@ COLUMNS: dict[str, list[StatColumn]] = {
 
 def position_group(position: str) -> PositionGroup:
     return position if position in COLUMNS else "WR"  # type: ignore[return-value]
+
+
+def _log_col(key: str, label: str, agg: str = "sum", lower: bool = False) -> GameLogColumn:
+    return GameLogColumn(key=key, label=label, agg=agg, lower_is_better=lower)
+
+
+# The season game log's narrower set: the handful of numbers a fantasy manager reads a
+# week by, as Yahoo's game log does, rather than the full box score `COLUMNS` carries.
+GAME_LOG_COLUMNS: dict[str, list[GameLogColumn]] = {
+    "QB": [
+        _log_col("pass_yd", "Pass Yds"),
+        _log_col("pass_td", "Pass TD"),
+        _log_col("pass_int", "Int", lower=True),
+        _log_col("rush_yd", "Rush Yds"),
+        _log_col("rush_td", "Rush TD"),
+    ],
+    "RB": [
+        _log_col("rush_att", "Car"),
+        _log_col("rush_yd", "Rush Yds"),
+        _log_col("rush_td", "Rush TD"),
+        _log_col("rec", "Rec"),
+        _log_col("rec_yd", "Rec Yds"),
+        _log_col("rec_td", "Rec TD"),
+    ],
+    "WR": [
+        _log_col("rec_tgt", "Tgt"),
+        _log_col("rec", "Rec"),
+        _log_col("rec_yd", "Rec Yds"),
+        _log_col("rec_td", "Rec TD"),
+        _log_col("rush_yd", "Rush Yds"),
+    ],
+    "TE": [
+        _log_col("rec_tgt", "Tgt"),
+        _log_col("rec", "Rec"),
+        _log_col("rec_yd", "Rec Yds"),
+        _log_col("rec_td", "Rec TD"),
+        _log_col("rush_yd", "Rush Yds"),
+    ],
+    "K": [
+        _log_col("fgm", "FGM"),
+        _log_col("fga", "FGA"),
+        _log_col("fgm_lng", "Long", "max"),
+        _log_col("xpm", "XPM"),
+    ],
+    "DST": [
+        _log_col("sack", "Sack"),
+        _log_col("int", "Int"),
+        _log_col("fum_rec", "FR"),
+        _log_col("td", "TD"),
+        _log_col("pts_allow", "PA", lower=True),
+    ],
+}
 
 
 # --------------------------------------------------------------------------------------
@@ -437,6 +512,165 @@ async def _roster_slot(
     return next((r for r in rows if r.team_id == team_id), rows[0] if rows else None)
 
 
+# --------------------------------------------------------------------------------------
+# Season game log (the Game Log tab)
+# --------------------------------------------------------------------------------------
+
+# The projections this table shows. Same provider the roster's second projection column
+# uses (`platforms/sleeper.SOURCE`), named here to keep this module's imports light.
+PROJECTION_SOURCE = "rotowire"
+REGULAR_SEASON_WEEKS = 18
+
+
+def _schedule_team(player: Player) -> str | None:
+    team = (player.nfl_team or "").upper()
+    return team if team and team != "FA" else None
+
+
+async def _projections_by_week(
+    session: AsyncSession, player_id: str, season: int, fmt: PointsFormat
+) -> dict[int, float]:
+    rows = (
+        (
+            await session.execute(
+                select(PlayerProjection).where(
+                    PlayerProjection.player_id == player_id,
+                    PlayerProjection.season == season,
+                    PlayerProjection.week >= 1,
+                    PlayerProjection.source == PROJECTION_SOURCE,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    column = _FORMAT_COLUMN[fmt]
+    return {row.week: points for row in rows if (points := getattr(row, column)) is not None}
+
+
+async def _game_state(session: AsyncSession, game: nfl_schedule.ScheduleGame | None) -> str | None:
+    """`pre` / `in` / `post` for a scheduled game, from the live scoreboard rows.
+
+    `live_nfl_games` has no week column and keeps old rows, so the game is found by its
+    pairing and a kickoff within a day of the schedule's (Eastern) date — a Monday night
+    game kicks off on Tuesday in UTC.
+    """
+    if game is None or not game.date:
+        return None
+    try:
+        day = date.fromisoformat(game.date)
+    except ValueError:
+        return None
+    start = datetime.combine(day - timedelta(days=1), datetime.min.time())
+    rows = (
+        (
+            await session.execute(
+                select(LiveNflGame).where(
+                    LiveNflGame.kickoff_at >= start,
+                    LiveNflGame.kickoff_at < start + timedelta(days=3),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    pairing = {game.home, game.away}
+    for row in rows:
+        if {_normalize_nfl_abbr(row.home_team), _normalize_nfl_abbr(row.away_team)} == pairing:
+            return row.state
+    return None
+
+
+def _week_state(
+    *, has_line: bool, scheduled: bool | None, week: int, live_week: int, game_state: str | None
+) -> WeekState:
+    """`scheduled` is None when there's no schedule to consult (no team, nothing cached)."""
+    if has_line:
+        return "live" if week == live_week and game_state != "post" else "final"
+    if scheduled is False:
+        return "bye"
+    if week < live_week:
+        return "dnp"
+    if week == live_week:
+        if game_state == "post":
+            return "dnp"
+        if game_state == "in":
+            return "live"
+    return "upcoming"
+
+
+async def build_season_log(
+    session: AsyncSession,
+    player: Player,
+    *,
+    season: int,
+    live_week: int,
+    fmt: PointsFormat,
+    group: str,
+    game_log: list[GameLogRow],
+    ranks: matchup_ranks.MatchupRanks | None,
+) -> SeasonLog | None:
+    """Every regular-season week of `season` for one player. None when there is nothing
+    at all to show — no stat line, no projection, and no schedule."""
+    columns = GAME_LOG_COLUMNS[group]
+    lines = {row.week: row for row in game_log if row.season == season}
+    games = await nfl_schedule.get_cached(session, season)
+    projections = await _projections_by_week(session, player.id, season, fmt)
+    team = _schedule_team(player)
+    if not lines and not projections and not (games and team):
+        return None
+
+    last_week = max((g.week for g in games), default=REGULAR_SEASON_WEEKS)
+    weeks: list[SeasonLogWeek] = []
+    for week in range(1, last_week + 1):
+        line = lines.get(week)
+        # A past line says which uniform he wore and whom he faced — right for a traded
+        # player, where his current team's schedule would not be.
+        week_team = (line.team if line is not None and line.team else None) or team
+        game = nfl_schedule.game_for(games, week_team, week)
+        scheduled = (game is not None) if (games and week_team) else None
+        game_state = await _game_state(session, game) if week == live_week else None
+        state = _week_state(
+            has_line=line is not None,
+            scheduled=scheduled,
+            week=week,
+            live_week=live_week,
+            game_state=game_state,
+        )
+
+        opponent = line.opponent if line is not None and line.opponent else None
+        if opponent is None and game is not None and week_team:
+            opponent = game.away if game.home == week_team else game.home
+        stats = None
+        if line is not None:
+            # Sleeper leaves zeros out of a line; in a game played, a missing count is 0.
+            stats = {c.key: line.stats.get(c.key, 0.0) for c in columns}
+        weeks.append(
+            SeasonLogWeek(
+                week=week,
+                state=state,
+                opponent=opponent,
+                home=(game.home == week_team) if game is not None else None,
+                opponent_rank=ranks.opponent_rank(group, fmt, opponent) if ranks else None,
+                proj_points=projections.get(week),
+                fantasy_points=line.fantasy_points if line is not None else None,
+                stats=stats,
+            )
+        )
+
+    points = [row.fantasy_points for row in lines.values() if row.fantasy_points is not None]
+    return SeasonLog(
+        season=season,
+        columns=columns,
+        weeks=weeks,
+        fantasy_points=round(sum(points), 2) if points else None,
+        position_rank=ranks.position_rank(fmt, player.sleeper_id) if ranks else None,
+        bye_week=nfl_schedule.bye_week(games, team),
+        ranked_teams=ranks.teams if ranks else 0,
+        ranks_through_week=ranks.through_week if ranks else 0,
+    )
+
+
 async def build(
     session: AsyncSession, player: Player, team_id: str | None, week: int | None
 ) -> PlayerStatsData:
@@ -522,6 +756,18 @@ async def build(
         breakdown_total=round(sum(line.points for line in breakdown), 2) if breakdown else None,
     )
 
+    ranks = await matchup_ranks.get_cached(session, season)
+    season_log = await build_season_log(
+        session,
+        player,
+        season=season,
+        live_week=live_week,
+        fmt=fmt,
+        group=group,
+        game_log=game_log,
+        ranks=ranks,
+    )
+
     return PlayerStatsData(
         player_id=player.id,
         sleeper_id=player.sleeper_id,
@@ -532,4 +778,6 @@ async def build(
         this_week=this_week,
         seasons=summarize_seasons(game_log, columns),
         game_log=game_log,
+        season_log=season_log,
+        jersey_number=ranks.jersey(player.sleeper_id) if ranks is not None else None,
     )
